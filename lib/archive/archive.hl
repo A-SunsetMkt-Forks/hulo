@@ -1,0 +1,14 @@
+extend mod std {
+    class wrap {
+
+    }
+
+    class unwrap {
+
+    }
+}
+
+fn testArchive() {
+    std::wrap
+    
+}

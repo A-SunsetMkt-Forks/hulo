@@ -1,0 +1,9 @@
+impor "time"
+
+var (
+    LINE: num
+    FILE: str
+    FUNC: str
+    CALLER: str
+    TIMESTAMP: DateTime
+)

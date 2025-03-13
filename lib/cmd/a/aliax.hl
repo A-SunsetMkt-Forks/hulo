@@ -1,0 +1,6 @@
+class aliax: Command {
+    @override
+    fn name() => "aliax"
+
+    
+}

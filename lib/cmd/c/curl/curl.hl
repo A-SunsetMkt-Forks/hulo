@@ -1,0 +1,7 @@
+class curl: Command {
+    @flag
+    output: str
+
+    @option
+    args: str[]
+}
