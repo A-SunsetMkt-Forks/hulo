@@ -1,0 +1,21 @@
+// @hulo-build bash
+import * from "date"
+
+pub fn now() -> Date {
+    return ${date +%s}
+}
+
+use Date = {
+    to_str() -> str {
+        return ${date -d "@{{ & $this}}" "+%a %b %d %Y"}
+    }
+
+    get day: num {
+
+    }
+}
+
+fn test_date() {
+    n := now() // n=$(date "+%s")
+    echo $n.to_str() // echo $(date -d "@$n" "+%a %b %d %Y")
+}

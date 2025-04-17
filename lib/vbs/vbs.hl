@@ -1,0 +1,69 @@
+declare {
+    // Display OK button only.
+    const vbOKOnly: vbButton = 0
+
+    // Display OK and Cancel buttons.
+    const vbOKCancel: vbButton = 1
+
+    // Display Abort, Retry, and Ignore buttons.
+    const vbAbortRetryIgnore: vbButton = 2
+
+    // Display Yes, No, and Cancel buttons.
+    const vbYesNoCancel: vbButton = 3
+
+    // Display Yes and No buttons.
+    const vbYesNo: vbButton = 4
+
+    // Display Retry and Cancel buttons.
+    const vbRetryCancel: vbButton = 5
+
+    // Display Critical Message icon.
+    const vbCritical: vbButton = 16
+
+    // Display Warning Query icon.
+    const vbQuestion: vbButton = 32
+
+    // Display Warning Message icon.
+    const vbExclamation: vbButton = 48
+
+    // Display Information Message icon.
+    const vbInformation: vbButton = 64
+
+    // First button is default.
+    const vbDefaultButton1: vbButton = 0
+
+    // Second button is default.
+    const vbDefaultButton2: vbButton = 256
+
+    // Third button is default.
+    const vbDefaultButton3: vbButton = 512
+
+    // Fourth button is default.
+    const vbDefaultButton4: vbButton = 768
+
+    // Application modal; the user must respond to the message box before continuing work in the current application.
+    const vbApplicationModal: vbButton = 0
+
+    // System modal; all applications are suspended until the user responds to the message box.
+    const vbSystemModal: vbButton = 4096
+
+    const vbOK: vbMsgBoxResult = 1
+
+    const vbCancel: vbMsgBoxResult = 2
+
+    const vbAbort: vbMsgBoxResult = 3
+
+    const vbRetry: vbMsgBoxResult = 4
+
+    const vbIgnore: vbMsgBoxResult = 5
+
+    const vbYes: vbMsgBoxResult = 6
+
+    const vbNo: vbMsgBoxResult = 7
+
+    fn MsgBox(prompt: str, buttons?: num, title?: str, helpfile?: str, context?: num) -> vbMsgBoxResult
+
+    type vbButton = num
+
+    type vbMsgBoxResult = num
+}

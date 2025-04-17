@@ -1,9 +1,9 @@
-impor "time"
+import * from "time"
 
-var (
-    LINE: num
-    FILE: str
-    FUNC: str
-    CALLER: str
-    TIMESTAMP: DateTime
-)
+declare {
+    readonly var LINE: num
+    readonly var FILE: str
+    readonly var FUNC: str
+    readonly var CALLER: str
+    readonly var TIMESTAMP: DateTime
+}

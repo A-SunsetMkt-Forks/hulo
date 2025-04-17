@@ -1,6 +1,4 @@
-class aliax: Command {
+class aliax {
     @override
     fn name() => "aliax"
-
-    
 }

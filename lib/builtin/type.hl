@@ -1,8 +1,6 @@
 // true and false are the two untyped boolean values.
-const (
-	true  = 0 == 0 // Untyped bool.
-	false = 0 != 0 // Untyped bool.
-)
+const true = 0 == 0 // Untyped bool.
+const false = 0 != 0 // Untyped bool.
 
 type bool = bool
 
@@ -13,3 +11,7 @@ type num = num
 type any = any
 
 var null: num = 0
+
+type number = num
+
+type string = str

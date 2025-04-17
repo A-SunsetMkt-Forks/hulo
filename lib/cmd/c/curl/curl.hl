@@ -1,4 +1,4 @@
-class curl: Command {
+cmd curl {
     @flag
     output: str
 

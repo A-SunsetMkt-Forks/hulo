@@ -1,0 +1,13 @@
+pub type Duration = num
+
+pub trait Date {
+    to_str() -> str
+    to_date_str() -> str
+    to_time_str() -> str
+
+    readonly day: num
+    readonly hours: num
+    readonly minutes: num
+    readonly seconds: num
+    readonly milliseconds: num
+}

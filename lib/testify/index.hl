@@ -1,0 +1,13 @@
+import "error"
+
+pub fn assert(err: error) {
+
+}
+
+pub fn assert_ne(ok: bool, {required msg: str}) {
+
+}
+
+pub fn assert_eq(ok: bool, {required msg: str}) {
+
+}
