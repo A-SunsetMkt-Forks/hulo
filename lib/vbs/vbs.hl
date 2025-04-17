@@ -1,3 +1,110 @@
+// @hulo-build vbs
+
+/// Color Constants
+declare {
+    // Black
+    const vbBlack = 0x000000;
+
+    // Red
+    const vbRed = 0x0000FF;
+
+    // Green
+    const vbGreen = 0x00FF00;
+
+    // Yellow
+    const vbYellow = 0x00FFFF;
+
+    // Blue
+    const vbBlue = 0xFF0000;
+
+    // Magenta
+    const vbMagenta = 0xFF00FF;
+
+    // Cyan
+    const vbCyan = 0xFFFF00;
+
+    // White
+    const vbWhite = 0xFFFFFF;
+}
+
+/// Comparison Constants
+declare {
+    // Perform a binary comparison.
+    const vbBinaryCompare = 0
+
+    // Perform a textual comparison.
+    const vbTextCompare = 1
+}
+
+/// Date and Time Constants
+declare {
+    // Sunday
+    const vbSunday = 1;
+
+    // Monday
+    const vbMonday = 2;
+
+    // Tuesday
+    const vbTuesday = 3;
+
+    // Wednesday
+    const vbWednesday = 4;
+
+    // Thursday
+    const vbThursday = 5;
+
+    // Friday
+    const vbFriday = 6;
+
+    // Saturday
+    const vbSaturday = 7;
+
+    // Use the day of the week specified in your system settings for the first day of the week.
+    const vbUseSystemDayOfWeek = 0;
+
+    // Use the week in which January 1 occurs (default).
+    const vbFirstJan1 = 1;
+
+    // Use the first week that has at least four days in the new year.
+    const vbFirstFourDays = 2;
+
+    // Use the first full week of the year.
+    const vbFirstFullWeek = 3;
+}
+
+/// Date Format Constants
+declare {
+    // Display a date and/or time. For real numbers, display a date and time.
+    // If there is no fractional part, display only a date.
+    // If there is no integer part, display time only.
+    // Date and time display is determined by your system settings.
+    const vbGeneralDate = 0;
+
+    // Display a date using the long date format specified in your computer's regional settings.
+    const vbLongDate = 1;
+
+    // Display a date using the short date format specified in your computer's regional settings.
+    const vbShortDate = 2;
+
+    // Display a time using the long time format specified in your computer's regional settings.
+    const vbLongTime = 3;
+
+    // Display a time using the short time format specified in your computer's regional settings.
+    const vbShortTime = 4;
+}
+
+/// Miscellaneous Constants
+declare {
+    // User-defined error numbers should be greater than this value, for example,
+    // Err.Raise Number = vbObjectError + 1000
+    const vbObjectError = -2147221504
+}
+
+type vbButton = num
+
+type vbMsgBoxResult = num
+
+/// MsgBox Constants
 declare {
     // Display OK button only.
     const vbOKOnly: vbButton = 0
@@ -60,10 +167,104 @@ declare {
     const vbYes: vbMsgBoxResult = 6
 
     const vbNo: vbMsgBoxResult = 7
+}
 
-    fn MsgBox(prompt: str, buttons?: num, title?: str, helpfile?: str, context?: num) -> vbMsgBoxResult
+declare fn MsgBox(prompt: str, buttons?: num, title?: str, helpfile?: str, context?: num) -> vbMsgBoxResult;
 
-    type vbButton = num
+declare fn InputBox(prompt: str, title?: str, default?: str, xpos?: num, ypos?: num, helpfile?: str, context?: num) -> any;
 
-    type vbMsgBoxResult = num
+/// String Constants
+declare {
+    // Carriage return.
+    const vbCr = "\r"; // Chr(13)
+
+    // Carriage return–linefeed combination.
+    const vbCrLf = "\r\n"; // Chr(13) & Chr(10)
+
+    // Form feed; not useful in Microsoft Windows.
+    const vbFormFeed = "\f"; // Chr(12)
+
+    // Line feed.
+    const vbLf = "\n"; // Chr(10)
+
+    // Platform-specific newline character; usually "\r\n" on Windows or "\n" on Unix.
+    const vbNewLine = "\n"; // Or "\r\n" depending on platform
+
+    // Character having the value 0.
+    const vbNullChar = "\0"; // Chr(0)
+
+    // String having value 0 (not the same as "") — used for calling external procedures.
+    const vbNullString = null;
+
+    // Horizontal tab.
+    const vbTab = "\t"; // Chr(9)
+
+    // Vertical tab; not useful in Microsoft Windows.
+    const vbVerticalTab = "\v"; // Chr(11)
+}
+
+/// Tristate Constants
+declare {
+    // Use default from computer's regional settings.
+    const vbUseDefault = -2;
+
+    // True
+    const vbTrue = -1;
+
+    // False
+    const vbFalse = 0;
+}
+
+/// VarType Constants
+declare {
+    // Uninitialized (default)
+    const vbEmpty = 0;
+
+    // Contains no valid data
+    const vbNull = 1;
+
+    // Integer subtype
+    const vbInteger = 2;
+
+    // Long subtype
+    const vbLong = 3;
+
+    // Single subtype (single-precision float)
+    const vbSingle = 4;
+
+    // Double subtype (double-precision float)
+    const vbDouble = 5;
+
+    // Currency subtype
+    const vbCurrency = 6;
+
+    // Date subtype
+    const vbDate = 7;
+
+    // String subtype
+    const vbString = 8;
+
+    // Object
+    const vbObject = 9;
+
+    // Error subtype
+    const vbError = 10;
+
+    // Boolean subtype
+    const vbBoolean = 11;
+
+    // Variant (used only for arrays of variants)
+    const vbVariant = 12;
+
+    // Data access object
+    const vbDataObject = 13;
+
+    // Decimal subtype
+    const vbDecimal = 14;
+
+    // Byte subtype
+    const vbByte = 17;
+
+    // Array
+    const vbArray = 8192;
 }
