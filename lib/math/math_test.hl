@@ -1,0 +1,12 @@
+import * from "./math"
+
+fn test_abs() {
+    assert! abs!(-5) 5
+    assert! abs!(5) 5
+}
+
+fn test_sign() {
+    assert!(sign!(10), 1)
+    assert!(sign!(0), 0)
+    assert!(sign!(-10), -1)
+}
