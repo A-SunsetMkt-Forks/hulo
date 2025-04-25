@@ -1,3 +1,15 @@
-type int = num
+class float {
+    operator +(other: float) -> float {
+        return {
+            $(awk 'BEGIN { printf \"%.2f\", {{&this}} - {{&other}} }')
+        } as float
+    }
+}
+
+type integer = num
+
 type float = num
+
+type bignum = num
+
 type char = str

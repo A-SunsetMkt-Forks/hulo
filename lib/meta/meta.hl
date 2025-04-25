@@ -1,0 +1,29 @@
+comptime class Class extends Object {
+    methods: map<str, Method>
+}
+
+comptime class Enum extends Object {
+
+}
+
+comptime class Function extends Object {
+    args: Object[]
+    rets: Object[]
+    
+}
+
+comptime class Method extends Function {
+    
+}
+
+comptime class Object {
+    readonly name: str
+    readonly kind: str
+}
+
+enum Modifier {
+    PUB,
+    CONST,
+    STATIC,
+    COMPTIME,
+}

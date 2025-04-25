@@ -1,0 +1,11 @@
+comptime enum Error {
+    code: num
+    msg: str
+
+    none(0, "none"),
+    runtime(1, "runtime error"),
+    unimplemented(2, "unimplemented")
+    null_pointer(3, "null pointer");
+    index_out_of_bounds(4, "index out of bounds"),
+    division_by_zero(5, "division by zero");
+}
