@@ -3,5 +3,4 @@
 // license that can be found in the LICENSE file.
 package config
 
-type BashOptions struct {
-}
+type BashOptions struct {}

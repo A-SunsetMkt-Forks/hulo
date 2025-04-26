@@ -1,4 +1,3 @@
 package config
 
-type BatchOptions struct {
-}
+type BatchOptions struct {}
