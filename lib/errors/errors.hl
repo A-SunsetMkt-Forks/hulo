@@ -1,4 +1,4 @@
-comptime enum Error {
+pub comptime enum error {
     code: num
     msg: str
 

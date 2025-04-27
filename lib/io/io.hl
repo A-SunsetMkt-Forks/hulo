@@ -1,0 +1,7 @@
+declare comptime fn echo(...args: any[])
+
+declare comptime fn print(...arg: any[])
+
+declare comptime fn printf(...arg: any[])
+
+declare comptime fn println(...arg: any[])
