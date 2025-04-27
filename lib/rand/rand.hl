@@ -5,13 +5,13 @@ declare comptime class Random {
 
     Random(seed: num) -> num
 
-    fn number({required min: num, required max: num}) -> num
+    fn number({min: num, max: num}) -> num
 
-    fn integer({required min: num, required max: num}) -> num
+    fn integer({min: num, max: num}) -> num
 
-    fn double({required min: num, required max: num}) -> num
+    fn double({min: num, max: num}) -> num
 
-    fn string({required minSize: num, required maxSize: num}) -> str
+    fn string({minSize: num, maxSize: num}) -> str
 
     fn char() -> num
 
@@ -20,13 +20,13 @@ declare comptime class Random {
     fn boolean() -> bool
 }
 
-declare comptime fn number({required min: num, required max: num}) -> num
+declare comptime fn number({min: num, max: num}) -> num
 
-declare comptime fn integer({required min: num, required max: num}) -> num
+declare comptime fn integer({min: num, max: num}) -> num
 
-declare comptime fn double({required min: num, required max: num}) -> num
+declare comptime fn double({min: num, max: num}) -> num
 
-declare comptime fn string({required minSize: num, required maxSize: num}) -> str
+declare comptime fn string({minSize: num, maxSize: num}) -> str
 
 declare comptime fn char() -> num
 

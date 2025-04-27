@@ -1,5 +1,0 @@
-declare comptime fn ok(expr: bool, msg?: str)
-
-declare comptime fn equal(want: any, got: any, msg?: str)
-
-declare comptime fn not_equal(want: any, got: any, msg?: str) 
