@@ -1,0 +1,35 @@
+import "time"
+
+declare comptime class Random {
+    readonly seed: num
+
+    Random(seed: num) -> num
+
+    fn number({required min: num, required max: num}) -> num
+
+    fn integer({required min: num, required max: num}) -> num
+
+    fn double({required min: num, required max: num}) -> num
+
+    fn string({required minSize: num, required maxSize: num}) -> str
+
+    fn char() -> num
+
+    fn date() -> time.Date
+
+    fn boolean() -> bool
+}
+
+declare comptime fn number({required min: num, required max: num}) -> num
+
+declare comptime fn integer({required min: num, required max: num}) -> num
+
+declare comptime fn double({required min: num, required max: num}) -> num
+
+declare comptime fn string({required minSize: num, required maxSize: num}) -> str
+
+declare comptime fn char() -> num
+
+declare comptime fn date() -> time.Date
+
+declare comptime fn boolean() -> bool

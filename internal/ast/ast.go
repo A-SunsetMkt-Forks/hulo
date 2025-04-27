@@ -682,6 +682,13 @@ type (
 		Types []*Ident
 		Gt    token.Pos // position of ">"
 	}
+
+	// X.Y
+	SelectExpr struct {
+		X   Expr
+		Dot token.Pos // position of "."
+		Y   Expr
+	}
 )
 
 func (x *IndexExpr) Pos() token.Pos      { return x.X.Pos() }
@@ -694,6 +701,7 @@ func (x *TypeAnnotation) Pos() token.Pos { return x.List[0].Pos() }
 func (x *UnsafeExpr) Pos() token.Pos     { return x.Dollar }
 func (x *RefExpr) Pos() token.Pos        { return x.Dollar }
 func (x *IncDecExpr) Pos() token.Pos     { return x.X.Pos() }
+func (x *SelectExpr) Pos() token.Pos     { return x.X.Pos() }
 
 func (x *IndexExpr) End() token.Pos      { return x.Rbrack }
 func (x *BinaryExpr) End() token.Pos     { return x.Y.End() }
@@ -712,6 +720,7 @@ func (x *RefExpr) End() token.Pos {
 func (x *IncDecExpr) End() token.Pos {
 	return x.TokPos + 2
 }
+func (x *SelectExpr) End() token.Pos { return x.Y.End() }
 
 func (*IndexExpr) exprNode()      {}
 func (*BinaryExpr) exprNode()     {}
@@ -723,6 +732,7 @@ func (*TypeAnnotation) exprNode() {}
 func (*UnsafeExpr) exprNode()     {}
 func (*RefExpr) exprNode()        {}
 func (*IncDecExpr) exprNode()     {}
+func (*SelectExpr) exprNode()     {}
 
 type Modifier int
 

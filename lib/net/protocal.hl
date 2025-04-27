@@ -1,0 +1,9 @@
+enum Protocal {
+    number: num
+    defaultPort: num?
+    description: str
+
+    icmp(1, null, "Internet Control Message Protocal"),
+    tcp(6, 80, "Transmission Control Protocal"),
+    udp(17, 53, "User Datagram Protocal"),
+}
