@@ -1,0 +1,5 @@
+declare comptime {
+    var stdin = 0
+    var stdout = 1
+    var stderr = 2
+}
