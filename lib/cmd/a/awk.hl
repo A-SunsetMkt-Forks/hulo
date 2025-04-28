@@ -5,9 +5,9 @@ fn pattern(params: OptionParams) {
 }
 */
 
-@cmd (rule: "awk [FLAG] $PATTERN [ARGUMENT]")
-pub class awk: base_cmd {
-    @flag(alias: ["-F", "--field-separator"])
+@command("awk [FLAGS] pattern ...")
+pub class awk {
+    @flag(short: "F", long: "field-separator")
     sep: str?
 
     @flag(alias: "-v")
@@ -19,10 +19,10 @@ pub class awk: base_cmd {
     @flag(alias: "-p", proxy: awk.handle_pattern, native: false)
     pattern: str?
 
-    @var(alias: "PATTERN", verify: "awk_pattern_auth")
+    @option(bind: "pattern", verify: "awk_pattern_auth")
     rule: str
 
-    @argument
+    @option(bind: "eclipsis")
     files: list<str>? | str?
 
     comptime prompt() -> suggest[] {

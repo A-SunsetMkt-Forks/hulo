@@ -6,12 +6,14 @@ declare comptime fn printf(...arg: any[])
 
 declare comptime fn println(...arg: any[])
 
+declare comptime fn scan(msg: str) -> str
+
 trait Reader {
-    read(buf: num[]) throws -> num
+    read() throws -> (buf: str, n: num)
 }
 
 trait Writer {
-    write(buf: num[]) throws -> num
+    write(buf: str) throws -> num
 }
 
 trait Closer {

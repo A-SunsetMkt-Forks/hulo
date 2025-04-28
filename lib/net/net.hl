@@ -1,0 +1,26 @@
+enum Protocal {
+    number: num
+    defaultPort: num?
+    description: str
+
+    icmp(1, null, "Internet Control Message Protocal"),
+    tcp(6, 80, "Transmission Control Protocal"),
+    udp(17, 53, "User Datagram Protocal");
+}
+
+const ipv4_regex = r"^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+const ipv6_regex = r"^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$"
+
+class IP {
+    value: str
+
+    IP($this.value)
+
+    fn is_v4() -> bool {
+        $ipv4_regex.match($this.value)
+    }
+
+    fn is_v6() -> bool {
+        $ipv6_regex.match($this.value)
+    }
+}

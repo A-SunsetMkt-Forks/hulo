@@ -9,6 +9,20 @@ pub trait File {
     chown(uid: num, gid: num) throws
 }
 
+comptime {
+    pub class TempFile {
+        TempFile(filename: str)
+    }
+
+    impl File for TempFile;
+}
+
+declare comptime class DirEntry {
+    name: str
+    path: str
+    metadata: FileInfo
+}
+
 pub type FileMode = num
 
 pub trait FileInfo {
@@ -24,5 +38,25 @@ pub trait FileInfo {
     readonly symlink_target: str?
 }
 
-// 不存在返回false
-ls? "a.txt" || exa? "a.txt" || eza? "a.txt"
+declare comptime fn read_file(path: str) throws -> str
+declare comptime fn write_file(path: str, data: str) throws
+declare comptime fn append_file(path: str, data: str) throws
+
+declare comptime fn read_dir(path: str) throws -> DirEntry[]
+declare comptime fn create_dir(path: str, recursive: bool = false) throws
+declare comptime fn remove_dir(path: str, recursive: bool = false) throws
+
+declare comptime fn exists(path: str) -> bool
+declare comptime fn stat(path: str) throws -> FileInfo
+declare comptime fn rename(old_path: str, new_path: str) throws
+declare comptime fn copy(src: str, dst: str) throws
+declare comptime fn chmod(path: str, mode: FileMode) throws
+declare comptime fn chown(path: str, uid: num, gid: num) throws
+
+extension comptime enum error {
+    NotFound(),
+    PermissionDenied(),
+    AlreadyExists(),
+    IsDirectory(),
+    NotDirectory(),
+}
