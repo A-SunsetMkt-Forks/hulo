@@ -1,4 +1,16 @@
 declare {
+    // Name of the batch file (with full path)
+    // %0 = $args[0]
+    // File name only (without path or extension)
+    // $~n0 = filepath.basename($args[0])
+    // File extension only
+    // $~x0 = filepath.extname($args[0])
+    // Command-line arguments 1 to 9
+    // %1 ~ %9 = $args[1] ~ $args[9]
+    // All passed command-line arguments
+    // %* = $args
+    const args: str[]
+
     // Current working directory
     const CD: str
 
