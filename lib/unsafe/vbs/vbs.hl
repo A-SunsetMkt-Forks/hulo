@@ -777,3 +777,19 @@ declare {
     // Array
     const vbArray = 8192;
 }
+
+
+enum VBScriptError extends Error {
+    // Invalid procedure call or argumen
+    InvalidProcedureCallOrArgument(5),
+    // Overflow
+    Overflow(6),
+    // Out	of	memory
+    OutOfMemory(7),
+}
+
+declare class FileSystemObject {
+    GetDrive(driver: str) -> object
+    GetFolder(dir: str) -> object
+    GetFile(filename: str) -> object
+}
