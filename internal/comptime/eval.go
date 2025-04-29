@@ -21,14 +21,14 @@ func Eval(ctx *Context, node ast.Node) object.Value {
 		return evalIdent(ctx, node)
 	case *ast.CallExpr:
 		return evalCallExpr(ctx, node)
-	case *ast.ExtendDecl:
+	case *ast.ExtensionDecl:
 		return evalExtensionDecl(ctx, node)
 	}
 	return nil
 }
 
-func evalExtensionDecl(ctx *Context, node *ast.ExtendDecl) object.Value {
-	if node.ExtendClass != nil {
+func evalExtensionDecl(ctx *Context, node *ast.ExtensionDecl) object.Value {
+	if node.ExtensionClass != nil {
 		// 将类查出来 插入进去
 		ctx.Get(node.Name.Name)
 	}

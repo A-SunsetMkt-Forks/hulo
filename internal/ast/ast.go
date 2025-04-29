@@ -64,7 +64,7 @@ type (
 	// An EnumDecl node represents an enum declaration.
 	EnumDecl struct {
 		Doc     *CommentGroup
-		Macros  []*Macro
+		Macros  []*Annotation
 		Pub     token.Pos // position of "pub"
 		Enum    token.Pos // position of "enum"
 		Name    *Ident
@@ -101,23 +101,23 @@ type (
 
 	// An ClassDecl node represents a class declaration.
 	ClassDecl struct {
-		Doc     *CommentGroup
-		Macros  []*Macro
-		Pub     token.Pos // position of "pub"
-		Class   token.Pos // position of "class"
-		Name    *Ident
-		Colon   token.Pos // position of ":" or nil
-		Parent  []*Ident
-		Lbrace  token.Pos // position of "{"
-		Fields  *FieldList
-		Methods []Node
-		Rbrace  token.Pos // position of "}"
+		Doc         *CommentGroup
+		Annotations []*Annotation
+		Pub         token.Pos // position of "pub"
+		Class       token.Pos // position of "class"
+		Name        *Ident
+		Extends     token.Pos // position of "extends" or nil
+		Parent      []*Ident
+		Lbrace      token.Pos // position of "{"
+		Fields      *FieldList
+		Methods     []Node
+		Rbrace      token.Pos // position of "}"
 	}
 
 	// An FuncDecl node represents a function declaration.
 	FuncDecl struct {
 		Doc    *CommentGroup
-		Macros []*Macro
+		Macros []*Annotation
 		Mod    *FuncModifier
 		Fn     token.Pos // position of "fn"
 		Name   *Ident
@@ -152,47 +152,49 @@ type (
 		Value  Expr
 	}
 
-	// An ExtendDecl node represents an extend declaration.
-	ExtendDecl struct {
-		Doc    *CommentGroup
-		Pub    token.Pos // position of "pub"
-		Extend token.Pos // position of "extend"
-		Name   *Ident
-		*ExtendEnum
-		*ExtendClass
-		*ExtendTrait
-		*ExtendType
-		*ExtendMod
+	// An ExtensionDecl node represents an extension declaration.
+	ExtensionDecl struct {
+		Doc       *CommentGroup
+		Pub       token.Pos // position of "pub"
+		Extension token.Pos // position of "extension"
+		Name      *Ident
+		*ExtensionEnum
+		*ExtensionClass
+		*ExtensionTrait
+		*ExtensionType
+		*ExtensionMod
 	}
 
-	ExtendEnum struct {
+	ExtensionEnum struct {
 		Enum token.Pos // position of "enum"
 		Body *BlockStmt
 	}
 
-	ExtendClass struct {
+	ExtensionClass struct {
 		Class token.Pos // position of "class"
 		Body  *BlockStmt
 	}
 
-	ExtendTrait struct {
+	ExtensionTrait struct {
 		Trait token.Pos // position of "trait"
 		Body  *BlockStmt
 	}
 
-	ExtendType struct {
+	ExtensionType struct {
 		Type token.Pos // position of "type"
 		Body *BlockStmt
 	}
 
-	ExtendMod struct {
+	ExtensionMod struct {
 		Mod  token.Pos // position of "mod"
 		Body *BlockStmt
 	}
 
-	PackageDecl struct {
-		Package token.Pos // position of "package"
-		Name    *Ident
+	// An DeclareDecl node represents a declare declaration.
+	DeclareDecl struct {
+		Doc     *CommentGroup
+		Declare token.Pos // position of "declare"
+		X       Node
 	}
 )
 
@@ -235,9 +237,9 @@ func (d *ModDecl) Pos() token.Pos {
 	}
 	return d.Mod
 }
-func (d *TypeDecl) Pos() token.Pos    { return d.Type }
-func (d *ExtendDecl) Pos() token.Pos  { return d.Extend }
-func (d *PackageDecl) Pos() token.Pos { return d.Package }
+func (d *TypeDecl) Pos() token.Pos      { return d.Type }
+func (d *ExtensionDecl) Pos() token.Pos { return d.Extension }
+func (d *DeclareDecl) Pos() token.Pos   { return d.Declare }
 
 func (d *TraitDecl) End() token.Pos { return d.Rbrace }
 func (d *ImplDecl) End() token.Pos  { return d.Body.Rbrace }
@@ -251,32 +253,32 @@ func (d *ClassDecl) End() token.Pos { return d.Rbrace }
 func (d *FuncDecl) End() token.Pos  { return d.Body.Rbrace }
 func (d *ModDecl) End() token.Pos   { return d.Rbrace }
 func (d *TypeDecl) End() token.Pos  { return d.Value.End() }
-func (d *ExtendDecl) End() token.Pos {
+func (d *ExtensionDecl) End() token.Pos {
 	switch {
-	case d.ExtendClass != nil:
-		return d.ExtendClass.Body.Rbrace
-	case d.ExtendEnum != nil:
-		return d.ExtendEnum.Body.Rbrace
-	case d.ExtendTrait != nil:
-		return d.ExtendTrait.Body.Rbrace
-	case d.ExtendType != nil:
-		return d.ExtendType.Body.Rbrace
-	case d.ExtendMod != nil:
-		return d.ExtendMod.Body.Rbrace
+	case d.ExtensionClass != nil:
+		return d.ExtensionClass.Body.Rbrace
+	case d.ExtensionEnum != nil:
+		return d.ExtensionEnum.Body.Rbrace
+	case d.ExtensionTrait != nil:
+		return d.ExtensionTrait.Body.Rbrace
+	case d.ExtensionType != nil:
+		return d.ExtensionType.Body.Rbrace
+	case d.ExtensionMod != nil:
+		return d.ExtensionMod.Body.Rbrace
 	}
 	return token.NoPos
 }
-func (d *PackageDecl) End() token.Pos { return d.Name.End() }
+func (d *DeclareDecl) End() token.Pos { return d.X.End() }
 
-func (*TraitDecl) declNode()   {}
-func (*ImplDecl) declNode()    {}
-func (*EnumDecl) declNode()    {}
-func (*ClassDecl) declNode()   {}
-func (*FuncDecl) declNode()    {}
-func (*ModDecl) declNode()     {}
-func (*TypeDecl) declNode()    {}
-func (*ExtendDecl) declNode()  {}
-func (*PackageDecl) declNode() {}
+func (*TraitDecl) declNode()     {}
+func (*ImplDecl) declNode()      {}
+func (*EnumDecl) declNode()      {}
+func (*ClassDecl) declNode()     {}
+func (*FuncDecl) declNode()      {}
+func (*ModDecl) declNode()       {}
+func (*TypeDecl) declNode()      {}
+func (*ExtensionDecl) declNode() {}
+func (*DeclareDecl) declNode()   {}
 
 // ----------------------------------------------------------------------------
 // Comments
@@ -333,13 +335,20 @@ type (
 		Continue token.Pos // position of "continue"
 	}
 
-	// unsafe """ raw """
+	// A ComptimeStmt node represents a comptime statement.
+	ComptimeStmt struct {
+		Comptime token.Pos // position of "comptime"
+		X        Stmt
+	}
+
+	// unsafe { ... }
+	// ${ ... }
 	UnsafeStmt struct {
 		Doc    *CommentGroup
-		Unsafe token.Pos // position of "unsafe"
-		Start  token.Pos // position of `"""`
+		Unsafe token.Pos // position of "unsafe" or "$"
+		Start  token.Pos // position of `{`
 		Text   string
-		EndPos token.Pos // position of `"""`
+		EndPos token.Pos // position of `}`
 	}
 
 	// A BlockStmt node represents a braced statement list.
@@ -355,7 +364,6 @@ type (
 		If   token.Pos // position of "if"
 		Cond Expr
 		Body *BlockStmt
-		Elif []*IfStmt
 		Else Stmt
 	}
 
@@ -450,7 +458,7 @@ type (
 	// in a statement list.
 	ExprStmt struct {
 		Doc    *CommentGroup
-		Macros []*Macro
+		Macros []*Annotation
 		X      Expr // expression
 	}
 
@@ -486,7 +494,7 @@ type (
 	}
 
 	// @builtin()
-	Macro struct {
+	Annotation struct {
 		At     token.Pos // position of "@"
 		Name   *Ident
 		Lparen token.Pos // position of "("
@@ -497,6 +505,7 @@ type (
 
 func (s *AssignStmt) Pos() token.Pos   { return s.TokPos }
 func (s *CmdStmt) Pos() token.Pos      { return s.Name.Pos() }
+func (s *ComptimeStmt) Pos() token.Pos { return s.Comptime }
 func (s *UnsafeStmt) Pos() token.Pos   { return s.Unsafe }
 func (s *TryStmt) Pos() token.Pos      { return s.Try }
 func (s *CatchStmt) Pos() token.Pos    { return s.Catch }
@@ -504,7 +513,7 @@ func (s *FinallyStmt) Pos() token.Pos  { return s.Finally }
 func (s *ExprStmt) Pos() token.Pos     { return s.X.Pos() }
 func (s *BlockStmt) Pos() token.Pos    { return s.Lbrace }
 func (s *ThrowStmt) Pos() token.Pos    { return s.Throw }
-func (s *Macro) Pos() token.Pos        { return s.At }
+func (s *Annotation) Pos() token.Pos   { return s.At }
 func (s *ReturnStmt) Pos() token.Pos   { return s.Return }
 func (s *IfStmt) Pos() token.Pos       { return s.If }
 func (s *MatchStmt) Pos() token.Pos    { return s.Match }
@@ -517,16 +526,17 @@ func (s *ForStmt) Pos() token.Pos      { return s.Loop }
 func (s *BreakStmt) Pos() token.Pos    { return s.Break }
 func (s *ContinueStmt) Pos() token.Pos { return s.Continue }
 
-func (s *AssignStmt) End() token.Pos  { return s.Rhs.End() }
-func (s *CmdStmt) End() token.Pos     { return s.Recv[len(s.Recv)-1].End() }
-func (s *UnsafeStmt) End() token.Pos  { return s.EndPos }
-func (s *TryStmt) End() token.Pos     { return s.Body.Rbrace }
-func (s *CatchStmt) End() token.Pos   { return s.Body.Rbrace }
-func (s *FinallyStmt) End() token.Pos { return s.Body.Rbrace }
-func (s *ExprStmt) End() token.Pos    { return s.X.End() }
-func (s *BlockStmt) End() token.Pos   { return s.Rbrace }
-func (s *ThrowStmt) End() token.Pos   { return s.X.End() }
-func (s *Macro) End() token.Pos {
+func (s *AssignStmt) End() token.Pos   { return s.Rhs.End() }
+func (s *CmdStmt) End() token.Pos      { return s.Recv[len(s.Recv)-1].End() }
+func (s *ComptimeStmt) End() token.Pos { return s.X.End() }
+func (s *UnsafeStmt) End() token.Pos   { return s.EndPos }
+func (s *TryStmt) End() token.Pos      { return s.Body.Rbrace }
+func (s *CatchStmt) End() token.Pos    { return s.Body.Rbrace }
+func (s *FinallyStmt) End() token.Pos  { return s.Body.Rbrace }
+func (s *ExprStmt) End() token.Pos     { return s.X.End() }
+func (s *BlockStmt) End() token.Pos    { return s.Rbrace }
+func (s *ThrowStmt) End() token.Pos    { return s.X.End() }
+func (s *Annotation) End() token.Pos {
 	if s.Rparen.IsValid() {
 		return s.Rparen
 	}
@@ -546,6 +556,7 @@ func (s *ContinueStmt) End() token.Pos { return s.Continue }
 
 func (*AssignStmt) stmtNode()   {}
 func (*CmdStmt) stmtNode()      {}
+func (*ComptimeStmt) stmtNode() {}
 func (*UnsafeStmt) stmtNode()   {}
 func (*TryStmt) stmtNode()      {}
 func (*CatchStmt) stmtNode()    {}
@@ -553,7 +564,7 @@ func (*FinallyStmt) stmtNode()  {}
 func (*ExprStmt) stmtNode()     {}
 func (*BlockStmt) stmtNode()    {}
 func (*ThrowStmt) stmtNode()    {}
-func (*Macro) stmtNode()        {}
+func (*Annotation) stmtNode()   {}
 func (*ReturnStmt) stmtNode()   {}
 func (*IfStmt) stmtNode()       {}
 func (*MatchStmt) stmtNode()    {}
@@ -777,7 +788,7 @@ func (m Modifier) IsAll() bool {
 // (pub | const | final) x: str | num = defaultValue
 type Field struct {
 	Doc    *CommentGroup
-	Macros []*Macro
+	Macros []*Annotation
 	Mod    Modifier
 	Name   *Ident
 	Type   Expr

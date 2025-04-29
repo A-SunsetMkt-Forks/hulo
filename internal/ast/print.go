@@ -17,7 +17,7 @@ func print(stmt Stmt, ident string) {
 		for _, ss := range s.Stmts {
 			print(ss, ident+"  ")
 		}
-	case *Macro:
+	case *Annotation:
 		fmt.Println(ident + "@" + identString(s.Name))
 	case *ExprStmt:
 		fmt.Println(ident + Expr2String(s.X))
