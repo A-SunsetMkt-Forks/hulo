@@ -2,7 +2,7 @@ fn test_adprep() {
     try {
         adprep --domainprep
         adprep --domainprep-gprep
-    } catch (e: adprep::ExitCode::Failure) {
+    } catch (e: adprep::Error::Failure) {
         echo "error happen: $e"
     }
 }

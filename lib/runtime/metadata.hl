@@ -7,9 +7,9 @@ comptime class Enum extends Object {
 }
 
 comptime class Function extends Object {
-    args: Object[]
-    rets: Object[]
-    
+    recv: Object[]
+    ret: Object
+    body: ast.BlcokStmt
 }
 
 comptime class Method extends Function {
@@ -27,3 +27,5 @@ enum Modifier {
     STATIC,
     COMPTIME,
 }
+
+comptime fn TypeOf() -> Object

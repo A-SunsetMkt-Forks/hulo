@@ -6,7 +6,7 @@ declare comptime fn printf(...arg: any[])
 
 declare comptime fn println(...arg: any[])
 
-declare comptime fn scan(msg: str) -> str
+declare comptime fn scan(msg: str?) -> str
 
 trait Reader {
     read() throws -> (buf: str, n: num)

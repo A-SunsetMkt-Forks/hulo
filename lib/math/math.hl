@@ -1,7 +1,5 @@
 import * from "type"
 
-fn abs() {}
-
 comptime fn abs(x: num) -> num {
     if $x < 0 { -$x }
     $x

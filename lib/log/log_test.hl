@@ -10,7 +10,7 @@ fn test_log() {
 fn test_logger() {
     comptime {
         let l = log.Logger()
-        l.with_field()
+        $l.with_field()
     }
     log.info! "thank you for using hulo!"
 }

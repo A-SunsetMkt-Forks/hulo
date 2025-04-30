@@ -10,8 +10,27 @@ type num = num
 
 type any = any
 
+/**
+ * bash: /dev/null
+ * batch: nul
+ * amber: null
+ */
 var null: num = 0
 
 type number = num
 
 type string = str
+
+type object = object
+
+type function = (...args: any[]) -> any
+
+// 
+
+type integer = num
+
+type float = num
+
+type bignum = num
+
+type char = str

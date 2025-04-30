@@ -82,22 +82,22 @@ class adprep {
     /**
      * Exit codes that Adprep can return after an operation completes.
      */
-    static enum ExitCode {
+    static enum Error {
         Failure = 1,
-        SchemaConflictError = 2,
-        FSMORoleError = 3,
-        ConnectionError = 4,
-        SchemaUpgradeError = 5,
-        UnableToModifyError = 6,
-        ServerBusyError = 7,
-        PermissionError = 8,
-        UnableToInitializeLogFileError = 9,
-        NotADomainController = 10,
-        InNonnativeMode = 11,
-        NeedToRunForestUpdateFirst = 12,
-        ForestUpdateAlreadyDone = 13,
-        DomainUpdateAlreadyDone = 14,
-        GPOUpdateAlreadyDone = 15,
-        ForestUpdateWaitReplication = 16
+        SchemaConflictError,
+        FSMORoleError,
+        ConnectionError,
+        SchemaUpgradeError,
+        UnableToModifyError,
+        ServerBusyError,
+        PermissionError,
+        UnableToInitializeLogFileError,
+        NotADomainController,
+        InNonnativeMode,
+        NeedToRunForestUpdateFirst,
+        ForestUpdateAlreadyDone,
+        DomainUpdateAlreadyDone,
+        GPOUpdateAlreadyDone,
+        ForestUpdateWaitReplication
     }
 }

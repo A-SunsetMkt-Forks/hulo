@@ -1,8 +1,0 @@
-enum error {
-    code: num
-    msg: str
-
-    general(0, "general error"),
-    runtime(1, "runtime error"),
-    unimplemented(2, "unimplemented");
-}

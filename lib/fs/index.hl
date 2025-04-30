@@ -1,5 +1,3 @@
-import "io"
-
 pub trait File {
     read() throws -> str
     read_at(offset: num) throws -> str
@@ -9,11 +7,6 @@ pub trait File {
 
     chmod(mode: FileMode) throws
     chown(uid: num, gid: num) throws
-
-    operator >(other: io.Reader) throws
-    operator >>(other: io.Reader) throws
-    operator <(w: io.Writer) throws
-    operator <<(w: io.Writer) throws
 }
 
 comptime {
@@ -59,11 +52,3 @@ declare comptime fn rename(old_path: str, new_path: str) throws
 declare comptime fn copy(src: str, dst: str) throws
 declare comptime fn chmod(path: str, mode: FileMode) throws
 declare comptime fn chown(path: str, uid: num, gid: num) throws
-
-extension comptime enum error {
-    NotFound(),
-    PermissionDenied(),
-    AlreadyExists(),
-    IsDirectory(),
-    NotDirectory(),
-}
