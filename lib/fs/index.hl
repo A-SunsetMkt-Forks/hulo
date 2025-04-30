@@ -1,3 +1,5 @@
+import "io"
+
 pub trait File {
     read() throws -> str
     read_at(offset: num) throws -> str
@@ -7,6 +9,11 @@ pub trait File {
 
     chmod(mode: FileMode) throws
     chown(uid: num, gid: num) throws
+
+    operator >(other: io.Reader) throws
+    operator >>(other: io.Reader) throws
+    operator <(w: io.Writer) throws
+    operator <<(w: io.Writer) throws
 }
 
 comptime {
