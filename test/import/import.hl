@@ -1,0 +1,3 @@
+const abs: (x: num) -> num = import("abs.bat")
+
+assert_eq(abs(-10), 10)

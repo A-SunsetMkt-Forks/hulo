@@ -1,0 +1,19 @@
+let today: Platform<DateTime> = std::DateTime.now()
+let end_of_2025: Platform<DateTime> = std::DateTime(2025, 12, 31)
+let diff: Platform<Platform<DateTime>> = $end_of_2025 - $today
+echo "There are " + $diff + " days until the end of 2025."
+
+let today: Platform<any> = match {
+    $IsPowershell => Get-Date,
+    $IsBash => unsafe { $(date +%s) },
+    $IsVBScript => Date,
+    _ => throw Error::Unimplemented,
+}
+
+let res: Command<str> = ls? | exa?
+
+match $res {
+    ls => grep "" $res,
+    exa => grep "" $res,
+    _ => ,
+}

@@ -12,6 +12,7 @@ pub comptime enum Error {
     Runtime(2, "Runtime exception"),
     NotImplemented(3, "Functionality not implemented"),
     AssertionFailed(4, "Assertion failed"),
+    UnsupportedPlatform(5, "Unsupported platform")
 
     /// Memory error
     UninitializedObject(10, "Attempted to use an uninitialized object"),
