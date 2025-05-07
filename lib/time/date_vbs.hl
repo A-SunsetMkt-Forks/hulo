@@ -1,4 +1,5 @@
-// @hulo-build bash
+// @hulo-build vbs
+
 pub class DateTime {
     DateTime(
         year: num, month: num, day: num,
@@ -6,14 +7,14 @@ pub class DateTime {
         second?: num = 0, millisec?: num = 0, 
         nanosec?: num = 0
     ) {
-        return unsafe { $(date -d "{{$year}}-{{$month}}-{{$day}}" +%s) }
+        return unsafe { DateSerial({{$year}}, {{$month}}, {{$day}}) }
     }
 
     DateTime.now() {
-        return unsafe { $(date +%s) };
+        return unsafe { Date };
     }
 
     operator -(other: DateTime) {
-        return unsafe { $((($this - $other) / 86400)) };
+        return unsafe { DateDiff("d", {{$other}}, {{$this}}) };
     }
 }
