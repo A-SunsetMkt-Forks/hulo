@@ -17,4 +17,16 @@ pub class DateTime {
     operator -(other: DateTime) {
         return unsafe { DateDiff("d", {{$other}}, {{$this}}) };
     }
+
+    operator +(other: DateTime) {
+        return $this.add($other);
+    }
+
+    fn add(d: DateTime) -> DateTime {
+        return match {
+            $d.day > 0 => unsafe { DateAdd("d", {{$days}}, {{$this}}) }
+            $d.year > 0 => unsafe { DateAdd("yyyy", {{$years}}, {{$this}}) }
+            _ => throw Error::Unimplemented
+        }
+    }
 }
