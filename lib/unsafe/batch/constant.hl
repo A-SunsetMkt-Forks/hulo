@@ -12,6 +12,9 @@ declare {
     // %* = $args
     const args: str[]
 
+    // %~dp0
+    const DIR: str
+
     // Current working directory
     const CD: str
 
