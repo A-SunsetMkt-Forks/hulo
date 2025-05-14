@@ -10,33 +10,37 @@ import (
 	"github.com/hulo-lang/hulo/grammar/bash/token"
 )
 
+// All node types implement the Node interface.
 type Node interface {
-	Pos() token.Pos
-	End() token.Pos
+	Pos() token.Pos // position of first character belonging to the node
+	End() token.Pos // position of first character immediately after the node
 }
 
+// All statement nodes implement the Stmt interface.
 type Stmt interface {
 	Node
 	stmtNode()
 }
 
+// All declaration nodes implement the Decl interface.
 type Decl interface {
 	Node
 	declNode()
 }
 
+// All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
 	exprNode()
 	Text() string
 }
 
-type CommentGroup struct {
-	List []*Comment
-}
 
-func (g *CommentGroup) Pos() token.Pos { return g.List[0].Pos() }
-func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
+// ----------------------------------------------------------------------------
+// Comments
+
+// A Comment node represents a single //-style or /*-style comment.
+//
 
 type Comment struct {
 	Hash token.Pos
@@ -45,6 +49,13 @@ type Comment struct {
 
 func (c *Comment) Pos() token.Pos { return c.Hash }
 func (c *Comment) End() token.Pos { return token.Pos(int(c.Hash) + len(c.Text)) }
+
+type CommentGroup struct {
+	List []*Comment
+}
+
+func (g *CommentGroup) Pos() token.Pos { return g.List[0].Pos() }
+func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
 
 type FuncDecl struct {
 	Function token.Pos
@@ -62,7 +73,7 @@ func (*FuncDecl) declNode() {}
 
 type (
 	AssignStmt struct {
-		Local  bool
+		Local  token.Pos // position of "local"
 		Lhs    Expr
 		Assign token.Pos // position of "="
 		Rhs    Expr
@@ -139,12 +150,11 @@ type (
 
 	IfStmt struct {
 		If   token.Pos // position of "if"
-		Semi token.Pos // position of ";"
 		Cond Expr
+		Semi token.Pos // position of ";"
 		Then token.Pos // position of "then"
 		Body *BlockStmt
-		Elif []*IfStmt
-		Else *BlockStmt
+		Else Stmt
 		Fi   token.Pos // position of "fi"
 	}
 

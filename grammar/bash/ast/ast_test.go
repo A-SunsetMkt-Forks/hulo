@@ -109,49 +109,45 @@ func TestPrint(t *testing.T) {
 						},
 					},
 				},
-				Elif: []*ast.IfStmt{
-					{Cond: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "!"},
-						Op: token.NONE,
-						Y: &ast.ExtendedTestExpr{
-							X: &ast.BinaryExpr{
-								X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-								Op: "=~",
-								Y:  &ast.Ident{Name: "^[0-9]+$"},
+				Else: &ast.IfStmt{Cond: &ast.BinaryExpr{
+					X:  &ast.Ident{Name: "!"},
+					Op: token.NONE,
+					Y: &ast.ExtendedTestExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
+							Op: "=~",
+							Y:  &ast.Ident{Name: "^[0-9]+$"},
+						},
+					},
+				}, Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Func: &ast.Ident{Name: "echo"},
+								Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
 							},
 						},
-					}, Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ExprStmt{
-								X: &ast.CallExpr{
-									Func: &ast.Ident{Name: "echo"},
-									Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
-								},
+					},
+				}, Else: &ast.IfStmt{Cond: &ast.BinaryExpr{
+					X:  &ast.Ident{Name: "!"},
+					Op: token.NONE,
+					Y: &ast.ExtendedTestExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
+							Op: "=~",
+							Y:  &ast.Ident{Name: "^[0-9]+$"},
+						},
+					},
+				}, Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Func: &ast.Ident{Name: "echo"},
+								Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
 							},
 						},
-					}},
-					{Cond: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "!"},
-						Op: token.NONE,
-						Y: &ast.ExtendedTestExpr{
-							X: &ast.BinaryExpr{
-								X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-								Op: "=~",
-								Y:  &ast.Ident{Name: "^[0-9]+$"},
-							},
-						},
-					}, Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ExprStmt{
-								X: &ast.CallExpr{
-									Func: &ast.Ident{Name: "echo"},
-									Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
-								},
-							},
-						},
-					}},
-				},
-				Else: &ast.BlockStmt{
+					},
+				}, Else: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
@@ -159,6 +155,8 @@ func TestPrint(t *testing.T) {
 							},
 						},
 					},
+				},
+				},
 				},
 			},
 		},

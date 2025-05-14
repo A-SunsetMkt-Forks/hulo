@@ -77,7 +77,7 @@ func (p *printer) Visit(node Node) Visitor {
 		println(token.RBRACE)
 
 	case *AssignStmt:
-		if n.Local {
+		if n.Local.IsValid() {
 			p.println_c(token.LOCAL, token.SPACE, n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
 		} else {
 			p.println_c(n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
@@ -152,13 +152,15 @@ func (p *printer) Visit(node Node) Visitor {
 		p.block(n.Body.List)
 		p.ident = temp
 
-		for _, elif := range n.Elif {
-			p.println_c(token.ELIF, token.SPACE, elif.Cond.Text(), token.SEMI, token.SPACE, token.THEN)
+		for n.Else != nil {
+			switch el := n.Else.(type) {
+			case *IfStmt:
 
-			temp := p.ident
-			p.ident += "  "
-			p.block(n.Body.List)
-			p.ident = temp
+			case *BlockStmt:
+				fmt.Fprint(p.output, p.ident+"else")
+				p.print(el)
+				n.Else = nil
+			}
 		}
 
 		if n.Else != nil {

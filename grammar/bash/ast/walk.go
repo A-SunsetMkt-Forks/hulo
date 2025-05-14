@@ -60,3 +60,16 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n)
 	}
 }
+
+type inspector func(Node) bool
+
+func (f inspector) Visit(node Node) Visitor {
+	if f(node) {
+		return f
+	}
+	return nil
+}
+
+func Inspect(node Node, f func(Node) bool) {
+	Walk(inspector(f), node)
+}
