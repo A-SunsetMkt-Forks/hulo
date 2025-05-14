@@ -3,7 +3,12 @@
 // license that can be found in the LICENSE file.
 package ast
 
-import "github.com/hulo-lang/hulo/grammar/bash/token"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/hulo-lang/hulo/grammar/bash/token"
+)
 
 type Node interface {
 	Pos() token.Pos
@@ -23,6 +28,7 @@ type Decl interface {
 type Expr interface {
 	Node
 	exprNode()
+	Text() string
 }
 
 type CommentGroup struct {
@@ -506,6 +512,129 @@ func (*CmdSubst) exprNode()         {}
 func (*ProcSubst) exprNode()        {}
 func (*ArithExp) exprNode()         {}
 func (*ParamExp) exprNode()         {}
+
+func (e *BinaryExpr) Text() string {
+	if e.Op == token.NONE {
+		if e.Compress {
+			return fmt.Sprintf("%s%s", e.X.Text(), e.Y.Text())
+		}
+		return fmt.Sprintf("%s %s", e.X.Text(), e.Y.Text())
+	}
+	if e.Compress {
+		return fmt.Sprintf("%s%s%s", e.X.Text(), e.Op, e.Y.Text())
+	}
+	return fmt.Sprintf("%s %s %s", e.X.Text(), e.Op, e.Y.Text())
+}
+
+func (e *Ident) Text() string {
+	return e.Name
+}
+
+func (e *BasicLit) Text() string {
+	if e.Kind == token.STRING {
+		return fmt.Sprintf(`"%s"`, e.Value)
+	}
+	return e.Value
+}
+
+func (e *CallExpr) Text() string {
+	if len(e.Recv) == 0 {
+		return e.Func.Text()
+	}
+	recv := []string{}
+	for _, e := range e.Recv {
+		recv = append(recv, e.Text())
+	}
+	return fmt.Sprintf("%s %s", e.Func.Text(), strings.Join(recv, " "))
+}
+
+func (e *BasicTestExpr) Text() string {
+	return fmt.Sprintf("[ %s ]", e.X.Text())
+}
+
+func (e *ExtendedTestExpr) Text() string {
+	return fmt.Sprintf("[[ %s ]]", e.X.Text())
+}
+
+func (e *ArithEvalExpr) Text() string {
+	return fmt.Sprintf("(( %s ))", e.X.Text())
+}
+
+func (e *CmdSubst) Text() string {
+	if e.Tok == token.LPAREN {
+		return fmt.Sprintf("$( %s )", e.X.Text())
+	}
+	return fmt.Sprintf("` %s `", e.X.Text())
+}
+
+func (e *ProcSubst) Text() string {
+	if e.Tok == token.LT {
+		return fmt.Sprintf("<( %s )", e.X.Text())
+	}
+	return fmt.Sprintf(">( %s )", e.X.Text())
+}
+
+func (e *ArithExp) Text() string {
+	return fmt.Sprintf("$(( %s ))", e.X.Text())
+}
+
+func (e *ParamExp) Text() string {
+	switch {
+	case e.DefaultValExp != nil:
+		return fmt.Sprintf("${%s:-%s}", e.Var, e.DefaultValExp.Val)
+	case e.DefaultValAssignExp != nil:
+		return fmt.Sprintf("${%s:=%s}", e.Var, e.DefaultValAssignExp.Val)
+	case e.NonNullCheckExp != nil:
+		return fmt.Sprintf("${%s:?%s}", e.Var, e.NonNullCheckExp.Val)
+	case e.NonNullExp != nil:
+		return fmt.Sprintf("${%s:+%s}", e.Var, e.NonNullExp.Val)
+	case e.PrefixExp != nil:
+		return fmt.Sprintf("${!%s*}", e.Var)
+	case e.PrefixArrayExp != nil:
+		return fmt.Sprintf("${!%s@}", e.Var)
+	case e.ArrayIndexExp != nil:
+		if e.Tok == token.MUL {
+			return fmt.Sprintf("${!%s[*]}", e.Var)
+		}
+		return fmt.Sprintf("${!%s[@]}", e.Var)
+	case e.LengthExp != nil:
+		return fmt.Sprintf("${#%s}", e.Var)
+	case e.DelPrefix != nil:
+		if e.DelPrefix.Longest {
+			return fmt.Sprintf("${%s##%s}", e.Var, e.DelPrefix.Val)
+		}
+		return fmt.Sprintf("${%s#%s}", e.Var, e.DelPrefix.Val)
+	case e.DelSuffix != nil:
+		if e.DelSuffix.Longest {
+			return fmt.Sprintf("${%s%%%%%s}", e.Var, e.DelPrefix.Val)
+		}
+		return fmt.Sprintf("${%s%%%s}", e.Var, e.DelPrefix.Val)
+	case e.SubstringExp != nil:
+		if e.SubstringExp.Offset != e.SubstringExp.Length {
+			return fmt.Sprintf("${%s:%d:%d}", e.Var, e.SubstringExp.Offset, e.SubstringExp.Length)
+		}
+		return fmt.Sprintf("${%s:%d}", e.Var, e.SubstringExp.Offset)
+	case e.ReplaceExp != nil:
+		return fmt.Sprintf("${%s/%s/%s}", e.Var, e.ReplaceExp.Old, e.ReplaceExp.New)
+	case e.ReplacePrefixExp != nil:
+		return fmt.Sprintf("${%s/#%s/%s}", e.Var, e.ReplacePrefixExp.Old, e.ReplacePrefixExp.New)
+	case e.ReplaceSuffixExp != nil:
+		return fmt.Sprintf("${%s/%%%s/%s}", e.Var, e.ReplaceSuffixExp.Old, e.ReplaceSuffixExp.New)
+	case e.CaseConversionExp != nil:
+		if e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s^}", e.Var)
+		} else if !e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s^^}", e.Var)
+		} else if e.CaseConversionExp.FirstChar && !e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s,}", e.Var)
+		} else {
+			return fmt.Sprintf("${%s,,}", e.Var)
+		}
+	case e.OperatorExp != nil:
+		return fmt.Sprintf("${%s@%s}", e.Var, e.OperatorExp.Op)
+	}
+	panic("unknown param exp")
+}
 
 type ExpOperator string
 

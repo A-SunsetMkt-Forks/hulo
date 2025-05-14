@@ -69,7 +69,7 @@ func (p *printer) Visit(node Node) Visitor {
 		}
 
 	case *FuncDecl:
-		p.println(token.FUNCTION, ExprStr(n.Name), token.LPAREN+token.RPAREN, token.LBRACE)
+		p.println(token.FUNCTION, n.Name.Text(), token.LPAREN+token.RPAREN, token.LBRACE)
 		temp := p.ident
 		p.ident += "  "
 		p.block(n.Body.List)
@@ -78,13 +78,13 @@ func (p *printer) Visit(node Node) Visitor {
 
 	case *AssignStmt:
 		if n.Local {
-			p.println_c(token.LOCAL, token.SPACE, ExprStr(n.Lhs), token.ASSIGN, ExprStr(n.Rhs))
+			p.println_c(token.LOCAL, token.SPACE, n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
 		} else {
-			p.println_c(ExprStr(n.Lhs), token.ASSIGN, ExprStr(n.Rhs))
+			p.println_c(n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
 		}
 
 	case *ReturnStmt:
-		p.println(token.RETURN, ExprStr(n.X))
+		p.println(token.RETURN, n.X.Text())
 
 	case *BreakStmt:
 		p.println(token.BREAK)
@@ -93,7 +93,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.CONTINUE)
 
 	case *WhileStmt:
-		p.println(token.WHILE, ExprStr(n.Cond)).
+		p.println(token.WHILE, n.Cond.Text()).
 			println(token.DO)
 
 		temp := p.ident
@@ -104,7 +104,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.DONE)
 
 	case *UntilStmt:
-		p.println(token.UNTIL, ExprStr(n.Cond)).
+		p.println(token.UNTIL, n.Cond.Text()).
 			println(token.DO)
 
 		temp := p.ident
@@ -115,7 +115,11 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.DONE)
 
 	case *ForeachStmt:
-		p.println(token.FOR, ExprStr(n.Elem), token.IN, ExprListStr(n.Group), token.SEMI).
+		group := []string{}
+		for _, g := range n.Group {
+			group = append(group, g.Text())
+		}
+		p.println(token.FOR, n.Elem.Text(), token.IN, strings.Join(group, " "), token.SEMI).
 			println(token.DO)
 
 		temp := p.ident
@@ -127,9 +131,9 @@ func (p *printer) Visit(node Node) Visitor {
 
 	case *ForStmt:
 		p.println_c(token.FOR, token.SPACE, token.DOUBLE_LPAREN,
-			ExprStr(n.Init), token.SEMI, token.SPACE,
-			ExprStr(n.Cond), token.SEMI, token.SPACE,
-			ExprStr(n.Post), token.SPACE, token.DOUBLE_RPAREN,
+			n.Init.Text(), token.SEMI, token.SPACE,
+			n.Cond.Text(), token.SEMI, token.SPACE,
+			n.Post.Text(), token.SPACE, token.DOUBLE_RPAREN,
 			token.SEMI).
 			println(token.DO)
 
@@ -141,7 +145,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.DONE)
 
 	case *IfStmt:
-		p.println_c(token.IF, token.SPACE, ExprStr(n.Cond), token.SEMI, token.SPACE, token.THEN)
+		p.println_c(token.IF, token.SPACE, n.Cond.Text(), token.SEMI, token.SPACE, token.THEN)
 
 		temp := p.ident
 		p.ident += "  "
@@ -149,7 +153,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.ident = temp
 
 		for _, elif := range n.Elif {
-			p.println_c(token.ELIF, token.SPACE, ExprStr(elif.Cond), token.SEMI, token.SPACE, token.THEN)
+			p.println_c(token.ELIF, token.SPACE, elif.Cond.Text(), token.SEMI, token.SPACE, token.THEN)
 
 			temp := p.ident
 			p.ident += "  "
@@ -168,12 +172,12 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.FI)
 
 	case *CaseStmt:
-		p.println(token.CASE, ExprStr(n.Var), token.IN)
+		p.println(token.CASE, n.Var.Text(), token.IN)
 
 		for _, c := range n.Cases {
 			cs := []string{}
 			for _, cond := range c.Conds {
-				cs = append(cs, ExprStr(cond))
+				cs = append(cs, cond.Text())
 			}
 
 			p.println_c(strings.Join(cs, " | "), token.RPAREN)
@@ -206,7 +210,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.ESAC)
 
 	case *SelectStmt:
-		p.println(token.SELECT, ExprStr(n.Elem), token.IN, ExprStr(n.Group), token.SEMI).
+		p.println(token.SELECT, n.Elem.Text(), token.IN, n.Group.Text(), token.SEMI).
 			println(token.DO)
 
 		temp := p.ident
@@ -217,7 +221,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(token.DONE)
 
 	case *ExprStmt:
-		p.println(ExprStr(n.X))
+		p.println(n.X.Text())
 	}
 	return nil
 }
@@ -230,121 +234,4 @@ func String(node Node) string {
 	buf := &strings.Builder{}
 	Walk(&printer{ident: "", output: buf}, node)
 	return buf.String()
-}
-
-func ExprStr(e Expr) string {
-	switch e := e.(type) {
-	case *Ident:
-		return e.Name
-
-	case *BasicLit:
-		if e.Kind == token.STRING {
-			return fmt.Sprintf(`"%s"`, e.Value)
-		}
-		return e.Value
-
-	case *CallExpr:
-		return fmt.Sprintf("%s %s", ExprStr(e.Func), ExprListStr(e.Recv))
-
-	case *BasicTestExpr:
-		return fmt.Sprintf("[ %s ]", ExprStr(e.X))
-
-	case *ExtendedTestExpr:
-		return fmt.Sprintf("[[ %s ]]", ExprStr(e.X))
-
-	case *ArithEvalExpr:
-		return fmt.Sprintf("(( %s ))", ExprStr(e.X))
-
-	case *CmdSubst:
-		if e.Tok == token.LPAREN {
-			return fmt.Sprintf("$( %s )", ExprStr(e.X))
-		}
-		return fmt.Sprintf("` %s `", ExprStr(e.X))
-
-	case *ProcSubst:
-		if e.Tok == token.LT {
-			return fmt.Sprintf("<( %s )", ExprStr(e.X))
-		}
-		return fmt.Sprintf(">( %s )", ExprStr(e.X))
-
-	case *ArithExp:
-		return fmt.Sprintf("$(( %s ))", ExprStr(e.X))
-
-	case *BinaryExpr:
-		if e.Op == token.NONE {
-			if e.Compress {
-				return fmt.Sprintf("%s%s", ExprStr(e.X), ExprStr(e.Y))
-			}
-			return fmt.Sprintf("%s %s", ExprStr(e.X), ExprStr(e.Y))
-		}
-		if e.Compress {
-			return fmt.Sprintf("%s%s%s", ExprStr(e.X), e.Op, ExprStr(e.Y))
-		}
-		return fmt.Sprintf("%s %s %s", ExprStr(e.X), e.Op, ExprStr(e.Y))
-
-	case *ParamExp:
-		switch {
-		case e.DefaultValExp != nil:
-			return fmt.Sprintf("${%s:-%s}", e.Var, e.DefaultValExp.Val)
-		case e.DefaultValAssignExp != nil:
-			return fmt.Sprintf("${%s:=%s}", e.Var, e.DefaultValAssignExp.Val)
-		case e.NonNullCheckExp != nil:
-			return fmt.Sprintf("${%s:?%s}", e.Var, e.NonNullCheckExp.Val)
-		case e.NonNullExp != nil:
-			return fmt.Sprintf("${%s:+%s}", e.Var, e.NonNullExp.Val)
-		case e.PrefixExp != nil:
-			return fmt.Sprintf("${!%s*}", e.Var)
-		case e.PrefixArrayExp != nil:
-			return fmt.Sprintf("${!%s@}", e.Var)
-		case e.ArrayIndexExp != nil:
-			if e.Tok == token.MUL {
-				return fmt.Sprintf("${!%s[*]}", e.Var)
-			}
-			return fmt.Sprintf("${!%s[@]}", e.Var)
-		case e.LengthExp != nil:
-			return fmt.Sprintf("${#%s}", e.Var)
-		case e.DelPrefix != nil:
-			if e.DelPrefix.Longest {
-				return fmt.Sprintf("${%s##%s}", e.Var, e.DelPrefix.Val)
-			}
-			return fmt.Sprintf("${%s#%s}", e.Var, e.DelPrefix.Val)
-		case e.DelSuffix != nil:
-			if e.DelSuffix.Longest {
-				return fmt.Sprintf("${%s%%%%%s}", e.Var, e.DelPrefix.Val)
-			}
-			return fmt.Sprintf("${%s%%%s}", e.Var, e.DelPrefix.Val)
-		case e.SubstringExp != nil:
-			if e.SubstringExp.Offset != e.SubstringExp.Length {
-				return fmt.Sprintf("${%s:%d:%d}", e.Var, e.SubstringExp.Offset, e.SubstringExp.Length)
-			}
-			return fmt.Sprintf("${%s:%d}", e.Var, e.SubstringExp.Offset)
-		case e.ReplaceExp != nil:
-			return fmt.Sprintf("${%s/%s/%s}", e.Var, e.ReplaceExp.Old, e.ReplaceExp.New)
-		case e.ReplacePrefixExp != nil:
-			return fmt.Sprintf("${%s/#%s/%s}", e.Var, e.ReplacePrefixExp.Old, e.ReplacePrefixExp.New)
-		case e.ReplaceSuffixExp != nil:
-			return fmt.Sprintf("${%s/%%%s/%s}", e.Var, e.ReplaceSuffixExp.Old, e.ReplaceSuffixExp.New)
-		case e.CaseConversionExp != nil:
-			if e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
-				return fmt.Sprintf("${%s^}", e.Var)
-			} else if !e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
-				return fmt.Sprintf("${%s^^}", e.Var)
-			} else if e.CaseConversionExp.FirstChar && !e.CaseConversionExp.ToUpper {
-				return fmt.Sprintf("${%s,}", e.Var)
-			} else {
-				return fmt.Sprintf("${%s,,}", e.Var)
-			}
-		case e.OperatorExp != nil:
-			return fmt.Sprintf("${%s@%s}", e.Var, e.OperatorExp.Op)
-		}
-	}
-	return ""
-}
-
-func ExprListStr(list []Expr) string {
-	res := []string{}
-	for _, e := range list {
-		res = append(res, ExprStr(e))
-	}
-	return strings.Join(res, " ")
 }
