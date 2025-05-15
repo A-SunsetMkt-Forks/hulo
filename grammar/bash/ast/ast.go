@@ -517,6 +517,7 @@ func (x *ArithExpr) Pos() token.Pos        { return x.Dollar }
 func (x *VarExpExpr) Pos() token.Pos       { return x.Dollar }
 func (x *ParamExpExpr) Pos() token.Pos     { return x.Dollar }
 func (x *IndexExpr) Pos() token.Pos        { return x.X.Pos() }
+func (x *ArrExpr) Pos() token.Pos          { return x.Lparen }
 
 // func (x Word) End() token.Pos        { return token.NoPos }
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
@@ -537,6 +538,7 @@ func (x *ArithExpr) End() token.Pos        { return x.Rparen }
 func (x *VarExpExpr) End() token.Pos       { return x.X.End() }
 func (x *ParamExpExpr) End() token.Pos     { return x.Rbrace }
 func (x *IndexExpr) End() token.Pos        { return x.Rbrack }
+func (x *ArrExpr) End() token.Pos          { return x.Rparen }
 
 // func (Word) exprNode()              {}
 func (*BinaryExpr) exprNode()       {}
@@ -552,6 +554,7 @@ func (*ArithExpr) exprNode()        {}
 func (*VarExpExpr) exprNode()       {}
 func (*ParamExpExpr) exprNode()     {}
 func (*IndexExpr) exprNode()        {}
+func (*ArrExpr) exprNode()          {}
 
 func (e *BinaryExpr) String() string {
 	if e.Op == token.NONE {
@@ -682,6 +685,14 @@ func (e *ParamExpExpr) String() string {
 
 func (e *IndexExpr) String() string {
 	return fmt.Sprintf("%s[%s]", e.X, e.Y)
+}
+
+func (e *ArrExpr) String() string {
+	vars := []string{}
+	for _, v := range e.Vars {
+		vars = append(vars, v.String())
+	}
+	return fmt.Sprintf("(%s)", strings.Join(vars, " "))
 }
 
 type ExpOperator string

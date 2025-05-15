@@ -41,6 +41,11 @@ func (p *printer) Visit(node Node) Visitor {
 			Walk(p, s)
 		}
 	case *FuncDecl:
+		p.printf("function %s {\n", node.Name)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("}")
 
 	case *BlockStmt:
 		for _, s := range node.List {
