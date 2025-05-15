@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 package ast
 
-import "github.com/hulo-lang/hulo/grammar/powershell/token"
+import "github.com/hulo-lang/hulo/syntax/powershell/token"
 
 type Node interface {
 	Pos() token.Pos

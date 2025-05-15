@@ -6,8 +6,8 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/hulo-lang/hulo/grammar/bash/ast"
-	"github.com/hulo-lang/hulo/grammar/bash/token"
+	"github.com/hulo-lang/hulo/syntax/bash/ast"
+	"github.com/hulo-lang/hulo/syntax/bash/token"
 	"github.com/stretchr/testify/assert"
 )
 

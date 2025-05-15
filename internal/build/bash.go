@@ -3,7 +3,7 @@ package build
 import (
 	"fmt"
 
-	bast "github.com/hulo-lang/hulo/grammar/bash/ast"
+	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/internal/ast"
 	"github.com/hulo-lang/hulo/internal/config"
 )

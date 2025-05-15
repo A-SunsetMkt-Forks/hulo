@@ -3,27 +3,51 @@
 // license that can be found in the LICENSE file.
 package ast
 
-import "github.com/hulo-lang/hulo/grammar/fish/token"
+import (
+	"fmt"
+	"strings"
 
+	"github.com/hulo-lang/hulo/syntax/bash/token"
+)
+
+// All node types implement the Node interface.
 type Node interface {
-	Pos() token.Pos
-	End() token.Pos
+	Pos() token.Pos // position of first character belonging to the node
+	End() token.Pos // position of first character immediately after the node
 }
 
+// All statement nodes implement the Stmt interface.
 type Stmt interface {
 	Node
 	stmtNode()
 }
 
+// All declaration nodes implement the Decl interface.
 type Decl interface {
 	Node
 	declNode()
 }
 
+// All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
 	exprNode()
+	String() string
 }
+
+// ----------------------------------------------------------------------------
+// Comments
+
+// A Comment node represents a single //-style or /*-style comment.
+//
+
+type Comment struct {
+	Hash token.Pos
+	Text string
+}
+
+func (c *Comment) Pos() token.Pos { return c.Hash }
+func (c *Comment) End() token.Pos { return token.Pos(int(c.Hash) + len(c.Text)) }
 
 type CommentGroup struct {
 	List []*Comment
@@ -32,21 +56,12 @@ type CommentGroup struct {
 func (g *CommentGroup) Pos() token.Pos { return g.List[0].Pos() }
 func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
 
-type Comment struct {
-	Hash token.Pos // position of "#"
-	Text string
-}
-
-func (c *Comment) Pos() token.Pos { return c.Hash }
-func (c *Comment) End() token.Pos { return token.Pos(int(c.Hash) + len(c.Text)) }
-
-// A FuncDecl node represents a function declaration.
 type FuncDecl struct {
-	Function token.Pos // position of "function"
+	Function token.Pos
 	Name     *Ident
-	Recv     []Expr
+	Lparen   token.Pos
+	Rparen   token.Pos
 	Body     *BlockStmt
-	EndPos   token.Pos // position of "end"
 }
 
 func (d *FuncDecl) Pos() token.Pos { return d.Function }
@@ -56,15 +71,13 @@ func (d *FuncDecl) End() token.Pos { return d.Body.Closing }
 func (*FuncDecl) declNode() {}
 
 type (
-	// A AssignStmt node represents a assign statement.
 	AssignStmt struct {
-		Local  bool
+		Local  token.Pos // position of "local"
 		Lhs    Expr
 		Assign token.Pos // position of "="
 		Rhs    Expr
 	}
 
-	// A BlockStmt node represents a block statement.
 	BlockStmt struct {
 		Tok     token.Token // Token.NONE | Token.LBRACE
 		Opening token.Pos
@@ -72,70 +85,103 @@ type (
 		Closing token.Pos
 	}
 
-	// An ExprStmt node represents an expr statement.
 	ExprStmt struct {
 		X Expr
 	}
 
-	// A ReturnStmt node represents a return statement.
 	ReturnStmt struct {
 		Return token.Pos // position of "return"
 		X      Expr
 	}
 
-	// A BreakStmt node represents a break statement.
 	BreakStmt struct {
 		Break token.Pos // position of "break"
 	}
 
-	// A ContinueStmt node represents a continue statement.
 	ContinueStmt struct {
 		Continue token.Pos // position of "continue"
 	}
 
-	// A WhileStmt node represents a while statement.
 	WhileStmt struct {
-		While  token.Pos // position of "while"
-		Cond   Expr
-		Body   *BlockStmt
-		EndPos token.Pos // position of "end"
+		While token.Pos // position of "while"
+		Cond  Expr
+		Semi  token.Pos // position of ";"
+		Do    token.Pos // position of "do"
+		Body  *BlockStmt
+		Done  token.Pos // position of "done"
 	}
 
-	// A ForeachStmt node represents a foreach statement.
-	ForeachStmt struct {
+	UntilStmt struct {
+		Until token.Pos // position of "until"
+		Cond  Expr
+		Semi  token.Pos // position of ";"
+		Do    token.Pos // position of "do"
+		Body  *BlockStmt
+		Done  token.Pos // position of "done"
+	}
+
+	// for name [ [in [words …] ] ; ] do commands; done
+	ForInStmt struct {
+		For  token.Pos // position of "for"
+		Var  Expr
+		In   token.Pos // position of "in"
+		List Expr
+		Semi token.Pos // position of ";"
+		Do   token.Pos // position of "do"
+		Body *BlockStmt
+		Done token.Pos // position of "done"
+	}
+
+	// for (( expr1 ; expr2 ; expr3 )) ; do commands ; done
+	ForStmt struct {
 		For    token.Pos // position of "for"
-		Elem   Expr
-		In     token.Pos // position of "in"
-		Group  []Expr
-		Body   *BlockStmt
-		EndPos token.Pos // position of "end"
-	}
-
-	// An IfStmt node represents an if statement.
-	IfStmt struct {
-		If     token.Pos // position of "if"
+		Lparen token.Pos // position of "(("
+		Init   Expr
+		Semi1  token.Pos // position of ";"
 		Cond   Expr
+		Semi2  token.Pos // position of ";"
+		Post   Expr
+		Rparen token.Pos // position of "))"
+		Do     token.Pos // position of "do"
 		Body   *BlockStmt
-		Elif   []*IfStmt
-		Else   *BlockStmt
-		EndPos token.Pos // position of "end"
+		Done   token.Pos // position of "done"
 	}
 
-	// A SwitchStmt node represents a switch statement.
-	SwitchStmt struct {
-		Switch token.Pos // position of "switch"
-		Lparen token.Pos // position of "("
-		Var    Expr
-		Rparen token.Pos // position of ")"
-		Cases  []*CaseClause
-		Else   *BlockStmt
-		EndPos token.Pos // position of "end"
+	IfStmt struct {
+		If   token.Pos // position of "if"
+		Cond Expr
+		Semi token.Pos // position of ";"
+		Then token.Pos // position of "then"
+		Body *BlockStmt
+		Else Stmt
+		Fi   token.Pos // position of "fi"
+	}
+
+	CaseStmt struct {
+		Case     token.Pos // position of "case"
+		X        Expr
+		In       token.Pos // position of "in"
+		Patterns []*CaseClause
+		Else     *BlockStmt
+		Esac     token.Pos // position of "esac"
 	}
 
 	CaseClause struct {
-		Case  token.Pos // position of "case"
-		Conds []Expr
-		Body  *BlockStmt
+		Conds  []Expr
+		Rparen token.Pos // position of ")"
+		Body   *BlockStmt
+		Semi   token.Pos // position of ";;"
+	}
+
+	SelectStmt struct {
+		Select token.Pos // position of "select"
+		Var    Expr
+		In     token.Pos // position of "in"
+		List   Expr
+		Semi   token.Pos // position of ";"
+		Do     token.Pos // position of "do"
+		Body   *BlockStmt
+		Done   token.Pos // position of "done"
 	}
 )
 
@@ -154,9 +200,12 @@ func (s *ReturnStmt) Pos() token.Pos   { return s.Return }
 func (s *BreakStmt) Pos() token.Pos    { return s.Break }
 func (s *ContinueStmt) Pos() token.Pos { return s.Continue }
 func (s *WhileStmt) Pos() token.Pos    { return s.While }
-func (s *ForeachStmt) Pos() token.Pos  { return s.For }
+func (s *UntilStmt) Pos() token.Pos    { return s.Until }
+func (s *ForInStmt) Pos() token.Pos    { return s.For }
+func (s *ForStmt) Pos() token.Pos      { return s.For }
 func (s *IfStmt) Pos() token.Pos       { return s.If }
-func (s *SwitchStmt) Pos() token.Pos   { return s.Switch }
+func (s *CaseStmt) Pos() token.Pos     { return s.Case }
+func (s *SelectStmt) Pos() token.Pos   { return s.Select }
 
 func (s *AssignStmt) End() token.Pos { return s.Rhs.End() }
 func (s *BlockStmt) End() token.Pos {
@@ -172,10 +221,13 @@ func (s *ExprStmt) End() token.Pos     { return s.X.End() }
 func (s *ReturnStmt) End() token.Pos   { return s.X.End() }
 func (s *BreakStmt) End() token.Pos    { return s.Break }
 func (s *ContinueStmt) End() token.Pos { return s.Continue }
-func (s *WhileStmt) End() token.Pos    { return s.EndPos }
-func (s *ForeachStmt) End() token.Pos  { return s.EndPos }
-func (s *IfStmt) End() token.Pos       { return s.EndPos }
-func (s *SwitchStmt) End() token.Pos   { return s.EndPos }
+func (s *WhileStmt) End() token.Pos    { return s.Done }
+func (s *UntilStmt) End() token.Pos    { return s.Done }
+func (s *ForInStmt) End() token.Pos    { return s.Done }
+func (s *ForStmt) End() token.Pos      { return s.Done }
+func (s *IfStmt) End() token.Pos       { return s.Fi }
+func (s *CaseStmt) End() token.Pos     { return s.Esac }
+func (s *SelectStmt) End() token.Pos   { return s.Done }
 
 func (*AssignStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode()    {}
@@ -184,9 +236,12 @@ func (*ReturnStmt) stmtNode()   {}
 func (*BreakStmt) stmtNode()    {}
 func (*ContinueStmt) stmtNode() {}
 func (*WhileStmt) stmtNode()    {}
-func (*ForeachStmt) stmtNode()  {}
+func (*UntilStmt) stmtNode()    {}
+func (*ForInStmt) stmtNode()    {}
+func (*ForStmt) stmtNode()      {}
 func (*IfStmt) stmtNode()       {}
-func (*SwitchStmt) stmtNode()   {}
+func (*CaseStmt) stmtNode()     {}
+func (*SelectStmt) stmtNode()   {}
 
 type (
 	// Word string
@@ -221,8 +276,8 @@ type (
 
 	// [ ]
 	//
-	// A BasicTestExpr node represents a basic test command expression.
-	BasicTestExpr struct {
+	// A TestExpr node represents a basic test command expression.
+	TestExpr struct {
 		Lbrack token.Pos // position of "["
 		X      Expr
 		Rbrack token.Pos // position of "]"
@@ -279,18 +334,36 @@ type (
 
 	// Arithmetic Expansion: $(())
 	//
-	// An ArithExp node represents an arithmetic expansion expression.
-	ArithExp struct {
+	// An ArithExpr node represents an arithmetic expansion expression.
+	ArithExpr struct {
 		Dollar token.Pos // position of "$"
 		Lparen token.Pos // position of "(("
 		X      Expr
 		Rparen token.Pos // position of "))"
 	}
 
+	// Variable Expansion: $a
+	//
+	// A VarExpExpr node represents an variable expansion expression.
+	VarExpExpr struct {
+		Dollar token.Pos // position of "$"
+		X      Expr
+	}
+
+	// X[Y]
+	//
+	// A IndexExpr node represents index expression.
+	IndexExpr struct {
+		X      Expr
+		Lbrack token.Pos // position of "["
+		Y      Expr
+		Rbrack token.Pos // position of "]"
+	}
+
 	// Parameter Expandsion: ${}
 	//
-	// A ParamExp node represents an parameter expansion expression.
-	ParamExp struct {
+	// A ParamExpExpr node represents an parameter expansion expression.
+	ParamExpExpr struct {
 		Dollar               token.Pos // position of "$"
 		Lbrace               token.Pos // position of "{"
 		Var                  Expr
@@ -421,6 +494,13 @@ type (
 		At token.Pos // position of "@"
 		Op ExpOperator
 	}
+
+	// (VAR1 VAR2 ... VARN)
+	ArrExpr struct {
+		Lparen token.Pos // position of "("
+		Vars   []Expr
+		Rparen token.Pos // position of ")"
+	}
 )
 
 // func (x Word) Pos() token.Pos              { return token.NoPos }
@@ -428,13 +508,16 @@ func (x *BinaryExpr) Pos() token.Pos       { return x.X.Pos() }
 func (x *CallExpr) Pos() token.Pos         { return x.Func.NamePos }
 func (x *Ident) Pos() token.Pos            { return x.NamePos }
 func (x *BasicLit) Pos() token.Pos         { return x.ValuePos }
-func (x *BasicTestExpr) Pos() token.Pos    { return x.Lbrack }
+func (x *TestExpr) Pos() token.Pos         { return x.Lbrack }
 func (x *ExtendedTestExpr) Pos() token.Pos { return x.Lbrack }
 func (x *ArithEvalExpr) Pos() token.Pos    { return x.Lparen }
 func (x *CmdSubst) Pos() token.Pos         { return x.Dollar }
 func (x *ProcSubst) Pos() token.Pos        { return x.TokPos }
-func (x *ArithExp) Pos() token.Pos         { return x.Dollar }
-func (x *ParamExp) Pos() token.Pos         { return x.Dollar }
+func (x *ArithExpr) Pos() token.Pos        { return x.Dollar }
+func (x *VarExpExpr) Pos() token.Pos       { return x.Dollar }
+func (x *ParamExpExpr) Pos() token.Pos     { return x.Dollar }
+func (x *IndexExpr) Pos() token.Pos        { return x.X.Pos() }
+func (x *ArrExpr) Pos() token.Pos          { return x.Lparen }
 
 // func (x Word) End() token.Pos        { return token.NoPos }
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
@@ -446,26 +529,171 @@ func (x *CallExpr) End() token.Pos {
 }
 func (x *Ident) End() token.Pos            { return token.Pos(int(x.NamePos) + len(x.Name)) }
 func (x *BasicLit) End() token.Pos         { return token.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *BasicTestExpr) End() token.Pos    { return x.Rbrack }
+func (x *TestExpr) End() token.Pos         { return x.Rbrack }
 func (x *ExtendedTestExpr) End() token.Pos { return x.Rbrack }
 func (x *ArithEvalExpr) End() token.Pos    { return x.Rparen }
 func (x *CmdSubst) End() token.Pos         { return x.Closing }
 func (x *ProcSubst) End() token.Pos        { return x.Rparen }
-func (x *ArithExp) End() token.Pos         { return x.Rparen }
-func (x *ParamExp) End() token.Pos         { return x.Rbrace }
+func (x *ArithExpr) End() token.Pos        { return x.Rparen }
+func (x *VarExpExpr) End() token.Pos       { return x.X.End() }
+func (x *ParamExpExpr) End() token.Pos     { return x.Rbrace }
+func (x *IndexExpr) End() token.Pos        { return x.Rbrack }
+func (x *ArrExpr) End() token.Pos          { return x.Rparen }
 
 // func (Word) exprNode()              {}
 func (*BinaryExpr) exprNode()       {}
 func (*CallExpr) exprNode()         {}
 func (*Ident) exprNode()            {}
 func (*BasicLit) exprNode()         {}
-func (*BasicTestExpr) exprNode()    {}
+func (*TestExpr) exprNode()         {}
 func (*ExtendedTestExpr) exprNode() {}
 func (*ArithEvalExpr) exprNode()    {}
 func (*CmdSubst) exprNode()         {}
 func (*ProcSubst) exprNode()        {}
-func (*ArithExp) exprNode()         {}
-func (*ParamExp) exprNode()         {}
+func (*ArithExpr) exprNode()        {}
+func (*VarExpExpr) exprNode()       {}
+func (*ParamExpExpr) exprNode()     {}
+func (*IndexExpr) exprNode()        {}
+func (*ArrExpr) exprNode()          {}
+
+func (e *BinaryExpr) String() string {
+	if e.Op == token.NONE {
+		if e.Compress {
+			return fmt.Sprintf("%s%s", e.X, e.Y)
+		}
+		return fmt.Sprintf("%s %s", e.X, e.Y)
+	}
+	if e.Compress {
+		return fmt.Sprintf("%s%s%s", e.X, token.ToString[e.Op], e.Y)
+	}
+	return fmt.Sprintf("%s %s %s", e.X, token.ToString[e.Op], e.Y)
+}
+
+func (e *Ident) String() string {
+	return e.Name
+}
+
+func (e *BasicLit) String() string {
+	if e.Kind == token.STRING {
+		return fmt.Sprintf(`"%s"`, e.Value)
+	}
+	return e.Value
+}
+
+func (e *CallExpr) String() string {
+	if len(e.Recv) == 0 {
+		return e.Func.String()
+	}
+	recv := []string{}
+	for _, e := range e.Recv {
+		recv = append(recv, e.String())
+	}
+	return fmt.Sprintf("%s %s", e.Func, strings.Join(recv, " "))
+}
+
+func (e *TestExpr) String() string {
+	return fmt.Sprintf("[ %s ]", e.X)
+}
+
+func (e *ExtendedTestExpr) String() string {
+	return fmt.Sprintf("[[ %s ]]", e.X)
+}
+
+func (e *ArithEvalExpr) String() string {
+	return fmt.Sprintf("(( %s ))", e.X)
+}
+
+func (e *CmdSubst) String() string {
+	if e.Tok == token.LPAREN {
+		return fmt.Sprintf("$( %s )", e.X)
+	}
+	return fmt.Sprintf("` %s `", e.X)
+}
+
+func (e *ProcSubst) String() string {
+	if e.Tok == token.LT {
+		return fmt.Sprintf("<( %s )", e.X)
+	}
+	return fmt.Sprintf(">( %s )", e.X)
+}
+
+func (e *ArithExpr) String() string {
+	return fmt.Sprintf("$(( %s ))", e.X)
+}
+
+func (e *VarExpExpr) String() string {
+	return fmt.Sprintf("$%s", e.X)
+}
+
+func (e *ParamExpExpr) String() string {
+	switch {
+	case e.DefaultValExp != nil:
+		return fmt.Sprintf("${%s:-%s}", e.Var, e.DefaultValExp.Val)
+	case e.DefaultValAssignExp != nil:
+		return fmt.Sprintf("${%s:=%s}", e.Var, e.DefaultValAssignExp.Val)
+	case e.NonNullCheckExp != nil:
+		return fmt.Sprintf("${%s:?%s}", e.Var, e.NonNullCheckExp.Val)
+	case e.NonNullExp != nil:
+		return fmt.Sprintf("${%s:+%s}", e.Var, e.NonNullExp.Val)
+	case e.PrefixExp != nil:
+		return fmt.Sprintf("${!%s*}", e.Var)
+	case e.PrefixArrayExp != nil:
+		return fmt.Sprintf("${!%s@}", e.Var)
+	case e.ArrayIndexExp != nil:
+		if e.Tok == token.MUL {
+			return fmt.Sprintf("${!%s[*]}", e.Var)
+		}
+		return fmt.Sprintf("${!%s[@]}", e.Var)
+	case e.LengthExp != nil:
+		return fmt.Sprintf("${#%s}", e.Var)
+	case e.DelPrefix != nil:
+		if e.DelPrefix.Longest {
+			return fmt.Sprintf("${%s##%s}", e.Var, e.DelPrefix.Val)
+		}
+		return fmt.Sprintf("${%s#%s}", e.Var, e.DelPrefix.Val)
+	case e.DelSuffix != nil:
+		if e.DelSuffix.Longest {
+			return fmt.Sprintf("${%s%%%%%s}", e.Var, e.DelPrefix.Val)
+		}
+		return fmt.Sprintf("${%s%%%s}", e.Var, e.DelPrefix.Val)
+	case e.SubstringExp != nil:
+		if e.SubstringExp.Offset != e.SubstringExp.Length {
+			return fmt.Sprintf("${%s:%d:%d}", e.Var, e.SubstringExp.Offset, e.SubstringExp.Length)
+		}
+		return fmt.Sprintf("${%s:%d}", e.Var, e.SubstringExp.Offset)
+	case e.ReplaceExp != nil:
+		return fmt.Sprintf("${%s/%s/%s}", e.Var, e.ReplaceExp.Old, e.ReplaceExp.New)
+	case e.ReplacePrefixExp != nil:
+		return fmt.Sprintf("${%s/#%s/%s}", e.Var, e.ReplacePrefixExp.Old, e.ReplacePrefixExp.New)
+	case e.ReplaceSuffixExp != nil:
+		return fmt.Sprintf("${%s/%%%s/%s}", e.Var, e.ReplaceSuffixExp.Old, e.ReplaceSuffixExp.New)
+	case e.CaseConversionExp != nil:
+		if e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s^}", e.Var)
+		} else if !e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s^^}", e.Var)
+		} else if e.CaseConversionExp.FirstChar && !e.CaseConversionExp.ToUpper {
+			return fmt.Sprintf("${%s,}", e.Var)
+		} else {
+			return fmt.Sprintf("${%s,,}", e.Var)
+		}
+	case e.OperatorExp != nil:
+		return fmt.Sprintf("${%s@%s}", e.Var, e.OperatorExp.Op)
+	}
+	return fmt.Sprintf("${%s}", e.Var)
+}
+
+func (e *IndexExpr) String() string {
+	return fmt.Sprintf("%s[%s]", e.X, e.Y)
+}
+
+func (e *ArrExpr) String() string {
+	vars := []string{}
+	for _, v := range e.Vars {
+		vars = append(vars, v.String())
+	}
+	return fmt.Sprintf("(%s)", strings.Join(vars, " "))
+}
 
 type ExpOperator string
 

@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hulo-lang/hulo/grammar/vbs/token"
+	"github.com/hulo-lang/hulo/syntax/vbs/token"
 )
 
 var _ Visitor = (*printer)(nil)

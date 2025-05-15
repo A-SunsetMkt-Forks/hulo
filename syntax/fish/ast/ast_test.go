@@ -6,8 +6,8 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/hulo-lang/hulo/grammar/fish/ast"
-	"github.com/hulo-lang/hulo/grammar/fish/token"
+	"github.com/hulo-lang/hulo/syntax/fish/ast"
+	"github.com/hulo-lang/hulo/syntax/fish/token"
 )
 
 func TestStmt(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hulo-lang/hulo/grammar/fish/token"
+	"github.com/hulo-lang/hulo/syntax/fish/token"
 )
 
 var _ Visitor = (*printer)(nil)

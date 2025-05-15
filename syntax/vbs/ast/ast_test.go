@@ -6,8 +6,8 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/hulo-lang/hulo/grammar/vbs/ast"
-	"github.com/hulo-lang/hulo/grammar/vbs/token"
+	"github.com/hulo-lang/hulo/syntax/vbs/ast"
+	"github.com/hulo-lang/hulo/syntax/vbs/token"
 	"github.com/stretchr/testify/assert"
 )
 
