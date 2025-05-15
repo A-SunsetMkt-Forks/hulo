@@ -8,232 +8,142 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/hulo-lang/hulo/grammar/bash/token"
 )
 
 var _ Visitor = (*printer)(nil)
 
 type printer struct {
 	output io.Writer
-	ident  string
-	temp   string
+	ident  int
 }
 
-func (p *printer) print(toks ...any) *printer {
-	if len(p.ident) != 0 {
-		toks = append([]any{p.ident}, toks...)
-	}
-	fmt.Fprint(p.output, toks...)
-	return p
+func (p *printer) print(a ...any) {
+	fmt.Fprint(p.output, a...)
 }
 
-// println prints tokens with new line
-func (p *printer) println(toks ...any) *printer {
-	if len(p.ident) != 0 {
-		toks = append([]any{p.ident}, toks...)
-	}
-	fmt.Fprintln(p.output, toks...)
-	return p
+func (p *printer) printf(format string, a ...any) {
+	fmt.Fprintf(p.output, strings.Repeat("  ", p.ident)+format, a...)
 }
 
-// println_c prints tokens with new line and compressing
-func (p *printer) println_c(toks ...string) *printer {
-	if len(p.ident) != 0 {
-		toks = append([]string{p.ident}, toks...)
-	}
-	result := ""
-	for _, tok := range toks {
-		result += tok
-	}
-	fmt.Fprintln(p.output, result)
-	return p
-}
-
-func (p *printer) block(stmts []Stmt) *printer {
-	for _, s := range stmts {
-		Walk(p, s)
-	}
-	return p
+func (p *printer) println(a ...any) {
+	fmt.Fprint(p.output, strings.Repeat("  ", p.ident))
+	fmt.Fprintln(p.output, a...)
 }
 
 func (p *printer) Visit(node Node) Visitor {
-	switch n := node.(type) {
+	switch node := node.(type) {
 	case *File:
-		for _, d := range n.Decls {
+		for _, d := range node.Decls {
 			Walk(p, d)
 		}
 
-		for _, s := range n.Stmts {
+		for _, s := range node.Stmts {
+			Walk(p, s)
+		}
+	case *FuncDecl:
+
+	case *BlockStmt:
+		for _, s := range node.List {
 			Walk(p, s)
 		}
 
-	case *FuncDecl:
-		p.println(token.FUNCTION, n.Name.Text(), token.LPAREN+token.RPAREN, token.LBRACE)
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-		println(token.RBRACE)
-
-	case *AssignStmt:
-		if n.Local.IsValid() {
-			p.println_c(token.LOCAL, token.SPACE, n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
-		} else {
-			p.println_c(n.Lhs.Text(), token.ASSIGN, n.Rhs.Text())
-		}
-
-	case *ReturnStmt:
-		p.println(token.RETURN, n.X.Text())
-
-	case *BreakStmt:
-		p.println(token.BREAK)
-
-	case *ContinueStmt:
-		p.println(token.CONTINUE)
-
 	case *WhileStmt:
-		p.println(token.WHILE, n.Cond.Text()).
-			println(token.DO)
-
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-
-		p.println(token.DONE)
+		p.printf("while %s; do\n", node.Cond)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("done")
 
 	case *UntilStmt:
-		p.println(token.UNTIL, n.Cond.Text()).
-			println(token.DO)
-
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-
-		p.println(token.DONE)
-
-	case *ForeachStmt:
-		group := []string{}
-		for _, g := range n.Group {
-			group = append(group, g.Text())
-		}
-		p.println(token.FOR, n.Elem.Text(), token.IN, strings.Join(group, " "), token.SEMI).
-			println(token.DO)
-
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-
-		p.println(token.DONE)
+		p.printf("until %s; do\n", node.Cond)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("done")
 
 	case *ForStmt:
-		p.println_c(token.FOR, token.SPACE, token.DOUBLE_LPAREN,
-			n.Init.Text(), token.SEMI, token.SPACE,
-			n.Cond.Text(), token.SEMI, token.SPACE,
-			n.Post.Text(), token.SPACE, token.DOUBLE_RPAREN,
-			token.SEMI).
-			println(token.DO)
+		p.printf("for ((%s; %s; %s)); do\n", node.Init, node.Cond, node.Post)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("done")
 
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-
-		p.println(token.DONE)
-
-	case *IfStmt:
-		p.println_c(token.IF, token.SPACE, n.Cond.Text(), token.SEMI, token.SPACE, token.THEN)
-
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
-
-		for n.Else != nil {
-			switch el := n.Else.(type) {
-			case *IfStmt:
-
-			case *BlockStmt:
-				fmt.Fprint(p.output, p.ident+"else")
-				p.print(el)
-				n.Else = nil
-			}
-		}
-
-		if n.Else != nil {
-			p.println(token.ELSE)
-			temp := p.ident
-			p.ident += "  "
-			p.block(n.Body.List)
-			p.ident = temp
-		}
-
-		p.println(token.FI)
-
-	case *CaseStmt:
-		p.println(token.CASE, n.Var.Text(), token.IN)
-
-		for _, c := range n.Cases {
-			cs := []string{}
-			for _, cond := range c.Conds {
-				cs = append(cs, cond.Text())
-			}
-
-			p.println_c(strings.Join(cs, " | "), token.RPAREN)
-
-			temp := p.ident
-			p.ident += "  "
-			p.block(c.Body.List)
-			p.ident = temp
-
-			temp = p.ident
-			p.ident += "  "
-			p.println(token.DOUBLE_SEMI)
-			p.ident = temp
-		}
-
-		if n.Else != nil {
-			p.println_c(token.MUL, token.RPAREN)
-
-			temp := p.ident
-			p.ident += "  "
-			p.block(n.Else.List)
-			p.ident = temp
-
-			temp = p.ident
-			p.ident += "  "
-			p.println(token.DOUBLE_SEMI)
-			p.ident = temp
-		}
-
-		p.println(token.ESAC)
+	case *ForInStmt:
+		p.printf("for %s in %s; do\n", node.Var, node.List)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("done")
 
 	case *SelectStmt:
-		p.println(token.SELECT, n.Elem.Text(), token.IN, n.Group.Text(), token.SEMI).
-			println(token.DO)
+		p.printf("select %s in %s; do\n", node.Var, node.List)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		p.println("done")
 
-		temp := p.ident
-		p.ident += "  "
-		p.block(n.Body.List)
-		p.ident = temp
+	case *IfStmt:
+		p.printf("if %s; then\n", node.Cond)
+		p.ident++
+		Walk(p, node.Body)
+		p.ident--
+		for node.Else != nil {
+			switch el := node.Else.(type) {
+			case *IfStmt:
+				p.printf("elif %s; then\n", el.Cond)
+				p.ident++
+				Walk(p, el.Body)
+				p.ident--
+				node.Else = el.Else
+			case *BlockStmt:
+				p.println("else")
+				Walk(p, el)
+				node.Else = nil
+			}
+		}
 
-		p.println(token.DONE)
+		p.println("fi")
 
-	case *ExprStmt:
-		p.println(n.X.Text())
+	case *CaseStmt:
+		p.printf("case %s in\n", node.X)
+
+		for _, pattern := range node.Patterns {
+			p.printf("  %s)\n", pattern.Conds)
+			p.ident += 2
+			Walk(p, pattern.Body)
+			p.ident -= 2
+			p.println(";;")
+		}
+
+		if node.Else != nil {
+			p.println("  *)")
+			p.ident += 2
+			Walk(p, node.Else)
+			p.ident -= 2
+		}
+
+		p.println("esac")
+
+	case *AssignStmt:
+		if node.Local.IsValid() {
+			p.printf("local %s=%s\n", node.Lhs, node.Rhs)
+		} else {
+			p.printf("%s=%s\n", node.Lhs, node.Rhs)
+		}
+	case *BreakStmt:
+		p.println("break")
+	case *ContinueStmt:
+		p.println("continue")
 	}
 	return nil
 }
 
 func Print(node Node) {
-	Walk(&printer{ident: "", output: os.Stdout}, node)
+	Walk(&printer{ident: 0, output: os.Stdout}, node)
 }
 
 func String(node Node) string {
 	buf := &strings.Builder{}
-	Walk(&printer{ident: "", output: buf}, node)
+	Walk(&printer{ident: 0, output: buf}, node)
 	return buf.String()
 }

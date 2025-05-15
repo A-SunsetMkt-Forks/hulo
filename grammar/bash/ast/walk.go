@@ -41,7 +41,7 @@ func Walk(v Visitor, node Node) {
 	case *UntilStmt:
 		Walk(v, n)
 
-	case *ForeachStmt:
+	case *ForInStmt:
 		Walk(v, n)
 
 	case *ForStmt:
@@ -57,6 +57,9 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n)
 
 	case *ExprStmt:
+		Walk(v, n)
+
+	case *AssignStmt:
 		Walk(v, n)
 	}
 }

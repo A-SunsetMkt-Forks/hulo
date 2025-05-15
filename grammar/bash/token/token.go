@@ -16,115 +16,245 @@ func (p Pos) IsValid() bool {
 // for NoPos is the zero value for Position.
 const NoPos Pos = 0
 
-type Token string
+type Token uint
 
 const (
-	NONE  = ""
-	SPACE = " "
+	NONE = iota
 
-	ADD = "+"
-	SUB = "-"
-	MUL = "*"
-	DIV = "/"
-	MOD = "%"
-	EXP = "**"
+	ADD // +
+	SUB // -
+	MUL // *
+	DIV // /
+	MOD // %
+	EXP // **
 
-	HASH   = "#"
-	QUEST  = "?"
-	AT     = "@"
-	DOLLAR = "$"
+	HASH   // #
+	QUEST  // ?
+	AT     // @
+	DOLLAR // $
 
-	INC = "++"
-	DEC = "--"
-	EQ  = "=="
-	NEQ = "!="
+	INC // ++
+	DEC // --
+	EQ  // ==
+	NEQ // !=
 
-	LT_AND = ">&"
-	AND_LT = "&>"
+	LT_AND // >&
+	AND_LT // &>
 
-	DOLLAR_MUL   = "$*"
-	DOLLAR_AT    = "$@"
-	DOLLAR_HASH  = "$#"
-	DOLLAR_QUEST = "$?"
-	DOLLAR_SUB   = "$-"
-	DOLLAR_TWO   = "$$"
-	DOLLAR_NOT   = "$!"
-	DOLLAR_ZERO  = "$0"
+	DOLLAR_MUL   // $*
+	DOLLAR_AT    // $@
+	DOLLAR_HASH  // $#
+	DOLLAR_QUEST // $?
+	DOLLAR_SUB   // $-
+	DOLLAR_TWO   // $$
+	DOLLAR_NOT   // $!
+	DOLLAR_ZERO  // $0
 
-	SINGLE_QUOTE = "'"
-	DOUBLE_QUOTE = "\""
+	SINGLE_QUOTE // '
+	DOUBLE_QUOTE // "
 
-	BACK_QUOTE = "`"
+	BACK_QUOTE // `
 
-	LT = "<"
-	GT = ">"
+	LT // <
+	GT // >
 
-	LT_ASSIGN        = "<="
-	GT_ASSIGN        = ">="
-	MUL_ASSIGN       = "*="
-	DIV_ASSIGN       = "/="
-	ADD_ASSIGN       = "+="
-	SUB_ASSIGN       = "-="
-	DOUBLE_LT_ASSIGN = "<<="
-	DOUBLE_GT_ASSIGN = ">>="
-	AND_ASSIGN       = "&="
-	XOR_ASSIGN       = "^="
-	OR_ASSIGN        = "|="
+	LT_ASSIGN        // <=
+	GT_ASSIGN        // >=
+	MUL_ASSIGN       // *=
+	DIV_ASSIGN       // /=
+	ADD_ASSIGN       // +=
+	SUB_ASSIGN       // -=
+	DOUBLE_LT_ASSIGN // <<=
+	DOUBLE_GT_ASSIGN // >>=
+	AND_ASSIGN       // &=
+	XOR_ASSIGN       // ^=
+	OR_ASSIGN        // |=
 
-	DOUBLE_LT = "<<"
-	TRIPLE_LT = "<<<"
-	DOUBLE_GT = ">>"
+	DOUBLE_LT // <<
+	TRIPLE_LT // <<<
+	DOUBLE_GT // >>
 
-	LPAREN   = "("
-	RPAREN   = ")"
-	LBRACE   = "{"
-	RBRACE   = "}"
-	LBRACKET = "["
-	RBRACKET = "]"
+	LPAREN   // (
+	RPAREN   // )
+	LBRACE   // {
+	RBRACE   // }
+	LBRACKET // [
+	RBRACKET // ]
 
-	DOUBLE_LPAREN = "(("
-	DOUBLE_RPAREN = "))"
+	DOUBLE_LPAREN // ((
+	DOUBLE_RPAREN // ))
 
-	BITOR  = "|"
-	BITAND = "&"
-	BITNOT = "!"
-	BITNEG = "~"
+	BITOR  // |
+	BITAND // &
+	BITNOT // !
+	BITNEG // ~
 
-	ASSIGN = "="
+	ASSIGN        // =
+	ASSIGN_BITNEG // =~
 
-	COMMA = ","
-	COLON = ":"
-	SEMI  = ";"
+	COMMA // ,
+	COLON // :
+	SEMI  // ;
 
-	DOUBLE_SEMI = ";;"
+	DOUBLE_SEMI // ;;
 
-	AND = "&&"
-	OR  = "||"
-	XOR = "^"
+	AND // &&
+	OR  // ||
+	XOR // ^
 
-	IF       = "if"
-	THEN     = "then"
-	ELIF     = "elif"
-	ELSE     = "else"
-	FI       = "fi"
-	FOR      = "for"
-	IN       = "in"
-	UNTIL    = "until"
-	WHILE    = "while"
-	DO       = "do"
-	DONE     = "done"
-	CASE     = "case"
-	ESAC     = "esac"
-	SELECT   = "select"
-	FUNCTION = "function"
-	LOCAL    = "local"
-	RETURN   = "return"
-	BREAK    = "break"
-	CONTINUE = "continue"
+	IF       // if
+	THEN     // then
+	ELIF     // elif
+	ELSE     // else
+	FI       // fi
+	FOR      // for
+	IN       // in
+	UNTIL    // until
+	WHILE    // while
+	DO       // do
+	DONE     // done
+	CASE     // case
+	ESAC     // esac
+	SELECT   // select
+	FUNCTION // function
+	LOCAL    // local
+	RETURN   // return
+	BREAK    // break
+	CONTINUE // continue
 
-	STRING = "STRING"
-	NUMBER = "NUMBER"
-	WORD   = "WORD"
+	STRING // string
+	NUMBER // number
+	WORD   // word
 
-	EOF = "EOF"
+	EOF // eof
 )
+
+var ToString = map[Token]string{
+	NONE: "",
+
+	// Arithmetic operators
+	ADD: "+",
+	SUB: "-",
+	MUL: "*",
+	DIV: "/",
+	MOD: "%",
+	EXP: "**",
+
+	// Special symbols
+	HASH:   "#",
+	QUEST:  "?",
+	AT:     "@",
+	DOLLAR: "$",
+
+	// Increment/decrement
+	INC: "++",
+	DEC: "--",
+
+	// Comparison operators
+	EQ:  "==",
+	NEQ: "!=",
+
+	// Redirection operators
+	LT_AND: ">&",
+	AND_LT: "&>",
+
+	// Special variables
+	DOLLAR_MUL:   "$*",
+	DOLLAR_AT:    "$@",
+	DOLLAR_HASH:  "$#",
+	DOLLAR_QUEST: "$?",
+	DOLLAR_SUB:   "$-",
+	DOLLAR_TWO:   "$$",
+	DOLLAR_NOT:   "$!",
+	DOLLAR_ZERO:  "$0",
+
+	// Quotes
+	SINGLE_QUOTE: "'",
+	DOUBLE_QUOTE: "\"",
+	BACK_QUOTE:   "`",
+
+	// Comparison
+	LT: "<",
+	GT: ">",
+
+	// Compound assignments
+	LT_ASSIGN:        "<=",
+	GT_ASSIGN:        ">=",
+	MUL_ASSIGN:       "*=",
+	DIV_ASSIGN:       "/=",
+	ADD_ASSIGN:       "+=",
+	SUB_ASSIGN:       "-=",
+	DOUBLE_LT_ASSIGN: "<<=",
+	DOUBLE_GT_ASSIGN: ">>=",
+	AND_ASSIGN:       "&=",
+	XOR_ASSIGN:       "^=",
+	OR_ASSIGN:        "|=",
+
+	// Bit shifting
+	DOUBLE_LT: "<<",
+	TRIPLE_LT: "<<<",
+	DOUBLE_GT: ">>",
+
+	// Brackets
+	LPAREN:   "(",
+	RPAREN:   ")",
+	LBRACE:   "{",
+	RBRACE:   "}",
+	LBRACKET: "[",
+	RBRACKET: "]",
+
+	// Arithmetic expansion
+	DOUBLE_LPAREN: "((",
+	DOUBLE_RPAREN: "))",
+
+	// Bitwise operators
+	BITOR:  "|",
+	BITAND: "&",
+	BITNOT: "!",
+	BITNEG: "~",
+
+	// Assignment and pattern matching
+	ASSIGN:        "=",
+	ASSIGN_BITNEG: "=~",
+
+	// Punctuation
+	COMMA: ",",
+	COLON: ":",
+	SEMI:  ";",
+
+	DOUBLE_SEMI: ";;",
+
+	// Logical operators
+	AND: "&&",
+	OR:  "||",
+	XOR: "^",
+
+	// Keywords
+	IF:       "if",
+	THEN:     "then",
+	ELIF:     "elif",
+	ELSE:     "else",
+	FI:       "fi",
+	FOR:      "for",
+	IN:       "in",
+	UNTIL:    "until",
+	WHILE:    "while",
+	DO:       "do",
+	DONE:     "done",
+	CASE:     "case",
+	ESAC:     "esac",
+	SELECT:   "select",
+	FUNCTION: "function",
+	LOCAL:    "local",
+	RETURN:   "return",
+	BREAK:    "break",
+	CONTINUE: "continue",
+
+	// Literals
+	STRING: "string",
+	NUMBER: "number",
+	WORD:   "word",
+
+	// End of file
+	EOF: "",
+}

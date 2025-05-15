@@ -8,7 +8,67 @@ import (
 
 	"github.com/hulo-lang/hulo/grammar/bash/ast"
 	"github.com/hulo-lang/hulo/grammar/bash/token"
+	"github.com/stretchr/testify/assert"
 )
+
+var NotNullPos = token.Pos(1)
+
+func TestAssignStmt(t *testing.T) {
+	actual := ast.String(&ast.AssignStmt{
+		Lhs: &ast.Ident{Name: "count"},
+		Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+	})
+	assert.Equal(t, "count=0", actual)
+
+	actual = ast.String(&ast.AssignStmt{
+		Local: NotNullPos,
+		Lhs:   &ast.Ident{Name: "count"},
+		Rhs:   &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+	})
+	assert.Equal(t, "local count=0", actual)
+}
+
+func TestIfStmt(t *testing.T) {
+	nestedIf := &ast.IfStmt{
+		Cond: &ast.TestExpr{
+			X: &ast.BinaryExpr{
+				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
+				Op: token.ASSIGN,
+				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
+					Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+				},
+			},
+		},
+	}
+
+	rootIf := &ast.IfStmt{
+		Cond: &ast.ExtendedTestExpr{
+			X: &ast.BinaryExpr{
+				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
+				Op: token.ASSIGN,
+				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
+					Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+				},
+				nestedIf,
+			},
+		},
+		Else: nestedIf,
+	}
+
+	ast.Print(rootIf)
+}
 
 func TestStmt(t *testing.T) {
 	ast.Print(&ast.BlockStmt{
@@ -60,8 +120,8 @@ func TestPrint(t *testing.T) {
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.CaseStmt{
-							Var: &ast.Ident{Name: "$ANIMAL"},
-							Cases: []*ast.CaseClause{
+							X: &ast.Ident{Name: "$ANIMAL"},
+							Patterns: []*ast.CaseClause{
 								{Conds: []ast.Expr{&ast.Ident{Name: "cat"}, &ast.Ident{Name: "horse"}},
 									Body: &ast.BlockStmt{
 										List: []ast.Stmt{
@@ -115,7 +175,7 @@ func TestPrint(t *testing.T) {
 					Y: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
 							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-							Op: "=~",
+							Op: token.ASSIGN_BITNEG,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
 					},
@@ -134,7 +194,7 @@ func TestPrint(t *testing.T) {
 					Y: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
 							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-							Op: "=~",
+							Op: token.ASSIGN_BITNEG,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
 					},
