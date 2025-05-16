@@ -58,6 +58,9 @@ const (
 	LT // <
 	GT // >
 
+	LT_LIT // -lt
+	GT_LIT // -gt
+
 	LT_ASSIGN        // <=
 	GT_ASSIGN        // >=
 	MUL_ASSIGN       // *=
@@ -176,6 +179,9 @@ var ToString = map[Token]string{
 	// Comparison
 	LT: "<",
 	GT: ">",
+
+	LT_LIT: "-lt",
+	GT_LIT: "-gt",
 
 	// Compound assignments
 	LT_ASSIGN:        "<=",

@@ -41,11 +41,14 @@ func (p *printer) Visit(node Node) Visitor {
 			Walk(p, s)
 		}
 	case *FuncDecl:
-		p.printf("function %s {\n", node.Name)
+		p.printf("function %s() {\n", node.Name)
 		p.ident++
 		Walk(p, node.Body)
 		p.ident--
 		p.println("}")
+
+	case *ExprStmt:
+		p.printf("%s\n", node.X)
 
 	case *BlockStmt:
 		for _, s := range node.List {
@@ -67,7 +70,27 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println("done")
 
 	case *ForStmt:
-		p.printf("for ((%s; %s; %s)); do\n", node.Init, node.Cond, node.Post)
+		p.print("for (( ")
+		if node.Init != nil {
+			if init, ok := node.Init.(*AssignStmt); ok {
+				p.printf("%s=%s", init.Lhs, init.Rhs)
+			} else {
+				p.printf("%s", node.Init)
+			}
+		}
+		p.printf("; ")
+		if node.Cond != nil {
+			p.printf("%s", node.Cond)
+		}
+		p.printf("; ")
+		if node.Post != nil {
+			if post, ok := node.Post.(*AssignStmt); ok {
+				p.printf("%s=%s", post.Lhs, post.Rhs)
+			} else {
+				p.printf("%s", node.Post)
+			}
+		}
+		p.println(")); do")
 		p.ident++
 		Walk(p, node.Body)
 		p.ident--

@@ -70,6 +70,116 @@ func TestIfStmt(t *testing.T) {
 	ast.Print(rootIf)
 }
 
+func TestFuncDecl(t *testing.T) {
+	ast.Print(&ast.FuncDecl{
+		Name: &ast.Ident{Name: "myecho"},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ExprStmt{
+					X: &ast.CallExpr{
+						Func: &ast.Ident{Name: "echo"},
+						Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "Hello, World!"}},
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestForStmt(t *testing.T) {
+	ast.Print(&ast.ForStmt{
+		Init: &ast.AssignStmt{
+			Lhs: &ast.Ident{Name: "i"},
+			Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+		},
+		Cond: &ast.BinaryExpr{
+			X:  &ast.Ident{Name: "i"},
+			Op: token.LT,
+			Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
+		},
+		Post: &ast.AssignStmt{
+			Lhs: &ast.Ident{Name: "i"},
+			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.NUMBER, Value: "1"}},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ExprStmt{X: &ast.CallExpr{
+					Func: &ast.Ident{Name: "echo"},
+					Recv: []ast.Expr{&ast.Ident{Name: "i"}},
+				}},
+			},
+		},
+	})
+
+	// infinite loop
+	ast.Print(&ast.ForStmt{
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ExprStmt{X: &ast.CallExpr{
+					Func: &ast.Ident{Name: "read"},
+					Recv: []ast.Expr{&ast.Ident{Name: "var"}},
+				}},
+				&ast.IfStmt{
+					Cond: &ast.TestExpr{
+						X: &ast.BinaryExpr{
+							// TODO "$var"
+							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "var"}},
+							Op: token.ASSIGN,
+							Y:  &ast.BasicLit{Kind: token.STRING, Value: "."},
+						},
+					},
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{&ast.BreakStmt{}},
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestForInStmt(t *testing.T) {
+	ast.Print(&ast.ForInStmt{
+		Var:  &ast.Ident{Name: "i"},
+		List: &ast.Ident{Name: "*.png"},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ExprStmt{
+					X: &ast.CallExpr{
+						Func: &ast.Ident{Name: "ls"},
+						Recv: []ast.Expr{&ast.Ident{Name: "-l"}, &ast.VarExpExpr{X: &ast.Ident{Name: "i"}}},
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestWhileStmt(t *testing.T) {
+	ast.Print(&ast.WhileStmt{
+		Cond: &ast.TestExpr{
+			X: &ast.BinaryExpr{
+				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
+				Op: token.LT_LIT,
+				Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: &ast.Ident{Name: "number"},
+					Rhs: &ast.ArithExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
+							Op: token.ADD,
+							Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "1"},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
 func TestStmt(t *testing.T) {
 	ast.Print(&ast.BlockStmt{
 		List: []ast.Stmt{

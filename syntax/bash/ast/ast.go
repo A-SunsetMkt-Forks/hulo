@@ -136,11 +136,11 @@ type (
 	ForStmt struct {
 		For    token.Pos // position of "for"
 		Lparen token.Pos // position of "(("
-		Init   Expr
+		Init   Node
 		Semi1  token.Pos // position of ";"
 		Cond   Expr
 		Semi2  token.Pos // position of ";"
-		Post   Expr
+		Post   Node
 		Rparen token.Pos // position of "))"
 		Do     token.Pos // position of "do"
 		Body   *BlockStmt
@@ -557,16 +557,12 @@ func (*IndexExpr) exprNode()        {}
 func (*ArrExpr) exprNode()          {}
 
 func (e *BinaryExpr) String() string {
-	if e.Op == token.NONE {
-		if e.Compress {
-			return fmt.Sprintf("%s%s", e.X, e.Y)
-		}
-		return fmt.Sprintf("%s %s", e.X, e.Y)
-	}
-	if e.Compress {
+	switch e.Op {
+	case token.LT_LIT, token.GT_LIT:
+		return fmt.Sprintf("%s %s %s", e.X, token.ToString[e.Op], e.Y)
+	default:
 		return fmt.Sprintf("%s%s%s", e.X, token.ToString[e.Op], e.Y)
 	}
-	return fmt.Sprintf("%s %s %s", e.X, token.ToString[e.Op], e.Y)
 }
 
 func (e *Ident) String() string {

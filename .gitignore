@@ -27,3 +27,6 @@ go.work.sum
 # antlr
 .antlr
 antlr.jar
+
+# Added by goreleaser init:
+dist/
