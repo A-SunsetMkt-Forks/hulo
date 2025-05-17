@@ -4,7 +4,7 @@
 package ast
 
 import (
-	"github.com/hulo-lang/hulo/internal/token"
+	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
 type Node interface {

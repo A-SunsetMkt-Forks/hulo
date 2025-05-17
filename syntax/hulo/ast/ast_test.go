@@ -3,7 +3,7 @@ package ast
 import (
 	"testing"
 
-	"github.com/hulo-lang/hulo/internal/token"
+	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
 func TestDeclareDecl(t *testing.T) {

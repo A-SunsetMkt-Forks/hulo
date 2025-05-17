@@ -5,7 +5,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/caarlos0/log"
-	"github.com/hulo-lang/hulo/internal/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
 type ParseOptions struct {

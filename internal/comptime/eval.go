@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hulo-lang/hulo/internal/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/internal/object"
 )
 

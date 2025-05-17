@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
-	hast "github.com/hulo-lang/hulo/internal/ast"
+	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/internal/config"
 )
 

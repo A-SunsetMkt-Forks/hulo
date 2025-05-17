@@ -5,11 +5,11 @@ package compiler
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/hulo-lang/hulo/internal/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/internal/build"
 	"github.com/hulo-lang/hulo/internal/comptime"
 	"github.com/hulo-lang/hulo/internal/config"
-	"github.com/hulo-lang/hulo/internal/parser"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 )
 
 func Compile(cfg *config.Huloc) error {

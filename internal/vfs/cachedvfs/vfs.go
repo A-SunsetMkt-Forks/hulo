@@ -1,8 +1,8 @@
 package cachedvfs
 
 import (
-	"github.com/hulo-lang/hulo/internal/ast"
-	"github.com/hulo-lang/hulo/internal/parser"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	"github.com/hulo-lang/hulo/internal/vfs"
 )
 

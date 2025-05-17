@@ -1,6 +1,6 @@
 package object
 
-import "github.com/hulo-lang/hulo/internal/ast"
+import "github.com/hulo-lang/hulo/syntax/hulo/ast"
 
 type ObjKind int
 

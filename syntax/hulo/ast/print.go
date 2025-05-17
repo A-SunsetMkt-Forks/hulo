@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hulo-lang/hulo/internal/token"
+	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
 func Print(stmt Stmt) {

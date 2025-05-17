@@ -122,5 +122,5 @@ const (
 	NEW    = "new"
 	DELETE = "delete"
 
-	EXTENSION = "extension"
+	EXTENSIONS = "extensions"
 )
