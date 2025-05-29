@@ -18,109 +18,123 @@ const NoPos Pos = 0
 
 const DynPos Pos = -1
 
-type Token string
+//go:generate stringer -type=Token -linecomment
+type Token uint
 
 const (
-	ILLEGAL = "ILLEGAL"
-	EOF     = "EOF"
+	ILLEGAL Token = iota
+	EOF
 
 	// Identifiers
-	IDENT = "IDENT" // add, foobar, x, y, ...
-	NUM   = "num"   // 1343456
-	STR   = "str"   // "foobar"
-	TRUE  = "true"
-	FALSE = "false"
+	// add, foobar, x, y, ...
+	IDENT // IDENT
+	// 1343456
+	NUM // NUM
+	// "foobar"
+	STR   // STR
+	TRUE  // true
+	FALSE // false
 
 	// Operators
-	ASSIGN = "="
-	PLUS   = "+"
-	MINUS  = "-"
+	ASSIGN // =
+	PLUS   // +
+	MINUS  // -
 
-	INC = "++"
-	DEC = "--"
+	INC // ++
+	DEC // --
 
-	ASTERISK = "*"
-	SLASH    = "/"
-	MOD      = "%"
-	POWER    = "**"
+	AT // @
 
-	HASH      = "#"
-	REFERENCE = "$"
-	OR        = "||"
-	AND       = "&&"
+	ASTERISK // *
+	SLASH    // /
+	MOD      // %
+	POWER    // **
 
-	CONCAT = "&"
+	HASH      // #
+	REFERENCE // $
+	OR        // ||
+	AND       // &&
 
-	LT = "<"
-	GT = ">"
+	CONCAT // &
 
-	EQ  = "=="
-	NEQ = "!="
+	LT // <
+	GT // >
 
-	LEQ = "<=" // <=
-	GEQ = ">=" // >=
+	EQ  // ==
+	NEQ // !=
 
-	DOCS = "'"
+	LEQ // <=
+	GEQ // >=
+
+	DOCS // '
 
 	// Delimiters
-	COMMA     = ","
-	SEMICOLON = ";"
-	COLON     = ":"
-	DOT       = "."
-	NS        = "::"
+	COMMA     // ,
+	SEMICOLON // ;
+	COLON     // :
+	DOT       // .
+	NS        // ::
 
-	LPAREN   = "("
-	RPAREN   = ")"
-	LBRACE   = "{"
-	RBRACE   = "}"
-	LBRACKET = "["
-	RBRACKET = "]"
+	LPAREN   // (
+	RPAREN   // )
+	LBRACE   // {
+	RBRACE   // }
+	LBRACKET // [
+	RBRACKET // ]
 
 	/// keywords
 
 	// Package
 
-	MODLIT = "mod"
-	IMPORT = "import"
-	FROM   = "from"
-	AS     = "as"
+	MODLIT // mod
+	IMPORT // import
+	FROM   // from
+	AS     // as
 
 	// Scopes
 
-	LET   = "let"
-	VAR   = "var"
-	CONST = "const"
+	LET   // let
+	VAR   // var
+	CONST // const
 
 	// Function
 
-	FN     = "fn"
-	RETURN = "return"
+	FN     // fn
+	RETURN // return
 
 	// Controll Flow
 
-	IF    = "if"
-	ELSE  = "else"
-	MATCH = "match"
-	LOOP  = "loop"
-	DO    = "do"
+	IF    // if
+	ELSE  // else
+	MATCH // match
+	LOOP  // loop
+	DO    // do
 
 	// Modifiers
 
-	PUB      = "pub"
-	FINAL    = "final"
-	STATIC   = "static"
-	COMPTIME = "comptime"
-	UNSAFE   = "unsafe"
+	PUB      // pub
+	FINAL    // final
+	STATIC   // static
+	COMPTIME // comptime
+	UNSAFE   // unsafe
 
 	// Class and Traits
 
-	CLASS   = "class"
-	EXTENDS = "extends"
-	IMPL    = "impl"
-	FOR     = "for"
+	CLASS   // class
+	EXTENDS // extends
+	IMPL    // impl
+	FOR     // for
 
-	NEW    = "new"
-	DELETE = "delete"
+	NEW    // new
+	DELETE // delete
 
-	EXTENSIONS = "extensions"
+	EXTENSIONS // extensions
+
+	// Error Handling
+	TRY     // try
+	CATCH   // catch
+	FINALLY // finally
+
+	THROW  // throw
+	THROWS // throws
 )

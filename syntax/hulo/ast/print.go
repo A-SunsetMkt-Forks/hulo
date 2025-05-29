@@ -2,7 +2,6 @@ package ast
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
@@ -12,88 +11,74 @@ func Print(stmt Stmt) {
 }
 
 func print(stmt Stmt, ident string) {
-	switch s := stmt.(type) {
+	switch node := stmt.(type) {
 	case *File:
-		for _, ss := range s.Stmts {
+		for _, ss := range node.Stmts {
 			print(ss, ident+"  ")
 		}
 	case *Annotation:
-		fmt.Println(ident + "@" + identString(s.Name))
+		fmt.Printf("%s%s%s\n", ident, token.AT, node.Name)
 	case *ExprStmt:
-		fmt.Println(ident + Expr2String(s.X))
+		fmt.Printf("%s%s\n", ident, node.X)
 	case *TryStmt:
 		fmt.Println(ident + "try {")
-		for _, ss := range s.Body.List {
+		for _, ss := range node.Body.List {
 			print(ss, ident+"  ")
 		}
 		fmt.Print(ident + "}")
-		for _, catch := range s.Catches {
+		for _, catch := range node.Catches {
 			print(catch, ident)
 		}
-		if s.Finally != nil {
-			print(s.Finally, ident)
+		if node.Finally != nil {
+			print(node.Finally, ident)
 		}
 	case *CatchStmt:
 		fmt.Print("catch ")
-		if s.Cond != nil {
-			fmt.Printf("(%s)", Expr2String(s.Cond))
+		if node.Cond != nil {
+			fmt.Printf("(%s)", node.Cond)
 		}
 		fmt.Println("{")
-		for _, ss := range s.Body.List {
+		for _, ss := range node.Body.List {
 			print(ss, ident+"  ")
 		}
 		fmt.Println(ident + "}")
 	case *FinallyStmt:
 		fmt.Print("finally {")
-		for _, ss := range s.Body.List {
+		for _, ss := range node.Body.List {
 			print(ss, ident+"  ")
 		}
 		fmt.Println(ident + "}")
+	case *IfStmt:
+		fmt.Printf("%sif %s {\n", ident, node.Cond)
+		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
+
+		for node.Else != nil {
+			switch el := node.Else.(type) {
+			case *IfStmt:
+				fmt.Printf("%selse if %s {\n", ident, el.Cond)
+				print(el.Body, ident+"  ")
+				fmt.Println(ident + "}")
+				node.Else = el.Else
+			case *BlockStmt:
+				fmt.Printf("%selse {\n", ident)
+				print(el, ident+"  ")
+				fmt.Println(ident + "}")
+				node.Else = nil
+			}
+		}
+
 	case *ThrowStmt:
-		fmt.Println(ident+"throw", Expr2String(s.X))
-	default:
-		fmt.Printf("%T\n", s)
-	}
-}
-
-func Expr2String(expr Expr) string {
-	switch e := expr.(type) {
-	case *Ident:
-		return e.Name
-	case *BasicLit:
-		return e.Value
-	case *BinaryExpr:
-		switch e.Op {
-		case token.COLON:
-			return fmt.Sprintf("%s: %s", Expr2String(e.X), Expr2String(e.Y))
-		default:
-			return fmt.Sprintf("%s%s%s", Expr2String(e.X), e.Op, Expr2String(e.Y))
+		fmt.Printf("%s%s %s\n", ident, token.THROW, node.X)
+	case *ReturnStmt:
+		fmt.Printf("%s%s %s\n", ident, token.RETURN, node.X)
+	case *AssignStmt:
+		fmt.Printf("%s%s %s = %s\n", ident, node.Tok, node.Lhs, node.Rhs)
+	case *BlockStmt:
+		for _, ss := range node.List {
+			print(ss, ident)
 		}
-	case *CallExpr:
-		args := strings.Join(getExprs(e.Recv), ", ")
-		return fmt.Sprintf("%s(%s)", Expr2String(e.Fun), args)
-	case *NewDelExpr:
-		return fmt.Sprintf("new %s", Expr2String(e.X))
-	case *TypeAnnotation:
-		res := []string{}
-		for _, t := range e.List {
-			res = append(res, Expr2String(t))
-		}
-		return fmt.Sprint(strings.Join(res, " | "))
 	default:
-		fmt.Printf("%T\n", e)
+		fmt.Printf("%T\n", node)
 	}
-	return ""
-}
-
-func getExprs(es []Expr) []string {
-	ret := []string{}
-	for _, e := range es {
-		ret = append(ret, Expr2String(e))
-	}
-	return ret
-}
-
-func identString(e Expr) string {
-	return e.(*Ident).Name
 }

@@ -4,6 +4,9 @@
 package ast
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
@@ -25,6 +28,7 @@ type Decl interface {
 type Expr interface {
 	Node
 	exprNode()
+	String() string
 }
 
 // ----------------------------------------------------------------------------
@@ -444,7 +448,7 @@ type (
 	ReturnStmt struct {
 		Doc    *CommentGroup
 		Return token.Pos // position of "return"
-		List   []Expr
+		X      Expr
 	}
 
 	// A DeferStmt node represents a defer statement.
@@ -542,7 +546,7 @@ func (s *Annotation) End() token.Pos {
 	}
 	return s.Name.End()
 }
-func (s *ReturnStmt) End() token.Pos   { return s.List[len(s.List)-1].End() }
+func (s *ReturnStmt) End() token.Pos   { return s.X.End() }
 func (s *IfStmt) End() token.Pos       { return s.Body.Rbrace }
 func (s *MatchStmt) End() token.Pos    { return s.Rbrace }
 func (s *DeferStmt) End() token.Pos    { return s.Call.Rparen }
@@ -672,10 +676,11 @@ type (
 		List []Expr
 	}
 
+	// ${x} or $x
 	RefExpr struct {
 		Dollar token.Pos // position of "$"
 		Lbrace token.Pos // position of "{"
-		Name   Expr
+		X      Expr
 		Rbrace token.Pos // position of "}"
 	}
 
@@ -726,14 +731,92 @@ func (x *RefExpr) End() token.Pos {
 	if x.Rbrace.IsValid() {
 		return x.Rbrace
 	}
-	return x.Name.End()
+	return x.X.End()
 }
 func (x *IncDecExpr) End() token.Pos {
 	return x.TokPos + 2
 }
 func (x *SelectExpr) End() token.Pos { return x.Y.End() }
 
-func (*IndexExpr) exprNode()      {}
+func (x *Ident) String() string {
+	return x.Name
+}
+
+func (x *BasicLit) String() string {
+	if x.Kind == token.STR {
+		return fmt.Sprintf("\"%s\"", x.Value)
+	}
+	return x.Value
+}
+
+func (x *IndexExpr) String() string {
+	return fmt.Sprintf("%s[%s]", x.X, x.Index)
+}
+
+func (x *IndexListExpr) String() string {
+	indices := []string{}
+	for _, index := range x.Indices {
+		indices = append(indices, index.String())
+	}
+	return fmt.Sprintf("%s[%s]", x.X, strings.Join(indices, ", "))
+}
+
+func (x *SliceExpr) String() string {
+	return fmt.Sprintf("%s[%s..%s]", x.X, x.Low, x.High)
+}
+
+func (x *BinaryExpr) String() string {
+	return fmt.Sprintf("%s %s %s", x.X, x.Op, x.Y)
+}
+
+func (x *KeyValueExpr) String() string {
+	return fmt.Sprintf("%s: %s", x.Key, x.Value)
+}
+
+func (x *IncDecExpr) String() string {
+	return fmt.Sprintf("%s %s", x.X, x.Tok)
+}
+
+func (x *NewDelExpr) String() string {
+	return fmt.Sprintf("%s %s", token.NEW, x.X)
+}
+
+func (x *TypeAnnotation) String() string {
+	types := []string{}
+	for _, t := range x.List {
+		types = append(types, t.String())
+	}
+	return fmt.Sprintf("<%s>", strings.Join(types, ", "))
+}
+
+func (x *UnsafeExpr) String() string {
+	return fmt.Sprintf("%s %s", token.UNSAFE, x.Text)
+}
+
+func (x *RefExpr) String() string {
+	return fmt.Sprintf("$%s", x.X)
+}
+
+func (x *GenericExpr) String() string {
+	types := []string{}
+	for _, t := range x.Types {
+		types = append(types, t.String())
+	}
+	return fmt.Sprintf("<%s>", strings.Join(types, ", "))
+}
+
+func (x *SelectExpr) String() string {
+	return fmt.Sprintf("%s.%s", x.X, x.Y)
+}
+
+func (x *CallExpr) String() string {
+	args := []string{}
+	for _, arg := range x.Recv {
+		args = append(args, arg.String())
+	}
+	return fmt.Sprintf("%s(%s)", x.Fun, strings.Join(args, ", "))
+}
+
 func (*BinaryExpr) exprNode()     {}
 func (*CallExpr) exprNode()       {}
 func (*Ident) exprNode()          {}
