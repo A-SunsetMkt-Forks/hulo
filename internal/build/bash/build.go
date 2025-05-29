@@ -1,8 +1,6 @@
 package build
 
 import (
-	"fmt"
-
 	"github.com/hulo-lang/hulo/internal/config"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
@@ -10,8 +8,6 @@ import (
 
 func Translate(opts *config.BashOptions, node hast.Node) (bast.Node, error) {
 	bnode := translate2Bash(opts, node)
-
-	fmt.Println("write to file system", bnode)
 	return bnode, nil
 }
 
@@ -33,12 +29,17 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			Stmts: stmts,
 		}
 	case *hast.IfStmt:
-		fmt.Println(opts.Boolean)
+		// opts.Boolean = "number & >= 1.2.3"
+		parse, err := hcrDispatcher.Get(opts.Boolean)
+		if err != nil {
+			return nil
+		}
+		cond, err := parse(node.Cond)
+		if err != nil {
+			return nil
+		}
 		return &bast.IfStmt{
-			// TODO HCR
-			Cond: &bast.TestExpr{
-				X: translate2Bash(opts, node.Cond).(bast.Expr),
-			},
+			Cond: cond.(bast.Expr),
 			Body: translate2Bash(opts, node.Body).(*bast.BlockStmt),
 		}
 	case *hast.BlockStmt:

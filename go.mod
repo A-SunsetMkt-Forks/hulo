@@ -3,6 +3,7 @@ module github.com/hulo-lang/hulo
 go 1.23.5
 
 require (
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
