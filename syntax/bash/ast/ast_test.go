@@ -18,14 +18,14 @@ func TestAssignStmt(t *testing.T) {
 		Lhs: &ast.Ident{Name: "count"},
 		Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
 	})
-	assert.Equal(t, "count=0", actual)
+	assert.Equal(t, "count=0\n", actual)
 
 	actual = ast.String(&ast.AssignStmt{
 		Local: NotNullPos,
 		Lhs:   &ast.Ident{Name: "count"},
 		Rhs:   &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
 	})
-	assert.Equal(t, "local count=0", actual)
+	assert.Equal(t, "local count=0\n", actual)
 }
 
 func TestIfStmt(t *testing.T) {

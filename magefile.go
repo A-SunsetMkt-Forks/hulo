@@ -167,6 +167,13 @@ func downloadDeps() error {
 // Clean cleans the project.
 func Clean() error {
 	log.Info("Start cleaning...")
+	goreleaser := exec.Command("goreleaser", "build", "--clean")
+	goreleaser.Stdout = os.Stdout
+	goreleaser.Stderr = os.Stderr
+	err := goreleaser.Run()
+	if err != nil {
+		log.WithError(err).Fatal("goreleaser build failed")
+	}
 	dirs := []string{"dist", "tmp"}
 	for _, dir := range dirs {
 		if err := os.RemoveAll(dir); err != nil {
@@ -182,6 +189,13 @@ func Build() error {
 
 	mg.Deps(generateParser)
 
+	goreleaser := exec.Command("goreleaser", "release", "--snapshot", "--clean")
+	goreleaser.Stdout = os.Stdout
+	goreleaser.Stderr = os.Stderr
+	err := goreleaser.Run()
+	if err != nil {
+		log.WithError(err).Fatal("goreleaser release failed")
+	}
 	return nil
 }
 
