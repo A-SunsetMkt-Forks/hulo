@@ -30,3 +30,7 @@ antlr.jar
 
 # Added by goreleaser init:
 dist/
+
+# coverage
+coverage
+coverage.txt

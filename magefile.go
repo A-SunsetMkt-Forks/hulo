@@ -223,6 +223,18 @@ func Format() error {
 	return sh.Run("goimports", "-w", ".")
 }
 
+func Test() error {
+	log.Info("Running tests...")
+	cmd := exec.Command("go", "test", "./...", "-coverprofile=coverage.txt", "-covermode=atomic")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		log.WithError(err).Fatal("test failed")
+	}
+	return nil
+}
+
 // Dev starts the development server with hot reload
 // func Dev() error {
 // 	log.Info("Starting development server...")
