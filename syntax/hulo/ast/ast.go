@@ -315,11 +315,12 @@ func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
 
 type (
 	AssignStmt struct {
-		Doc    *CommentGroup
-		Tok    token.Token // const | var | let
-		TokPos token.Pos
-		Lhs    Expr
-		Rhs    Expr
+		Doc      *CommentGroup
+		Scope    token.Token // const | var | let
+		ScopePos token.Pos
+		Lhs      Expr
+		Tok      token.Token // := or =
+		Rhs      Expr
 	}
 
 	CmdStmt struct {
@@ -507,7 +508,7 @@ type (
 	}
 )
 
-func (s *AssignStmt) Pos() token.Pos   { return s.TokPos }
+func (s *AssignStmt) Pos() token.Pos   { return s.ScopePos }
 func (s *CmdStmt) Pos() token.Pos      { return s.Name.Pos() }
 func (s *ComptimeStmt) Pos() token.Pos { return s.Comptime }
 func (s *UnsafeStmt) Pos() token.Pos   { return s.Unsafe }

@@ -1,3 +1,6 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package build
 
 import (
@@ -34,7 +37,7 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 		if err != nil {
 			return nil
 		}
-		cond, err := parse(node.Cond)
+		cond, err := parse.Apply(&hast.IfStmt{}, node.Cond)
 		if err != nil {
 			return nil
 		}

@@ -32,6 +32,7 @@ statement:
     | extendDeclaration
     | macroStatement
     | assignStatement
+    | lambdaAssignStatement
     | tryStatement
     | throwStatement
     | returnStatement
@@ -67,6 +68,8 @@ assignStatement:
         | EXP_ASSIGN
     ) (expression | matchStatement)
 ;
+
+lambdaAssignStatement: variableExpression COLON_ASSIGN (expression | matchStatement);
 
 variableNullableExpressions: variableNullableExpression (COMMA variableNullableExpression)*;
 

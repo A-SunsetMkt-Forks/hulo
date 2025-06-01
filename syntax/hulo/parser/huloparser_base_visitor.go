@@ -1,4 +1,4 @@
-// Code generated from huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from syntax/hulo/parser/huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // huloParser
 import "github.com/antlr4-go/antlr/v4"
@@ -24,6 +24,10 @@ func (v *BasehuloParserVisitor) VisitStatement(ctx *StatementContext) interface{
 }
 
 func (v *BasehuloParserVisitor) VisitAssignStatement(ctx *AssignStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitLambdaAssignStatement(ctx *LambdaAssignStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

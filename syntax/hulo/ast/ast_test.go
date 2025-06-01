@@ -8,8 +8,17 @@ import (
 
 func TestAssignStmt(t *testing.T) {
 	Print(&AssignStmt{
-		Tok: token.LET,
+		Scope: token.LET,
+		Lhs:   &Ident{Name: "x"},
+		Rhs: &BasicLit{
+			Kind:  token.NUM,
+			Value: "123",
+		},
+	})
+
+	Print(&AssignStmt{
 		Lhs: &Ident{Name: "x"},
+		Tok: token.COLON_ASSIGN,
 		Rhs: &BasicLit{
 			Kind:  token.NUM,
 			Value: "123",
@@ -30,8 +39,8 @@ func TestIfStmt(t *testing.T) {
 		Body: &BlockStmt{
 			List: []Stmt{
 				&AssignStmt{
-					Tok: token.LET,
-					Lhs: &Ident{Name: "x"},
+					Scope: token.LET,
+					Lhs:   &Ident{Name: "x"},
 					Rhs: &BasicLit{
 						Kind:  token.NUM,
 						Value: "10",
@@ -51,8 +60,8 @@ func TestIfStmt(t *testing.T) {
 			Body: &BlockStmt{
 				List: []Stmt{
 					&AssignStmt{
-						Tok: token.LET,
-						Lhs: &Ident{Name: "x"},
+						Scope: token.LET,
+						Lhs:   &Ident{Name: "x"},
 						Rhs: &BasicLit{
 							Kind:  token.NUM,
 							Value: "20",
@@ -63,8 +72,8 @@ func TestIfStmt(t *testing.T) {
 			Else: &BlockStmt{
 				List: []Stmt{
 					&AssignStmt{
-						Tok: token.LET,
-						Lhs: &Ident{Name: "x"},
+						Scope: token.LET,
+						Lhs:   &Ident{Name: "x"},
 						Rhs: &BasicLit{
 							Kind:  token.NUM,
 							Value: "20",
@@ -81,8 +90,8 @@ func TestDeclareDecl(t *testing.T) {
 			&DeclareDecl{
 				X: &ComptimeStmt{
 					X: &AssignStmt{
-						Tok: token.CONST,
-						Lhs: &Ident{Name: "os"},
+						Scope: token.CONST,
+						Lhs:   &Ident{Name: "os"},
 					},
 				},
 			},

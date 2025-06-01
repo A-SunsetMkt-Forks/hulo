@@ -73,7 +73,11 @@ func print(stmt Stmt, ident string) {
 	case *ReturnStmt:
 		fmt.Printf("%s%s %s\n", ident, token.RETURN, node.X)
 	case *AssignStmt:
-		fmt.Printf("%s%s %s = %s\n", ident, node.Tok, node.Lhs, node.Rhs)
+		if node.Tok == token.COLON_ASSIGN {
+			fmt.Printf("%s$%s := %s\n", ident, node.Lhs, node.Rhs)
+		} else {
+			fmt.Printf("%s%s %s = %s\n", ident, node.Scope, node.Lhs, node.Rhs)
+		}
 	case *BlockStmt:
 		for _, ss := range node.List {
 			print(ss, ident)

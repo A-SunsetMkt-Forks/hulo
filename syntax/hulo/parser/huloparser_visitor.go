@@ -1,4 +1,4 @@
-// Code generated from huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from syntax/hulo/parser/huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // huloParser
 import "github.com/antlr4-go/antlr/v4"
@@ -21,6 +21,9 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#assignStatement.
 	VisitAssignStatement(ctx *AssignStatementContext) interface{}
+
+	// Visit a parse tree produced by huloParser#lambdaAssignStatement.
+	VisitLambdaAssignStatement(ctx *LambdaAssignStatementContext) interface{}
 
 	// Visit a parse tree produced by huloParser#variableNullableExpressions.
 	VisitVariableNullableExpressions(ctx *VariableNullableExpressionsContext) interface{}

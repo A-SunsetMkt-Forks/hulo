@@ -40,6 +40,8 @@ const (
 	PLUS   // +
 	MINUS  // -
 
+	COLON_ASSIGN // :=
+
 	INC // ++
 	DEC // --
 

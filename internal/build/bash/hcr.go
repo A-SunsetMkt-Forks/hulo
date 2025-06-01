@@ -1,10 +1,11 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package build
 
 import (
-	"errors"
-
-	"github.com/Masterminds/semver/v3"
 	"github.com/hulo-lang/hulo/internal/build"
+	"github.com/hulo-lang/hulo/internal/build/bash/strategy"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
@@ -12,37 +13,33 @@ import (
 type CompileRuleFunc func(node hast.Node) (bast.Node, error)
 
 type HCRDispatcher struct {
-	rules map[string]map[*semver.Constraints]CompileRuleFunc
+	rules map[string]build.Strategy[bast.Node]
 }
 
-func (d *HCRDispatcher) Put(fullRule string, cb CompileRuleFunc) error {
+func (d *HCRDispatcher) Put(fullRule string, cb build.Strategy[bast.Node]) error {
 	hcr, err := build.ParseRule(fullRule)
 	if err != nil {
 		return err
 	}
 
-	c, err := semver.NewConstraint(hcr.Version().Original())
-	if err != nil {
-		return err
-	}
-
-	d.rules[hcr.Name()][c] = cb
+	d.rules[hcr.Name()] = cb
 
 	return nil
 }
 
-func (d *HCRDispatcher) Get(ruleName string) (CompileRuleFunc, error) {
+func (d *HCRDispatcher) Get(ruleName string) (build.Strategy[bast.Node], error) {
 	hcr, err := build.ParseRule(ruleName)
 	if err != nil {
 		return nil, err
 	}
 
-	for rule, fn := range d.rules[hcr.Name()] {
-		if ok, _ := rule.Validate(hcr.Version()); ok {
-			return fn, nil
-		}
-	}
-	return nil, errors.New("rule not found")
+	return d.rules[hcr.Name()], nil
 }
 
-var hcrDispatcher = &HCRDispatcher{rules: make(map[string]map[*semver.Constraints]CompileRuleFunc)}
+var hcrDispatcher = &HCRDispatcher{rules: make(map[string]build.Strategy[bast.Node])}
+
+func init() {
+	hcrDispatcher.Put("number", &strategy.BooleanAsNumberStrategy{})
+	hcrDispatcher.Put("string", &strategy.BooleanAsStringStrategy{})
+	hcrDispatcher.Put("command", &strategy.BooleanAsCommandStrategy{})
+}

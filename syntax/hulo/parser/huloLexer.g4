@@ -90,6 +90,7 @@ EXTEND : 'extend';
 DECLARE  : 'declare';
 DEFER    : 'defer';
 COMPTIME : 'comptime';
+WHEN     : 'when';
 UNSAFE   : 'unsafe';
 
 DOT        : '.';
@@ -141,6 +142,7 @@ DOUBLE_ARROW : '=>';
 ELLIPSIS     : '...';
 COLON        : ':';
 DOUBLE_COLON : '::';
+COLON_ASSIGN : ':=';
 SEMI         : ';';
 
 AND : '&&';

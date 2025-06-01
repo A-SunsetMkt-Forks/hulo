@@ -1,0 +1,26 @@
+let a = true
+$b := false
+
+if $a {
+    echo "a is true"
+}
+
+if $b {
+    echo "b is true"
+}
+
+if $a && $b {
+    echo "a and b are true"
+}
+
+if $a || $b {
+    echo "a or b is true"
+}
+
+if true {
+    echo "true is true"
+}
+
+if false {
+    echo "false is true"
+}

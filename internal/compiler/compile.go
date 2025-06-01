@@ -6,7 +6,7 @@ package compiler
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
-	"github.com/hulo-lang/hulo/internal/build"
+	// "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/comptime"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
@@ -26,7 +26,7 @@ func Compile(cfg *config.Huloc) error {
 
 	switch cfg.Language {
 	case config.L_BASH:
-		return build.GenerateBash(cfg.CompilerOptions.Bash, file)
+		// return build.Translate(cfg.CompilerOptions.Bash, file)
 	}
 
 	return nil
