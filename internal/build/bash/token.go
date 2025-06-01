@@ -16,7 +16,7 @@ var bashTokenMap = map[htok.Token]btok.Token{
 	htok.GT: btok.GT,
 	// htok.GE: btok.GE,
 	htok.AND: btok.AND,
-	htok.OR: btok.OR,
+	htok.OR:  btok.OR,
 }
 
 func Token(tok htok.Token) btok.Token {

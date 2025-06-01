@@ -6,6 +6,7 @@ package compiler
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+
 	// "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/comptime"
 	"github.com/hulo-lang/hulo/internal/config"

@@ -1,9 +1,9 @@
 package cachedvfs
 
 import (
+	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
-	"github.com/hulo-lang/hulo/internal/vfs"
 )
 
 func FS() vfs.FileSystem {

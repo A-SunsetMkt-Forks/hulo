@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/internal/object"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
 func Eval(ctx *Context, node ast.Node) object.Value {

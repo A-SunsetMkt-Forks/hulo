@@ -193,7 +193,14 @@ func generateParser() error {
 // Lint runs the linter
 func Lint() error {
 	log.Info("Running linter...")
-	return sh.Run("golangci-lint", "run", "./...")
+	cmd := exec.Command("golangci-lint", "run", "./...")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		log.WithError(err).Fatal("lint failed")
+	}
+	return nil
 }
 
 // Format formats the code

@@ -1,5 +1,6 @@
 let a = true
 $b := false
+let c = false || 1 == 1
 
 if $a {
     echo "a is true"
@@ -15,6 +16,14 @@ if $a && $b {
 
 if $a || $b {
     echo "a or b is true"
+}
+
+if $a && true {
+    echo "a and true is true"
+}
+
+if true && true == true && $a == $b {
+    echo "true and true is true"
 }
 
 if true {
