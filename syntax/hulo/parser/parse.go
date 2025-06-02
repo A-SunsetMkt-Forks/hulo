@@ -6,6 +6,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser/generated"
 )
 
 type ParseOptions struct {
@@ -18,9 +19,9 @@ func ParseSourceFile(filename string, opt ParseOptions) (*ast.File, error) {
 		return nil, err
 	}
 
-	lex := NewhuloLexer(stream)
+	lex := generated.NewhuloLexer(stream)
 	tokens := antlr.NewCommonTokenStream(lex, opt.Channel)
-	parser := NewhuloParser(tokens)
+	parser := generated.NewhuloParser(tokens)
 	tree := parser.File()
 	visitor := &Visitor{}
 

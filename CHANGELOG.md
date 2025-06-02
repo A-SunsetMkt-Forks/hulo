@@ -1,4 +1,8 @@
 # 📜 Changelog
+- feat: add codecov [[6fce9aa](https://github.com/hulo-lang/hulo/commit/6fce9aa200d4369d12481c2281a9a153a14a88f8)]
+- feat: improve .goreleaser.yaml [[5218a7c](https://github.com/hulo-lang/hulo/commit/5218a7cc20056facc5de73983571f59fc2495eb8)]
+- feat: introduce format tools [[f5646c2](https://github.com/hulo-lang/hulo/commit/f5646c21f8d1b2ff3b0b838cac546d6ca193d560)]
+- feat: add magefile, translator for bash, and etc. [[9e3193c](https://github.com/hulo-lang/hulo/commit/9e3193c307392fc6eb09f81b2572148f47768ed3)]
 - feat: add hcr for bash [[a901de8](https://github.com/hulo-lang/hulo/commit/a901de8abce13942ca685d592b427380a0bfc700)]
 - improve code [[68cf852](https://github.com/hulo-lang/hulo/commit/68cf8521f5cd7dd9793758030d42b32335fab9be)]
 - migrate token, ast, parser from interna to syntax directoryl [[b27c029](https://github.com/hulo-lang/hulo/commit/b27c02968323242a8e945007748294110f9d4571)]

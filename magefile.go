@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -188,7 +189,7 @@ func Build() error {
 	log.Info("Start building...")
 
 	mg.Deps(generateParser)
-
+	return nil
 	goreleaser := exec.Command("goreleaser", "release", "--snapshot", "--clean")
 	goreleaser.Stdout = os.Stdout
 	goreleaser.Stderr = os.Stderr
@@ -201,7 +202,10 @@ func Build() error {
 
 func generateParser() error {
 	log.Info("Generating parser...")
-	return sh.Run("java", "-jar", "syntax/hulo/parser/antlr.jar", "-Dlanguage=Go", "-visitor", "-no-listener", "-package", "parser", "syntax/hulo/parser/*.g4")
+	if runtime.GOOS == "windows" {
+		return sh.Run("cmd", "/c", "cd", "syntax/hulo/parser/grammar", "&&", "java", "-jar", "../antlr.jar", "-Dlanguage=Go", "-visitor", "-no-listener", "-o", "../generated", "-package", "generated", "*.g4")
+	}
+	return sh.Run("cd", "syntax/hulo/parser/grammar", "&&", "java", "-jar", "../antlr.jar", "-Dlanguage=Go", "-visitor", "-no-listener", "-o", "../generated", "-package", "generated", "*.g4")
 }
 
 // Lint runs the linter

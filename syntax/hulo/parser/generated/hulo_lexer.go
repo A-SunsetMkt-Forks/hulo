@@ -1,6 +1,6 @@
-// Code generated from syntax/hulo/parser/huloLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from huloLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package parser
+package generated
 
 import (
 	"fmt"

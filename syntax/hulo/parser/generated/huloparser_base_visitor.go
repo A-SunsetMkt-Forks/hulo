@@ -1,6 +1,6 @@
-// Code generated from syntax/hulo/parser/huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from huloParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package parser // huloParser
+package generated // huloParser
 import "github.com/antlr4-go/antlr/v4"
 
 type BasehuloParserVisitor struct {

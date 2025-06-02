@@ -8,7 +8,7 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
-func Eval(ctx *Context, node ast.Node) object.Value {
+func Evaluate(ctx *Context, node ast.Node) object.Value {
 	switch node := node.(type) {
 	case *ast.File:
 		return evalFile(ctx, node)
@@ -40,7 +40,7 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 	// math.PI.to_str()
 	// PI.to_str()
 	// 检查 X 是什么东西
-	x := Eval(ctx, node.X)
+	x := Evaluate(ctx, node.X)
 	x.Type() // 可以知道是什么鬼东西了这下
 	// 1. 是包名 走 vfs 读取代码
 	// 要判断包名是不是当前路径下面的文件
@@ -68,7 +68,7 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 	// 引入后开始访问 y 表达式
 	{
 		// 拿库的上下文去访问？ 这样就能找到 Y 的定义
-		y := Eval(ctx, node.Y) // 如果 y 是函数要把自己传入进去吧？？？？
+		y := Evaluate(ctx, node.Y) // 如果 y 是函数要把自己传入进去吧？？？？
 
 		ctx.mem.Get(y.Name())
 	}
@@ -78,7 +78,7 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 	x.Type()
 
 	{
-		y := Eval(ctx, node.Y) // 在去访问 to_Str()
+		y := Evaluate(ctx, node.Y) // 在去访问 to_Str()
 		ctx.mem.Get(y.Name())
 	}
 
@@ -89,6 +89,9 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 }
 
 func evalFile(ctx *Context, node *ast.File) object.Value {
+	for _, decl := range node.Decls {
+		Evaluate(ctx, decl)
+	}
 	return nil
 }
 
@@ -99,7 +102,7 @@ func evalFuncDecl(ctx *Context, node *ast.FuncDecl) object.Value {
 func evalCallExpr(ctx *Context, node *ast.CallExpr) object.Value {
 	// 需要先找到函数的定义
 	// 拿到 to_str 的定义
-	function := Eval(ctx, node.Fun)
+	function := Evaluate(ctx, node.Fun)
 	args := evalExpressions(ctx, node.Recv)
 	// 要根据 args 类型 拿到method
 	// TODO function.Type().Call(args...) 自动匹配合适的函数

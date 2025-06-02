@@ -22,7 +22,7 @@ func Compile(cfg *config.Huloc) error {
 	}
 	ctx := comptime.DefaultContext()
 	for canEval(file) {
-		comptime.Eval(ctx, file)
+		comptime.Evaluate(ctx, file)
 	}
 
 	switch cfg.Language {
