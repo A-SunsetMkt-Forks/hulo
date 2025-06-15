@@ -1,0 +1,29 @@
+local name = "{{.Name}}"
+local version = "{{.Version}}"
+
+food = {
+  name = name,
+  description = "{{ .Description }}",
+  license = "{{ .License }}",
+  homepage = "{{ .Homepage }}",
+  version = version,
+  packages = {
+{{- range .Packages }}
+    {
+      os = "{{ .OS }}",
+      arch = "{{ .Arch }}",
+      url = "{{ .URL }}",
+      sha256 = "{{ .SHA256 }}",
+      resources = {
+        {{- range .Resources }}
+        {
+          path = "{{ .Path }}",
+          installpath = "{{ .InstallPath }}",
+          executable = {{ .Executable }},
+        },
+        {{- end }}
+      }
+    },
+{{- end }}
+    }
+}

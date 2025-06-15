@@ -1,7 +1,7 @@
 <h1 align="center">Welcome to Hulo 👋</h1>
 <center>
 
-![Hulo](https://img.shields.io/badge/Hulo-%238866E9.svg?logoColor=white&style=for-the-badge) [![Go](https://img.shields.io/badge/Go-1.23.5-%2300ADD8.svg?logo=go&logoColor=white&style=for-the-badge)](https://golang.org/) [![BashScript](https://img.shields.io/badge/Bash%20Script-%23121011.svg?logo=gnu-bash&logoColor=white&style=for-the-badge)](https://www.gnu.org/software/bash/) [![PowerShell](https://img.shields.io/badge/PowerShell-%235391FE.svg?logo=powershell&logoColor=white&style=for-the-badge)](https://learn.microsoft.com/en-us/powershell/)
+![Hulo](https://img.shields.io/badge/Hulo-%238866E9.svg?logoColor=white&style=for-the-badge) [![Go](https://img.shields.io/badge/Go-1.24.4-%2300ADD8.svg?logo=go&logoColor=white&style=for-the-badge)](https://golang.org/) [![BashScript](https://img.shields.io/badge/Bash%20Script-%23121011.svg?logo=gnu-bash&logoColor=white&style=for-the-badge)](https://www.gnu.org/software/bash/) [![PowerShell](https://img.shields.io/badge/PowerShell-%235391FE.svg?logo=powershell&logoColor=white&style=for-the-badge)](https://learn.microsoft.com/en-us/powershell/)
 </center>
 
 ---

@@ -1,0 +1,16 @@
+{
+  "name": "{{.Name}}",
+  "version": "{{.Version}}",
+  "main": "{{.Main}}",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    {{- range $i, $kw := .Keywords -}}
+      {{- if $i}}, {{end}}"{{$kw}}"
+    {{- end -}}
+  ],
+  "author": "{{.Author}}",
+  "license": "{{.License}}",
+  "description": "{{.Description}}"
+}

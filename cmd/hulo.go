@@ -16,6 +16,7 @@ import (
 type huloCmdParameters struct {
 	lang    string
 	verbose bool
+	version bool
 }
 
 var (

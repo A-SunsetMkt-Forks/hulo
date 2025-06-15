@@ -1,0 +1,13 @@
+{
+  "version": "{{.Version}}",
+  "description": "{{.Description}}",
+  "homepage": "{{.Homepage}}",
+  "license": "{{.License}}",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/{{.Repo}}/releases/download/v{{.Version}}/{{.Project}}_Windows_x86_64.zip",
+      "bin": "{{.Project}}.exe",
+      "hash": "{{.Sha256}}"
+    }
+  }
+}

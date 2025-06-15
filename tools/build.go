@@ -19,11 +19,11 @@ func Build() {
 
 	elapsed := time.Since(start)
 	log.Infof("build completed in %.2fs", elapsed.Seconds())
-	return
+
 	// TODO build:all build:single-platform
-	err := runCmd("goreleaser", "release", "--snapshot", "--clean")
+	err := runCmd("goreleaser", "build", "--snapshot", "--clean")
 	if err != nil {
-		log.WithError(err).Fatal("goreleaser release failed")
+		log.WithError(err).Fatal("goreleaser build failed")
 	}
 }
 

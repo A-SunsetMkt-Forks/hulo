@@ -22,7 +22,7 @@ builds:
       - linux
       - windows
       - darwin
-    main: ./cli
+    main: ./cmd
 
 archives:
   - formats: [tar.gz]
