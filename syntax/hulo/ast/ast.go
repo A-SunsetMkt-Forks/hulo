@@ -828,6 +828,7 @@ func (*UnsafeExpr) exprNode()     {}
 func (*RefExpr) exprNode()        {}
 func (*IncDecExpr) exprNode()     {}
 func (*SelectExpr) exprNode()     {}
+func (*IndexExpr) exprNode()      {}
 
 type Modifier int
 
