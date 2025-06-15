@@ -139,4 +139,7 @@ const (
 
 	THROW  // throw
 	THROWS // throws
+
+	// Additional operators
+	QUEST // ?
 )

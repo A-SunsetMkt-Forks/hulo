@@ -8,7 +8,7 @@
 lexer grammar huloLexer;
 
 // -----------------------
-// 
+//
 // module
 
 MOD_LIT : 'mod';
@@ -18,7 +18,7 @@ IMPORT  : 'import';
 FROM    : 'from';
 
 // -----------------------
-// 
+//
 // type system
 
 TYPE   : 'type';
@@ -26,7 +26,7 @@ TYPEOF : 'typeof';
 AS     : 'as';
 
 // -----------------------
-// 
+//
 // control flow
 
 IF       : 'if';
@@ -40,7 +40,7 @@ CONTINUE : 'continue';
 BREAK    : 'break';
 
 // -----------------------
-// 
+//
 // modifier
 
 LET      : 'let';
@@ -53,7 +53,7 @@ REQUIRED : 'required';
 FACTORY  : 'factory';
 
 // -----------------------
-// 
+//
 // exception handle
 
 TRY     : 'try';
@@ -63,7 +63,7 @@ THROW   : 'throw';
 THROWS  : 'throws';
 
 // -----------------------
-// 
+//
 // function
 
 FN       : 'fn';
@@ -71,7 +71,7 @@ OPERATOR : 'operator';
 RETURN   : 'return';
 
 // -----------------------
-// 
+//
 // class and object
 
 ENUM   : 'enum';
@@ -84,7 +84,7 @@ SUPER  : 'super';
 EXTEND : 'extend';
 
 // -----------------------
-// 
+//
 // spec
 
 DECLARE  : 'declare';
@@ -195,6 +195,6 @@ ESC: '\\' ['"\\bfnrt];
 LineComment  : '//' ~[\n]*;
 BlockComment : '/*' .*? '*/';
 
-Identifier: [a-zA-Z_][a-zA-Z0-9_]*;
+Identifier: [a-zA-Z_][a-zA-Z0-9_-]*;
 
 WS: [ \t\n\r]+ -> skip;

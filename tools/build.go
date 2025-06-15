@@ -26,12 +26,3 @@ func Build() {
 		log.WithError(err).Fatal("goreleaser build failed")
 	}
 }
-
-// generateParser generates the Go parser code from ANTLR grammar files.
-func generateParser() error {
-	log.Info("Generating parser")
-	return runCmdInDir("syntax/hulo/parser/grammar",
-		"java", "-jar", "../antlr.jar",
-		"-Dlanguage=Go", "-visitor", "-no-listener",
-		"-o", "../generated", "-package", "generated", "*.g4")
-}

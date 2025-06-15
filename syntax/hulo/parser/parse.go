@@ -34,3 +34,20 @@ func ParseSourceFile(filename string, opt ParseOptions) (*ast.File, error) {
 
 	return nil, errors.New("fail to parse file")
 }
+
+func ParseSourceScript(input string, opt ParseOptions) (*ast.File, error) {
+	stream := antlr.NewInputStream(input)
+
+	lex := generated.NewhuloLexer(stream)
+	tokens := antlr.NewCommonTokenStream(lex, opt.Channel)
+	parser := generated.NewhuloParser(tokens)
+	tree := parser.File()
+	visitor := &Visitor{}
+
+	if file, ok := accept[*ast.File](tree, visitor); ok {
+		file.Name = &ast.Ident{Name: "string"}
+		return file, nil
+	}
+
+	return nil, errors.New("fail to parse file")
+}
