@@ -16,12 +16,13 @@ func accept[T any](tree antlr.ParseTree, visitor antlr.ParseTreeVisitor) (T, boo
 	if tree == nil {
 		return *new(T), false
 	}
+
 	t, ok := tree.Accept(visitor).(T)
 	return t, ok
 }
 
 // VisitIdentifier implements the Visitor interface for Identifier
-func (v *Visitor) VisitIdentifier(node antlr.TerminalNode) interface{} {
+func (v *Visitor) VisitIdentifier(node antlr.TerminalNode) any {
 	if node == nil {
 		return nil
 	}
@@ -35,10 +36,14 @@ func (v *Visitor) VisitIdentifier(node antlr.TerminalNode) interface{} {
 }
 
 // VisitLiteral implements the Visitor interface for Literal
-func (v *Visitor) VisitLiteral(ctx *generated.LiteralContext) interface{} {
+func (v *Visitor) VisitLiteral(ctx *generated.LiteralContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter Literal")
+	log.IncreasePadding()
+	defer log.Info("exit Literal")
+	defer log.DecreasePadding()
 
 	if ctx.NumberLiteral() != nil {
 		return &ast.BasicLit{
@@ -55,9 +60,10 @@ func (v *Visitor) VisitLiteral(ctx *generated.LiteralContext) interface{} {
 		}
 	}
 	if ctx.StringLiteral() != nil {
+		raw := ctx.StringLiteral().GetText()
 		return &ast.BasicLit{
 			Kind:     token.STR,
-			Value:    ctx.StringLiteral().GetText(),
+			Value:    raw[1 : len(raw)-1],
 			ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
 		}
 	}
@@ -72,12 +78,25 @@ func (v *Visitor) VisitLiteral(ctx *generated.LiteralContext) interface{} {
 }
 
 // VisitConditionalExpression implements the Visitor interface for ConditionalExpression
-func (v *Visitor) VisitConditionalExpression(ctx *generated.ConditionalExpressionContext) interface{} {
+func (v *Visitor) VisitConditionalExpression(ctx *generated.ConditionalExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter ConditionalExpression")
+	log.IncreasePadding()
 
+	defer log.Info("exit ConditionalExpression")
+	defer log.DecreasePadding()
+	
+	// Get the condition expression
 	cond, _ := accept[ast.Expr](ctx.ConditionalBoolExpression(), v)
+
+	// If there's no question mark, just return the condition
+	if ctx.QUEST() == nil {
+		return cond
+	}
+
+	// If there's a question mark, we have a ternary expression
 	then, _ := accept[ast.Expr](ctx.ConditionalExpression(0), v)
 	els, _ := accept[ast.Expr](ctx.ConditionalExpression(1), v)
 
@@ -95,75 +114,121 @@ func (v *Visitor) VisitConditionalExpression(ctx *generated.ConditionalExpressio
 }
 
 // VisitLogicalExpression implements the Visitor interface for LogicalExpression
-func (v *Visitor) VisitLogicalExpression(ctx *generated.LogicalExpressionContext) interface{} {
+func (v *Visitor) VisitLogicalExpression(ctx *generated.LogicalExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter LogicalExpression")
+	log.IncreasePadding()
 
-	x, _ := accept[ast.Expr](ctx.ShiftExpression(0), v)
-	y, _ := accept[ast.Expr](ctx.ShiftExpression(1), v)
-
-	return &ast.BinaryExpr{
-		X:     x,
-		OpPos: token.Pos(ctx.GetLogicalOp().GetStart()),
-		Op:    token.Token(ctx.GetLogicalOp().GetTokenType()),
-		Y:     y,
+	var ret ast.Expr
+	switch ctx.GetChildCount() {
+	case 1:
+		ret, _ = accept[ast.Expr](ctx.ShiftExpression(0), v)
+	case 2:
+		x, _ := accept[ast.Expr](ctx.ShiftExpression(0), v)
+		y, _ := accept[ast.Expr](ctx.ShiftExpression(1), v)
+		ret = &ast.BinaryExpr{
+			X:     x,
+			OpPos: token.Pos(ctx.GetLogicalOp().GetStart()),
+			Op:    token.Token(ctx.GetLogicalOp().GetTokenType()),
+			Y:     y,
+		}
 	}
+
+	log.DecreasePadding()
+	log.Info("exit LogicalExpression")
+
+	return ret
 }
 
 // VisitShiftExpression implements the Visitor interface for ShiftExpression
-func (v *Visitor) VisitShiftExpression(ctx *generated.ShiftExpressionContext) interface{} {
+func (v *Visitor) VisitShiftExpression(ctx *generated.ShiftExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter ShiftExpression")
+	log.IncreasePadding()
 
-	x, _ := accept[ast.Expr](ctx.AddSubExpression(0), v)
-	y, _ := accept[ast.Expr](ctx.AddSubExpression(1), v)
+	var ret ast.Expr
 
-	return &ast.BinaryExpr{
-		X:     x,
-		OpPos: token.Pos(ctx.GetShiftOp().GetStart()),
-		Op:    token.Token(ctx.GetShiftOp().GetTokenType()),
-		Y:     y,
+	switch ctx.GetChildCount() {
+	case 1:
+		ret, _ = accept[ast.Expr](ctx.AddSubExpression(0), v)
+	case 2:
+		x, _ := accept[ast.Expr](ctx.AddSubExpression(0), v)
+		y, _ := accept[ast.Expr](ctx.AddSubExpression(1), v)
+		ret = &ast.BinaryExpr{
+			X:     x,
+			OpPos: token.Pos(ctx.GetShiftOp().GetStart()),
+			Op:    token.Token(ctx.GetShiftOp().GetTokenType()),
+			Y:     y,
+		}
 	}
+
+	log.DecreasePadding()
+	log.Info("exit ShiftExpression")
+	return ret
 }
 
 // VisitAddSubExpression implements the Visitor interface for AddSubExpression
-func (v *Visitor) VisitAddSubExpression(ctx *generated.AddSubExpressionContext) interface{} {
+func (v *Visitor) VisitAddSubExpression(ctx *generated.AddSubExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter AddSubExpression")
+	log.IncreasePadding()
 
-	x, _ := accept[ast.Expr](ctx.MulDivExpression(0), v)
-	y, _ := accept[ast.Expr](ctx.MulDivExpression(1), v)
-
-	return &ast.BinaryExpr{
-		X:     x,
-		OpPos: token.Pos(ctx.GetAddSubOp().GetStart()),
-		Op:    token.Token(ctx.GetAddSubOp().GetTokenType()),
-		Y:     y,
+	var ret ast.Expr
+	switch ctx.GetChildCount() {
+	case 1:
+		ret, _ = accept[ast.Expr](ctx.MulDivExpression(0), v)
+	case 2:
+		x, _ := accept[ast.Expr](ctx.MulDivExpression(0), v)
+		y, _ := accept[ast.Expr](ctx.MulDivExpression(1), v)
+		ret = &ast.BinaryExpr{
+			X:     x,
+			OpPos: token.Pos(ctx.GetAddSubOp().GetStart()),
+			Op:    token.Token(ctx.GetAddSubOp().GetTokenType()),
+			Y:     y,
+		}
 	}
+
+	log.DecreasePadding()
+	log.Info("exit AddSubExpression")
+	return ret
 }
 
 // VisitMulDivExpression implements the Visitor interface for MulDivExpression
-func (v *Visitor) VisitMulDivExpression(ctx *generated.MulDivExpressionContext) interface{} {
+func (v *Visitor) VisitMulDivExpression(ctx *generated.MulDivExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter MulDivExpression")
+	log.IncreasePadding()
 
-	x, _ := accept[ast.Expr](ctx.IncDecExpression(0), v)
-	y, _ := accept[ast.Expr](ctx.IncDecExpression(1), v)
-
-	return &ast.BinaryExpr{
-		X:     x,
-		OpPos: token.Pos(ctx.GetMulDivOp().GetStart()),
-		Op:    token.Token(ctx.GetMulDivOp().GetTokenType()),
-		Y:     y,
+	var ret ast.Expr
+	switch ctx.GetChildCount() {
+	case 1:
+		ret, _ = accept[ast.Expr](ctx.IncDecExpression(0), v)
+	case 2:
+		x, _ := accept[ast.Expr](ctx.IncDecExpression(0), v)
+		y, _ := accept[ast.Expr](ctx.IncDecExpression(1), v)
+		ret = &ast.BinaryExpr{
+			X:     x,
+			OpPos: token.Pos(ctx.GetMulDivOp().GetStart()),
+			Op:    token.Token(ctx.GetMulDivOp().GetTokenType()),
+			Y:     y,
+		}
 	}
+
+	log.DecreasePadding()
+	log.Info("exit MulDivExpression")
+	return ret
 }
 
 // VisitReturnStatement implements the Visitor interface for ReturnStatement
-func (v *Visitor) VisitReturnStatement(ctx *generated.ReturnStatementContext) interface{} {
+func (v *Visitor) VisitReturnStatement(ctx *generated.ReturnStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
@@ -183,7 +248,7 @@ func (v *Visitor) VisitReturnStatement(ctx *generated.ReturnStatementContext) in
 }
 
 // VisitBreakStatement implements the Visitor interface for BreakStatement
-func (v *Visitor) VisitBreakStatement(ctx *generated.BreakStatementContext) interface{} {
+func (v *Visitor) VisitBreakStatement(ctx *generated.BreakStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
@@ -194,7 +259,7 @@ func (v *Visitor) VisitBreakStatement(ctx *generated.BreakStatementContext) inte
 }
 
 // VisitContinueStatement implements the Visitor interface for ContinueStatement
-func (v *Visitor) VisitContinueStatement(ctx *generated.ContinueStatementContext) interface{} {
+func (v *Visitor) VisitContinueStatement(ctx *generated.ContinueStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
@@ -205,7 +270,7 @@ func (v *Visitor) VisitContinueStatement(ctx *generated.ContinueStatementContext
 }
 
 // VisitIfStatement implements the Visitor interface for IfStatement
-func (v *Visitor) VisitIfStatement(ctx *generated.IfStatementContext) interface{} {
+func (v *Visitor) VisitIfStatement(ctx *generated.IfStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
@@ -227,17 +292,18 @@ func (v *Visitor) VisitIfStatement(ctx *generated.IfStatementContext) interface{
 }
 
 // VisitFile implements the Visitor interface for File
-func (v *Visitor) VisitFile(ctx *generated.FileContext) interface{} {
+func (v *Visitor) VisitFile(ctx *generated.FileContext) any {
 	if ctx == nil {
 		return nil
 	}
 	log.Info("enter file")
+	log.IncreasePadding()
 	file := &ast.File{
 		Imports: make(map[string]*ast.Import),
 		Stmts:   make([]ast.Stmt, 0),
 		Decls:   make([]ast.Decl, 0),
 	}
-	log.IncreasePadding()
+
 	// Visit all statements
 	for _, stmt := range ctx.AllStatement() {
 		if s, ok := accept[ast.Stmt](stmt, v); ok {
@@ -250,12 +316,15 @@ func (v *Visitor) VisitFile(ctx *generated.FileContext) interface{} {
 }
 
 // VisitStatement implements the Visitor interface for Statement
-func (v *Visitor) VisitStatement(ctx *generated.StatementContext) interface{} {
+func (v *Visitor) VisitStatement(ctx *generated.StatementContext) any {
 	if ctx == nil {
 		return nil
 	}
 	log.Info("enter statement")
 	log.IncreasePadding()
+	defer log.Info("exit statement")
+	defer log.DecreasePadding()
+
 	// Handle different types of statements
 	if ctx.ExpressionStatement() != nil {
 		return v.VisitExpressionStatement(ctx.ExpressionStatement().(*generated.ExpressionStatementContext))
@@ -277,28 +346,28 @@ func (v *Visitor) VisitStatement(ctx *generated.StatementContext) interface{} {
 	}
 	// TODO: Add more statement types
 
-	log.DecreasePadding()
-	log.Info("exit statement")
 	return nil
 }
 
 // VisitExpressionStatement implements the Visitor interface for ExpressionStatement
-func (v *Visitor) VisitExpressionStatement(ctx *generated.ExpressionStatementContext) interface{} {
+func (v *Visitor) VisitExpressionStatement(ctx *generated.ExpressionStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
 	log.Info("enter ExpressionStatement")
 	log.IncreasePadding()
+	defer log.Info("exit ExpressionStatement")
+	defer log.DecreasePadding()
+
 	expr, _ := accept[ast.Expr](ctx.Expression(), v)
-	log.DecreasePadding()
-	log.Info("exit ExpressionStatement")
+
 	return &ast.ExprStmt{
 		X: expr,
 	}
 }
 
 // VisitAssignStatement implements the Visitor interface for AssignStatement
-func (v *Visitor) VisitAssignStatement(ctx *generated.AssignStatementContext) interface{} {
+func (v *Visitor) VisitAssignStatement(ctx *generated.AssignStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
@@ -314,51 +383,53 @@ func (v *Visitor) VisitAssignStatement(ctx *generated.AssignStatementContext) in
 }
 
 // VisitExpression implements the Visitor interface for Expression
-func (v *Visitor) VisitExpression(ctx *generated.ExpressionContext) interface{} {
+func (v *Visitor) VisitExpression(ctx *generated.ExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
-	log.Info("visit Expression")
+	log.Info("enter Expression")
 	log.IncreasePadding()
+	defer log.Info("exit Expression")
+	defer log.DecreasePadding()
+
 	// Handle different types of expressions
 	if ctx.LambdaExpression() != nil {
-		return v.VisitLambdaExpression(ctx.LambdaExpression().(*generated.LambdaExpressionContext))
+		// return v.VisitLambdaExpression(ctx.LambdaExpression().(*generated.LambdaExpressionContext))
 	}
 	if ctx.ConditionalExpression() != nil {
 		return v.VisitConditionalExpression(ctx.ConditionalExpression().(*generated.ConditionalExpressionContext))
 	}
 	if ctx.NewDelExpression() != nil {
-		return v.VisitNewDelExpression(ctx.NewDelExpression().(*generated.NewDelExpressionContext))
+		// return v.VisitNewDelExpression(ctx.NewDelExpression().(*generated.NewDelExpressionContext))
 	}
 	if ctx.ClassInitializeExpression() != nil {
-		return v.VisitClassInitializeExpression(ctx.ClassInitializeExpression().(*generated.ClassInitializeExpressionContext))
+		// return v.VisitClassInitializeExpression(ctx.ClassInitializeExpression().(*generated.ClassInitializeExpressionContext))
 	}
 	if ctx.TypeofExpression() != nil {
-		return v.VisitTypeofExpression(ctx.TypeofExpression().(*generated.TypeofExpressionContext))
+		// return v.VisitTypeofExpression(ctx.TypeofExpression().(*generated.TypeofExpressionContext))
 	}
 	if ctx.ChannelOutputExpression() != nil {
-		return v.VisitChannelOutputExpression(ctx.ChannelOutputExpression().(*generated.ChannelOutputExpressionContext))
+		// return v.VisitChannelOutputExpression(ctx.ChannelOutputExpression().(*generated.ChannelOutputExpressionContext))
 	}
 	if ctx.CommandExpression() != nil {
 		return v.VisitCommandExpression(ctx.CommandExpression().(*generated.CommandExpressionContext))
 	}
 	if ctx.UnsafeExpression() != nil {
-		return v.VisitUnsafeExpression(ctx.UnsafeExpression().(*generated.UnsafeExpressionContext))
+		// return v.VisitUnsafeExpression(ctx.UnsafeExpression().(*generated.UnsafeExpressionContext))
 	}
 	if ctx.ComptimeExpression() != nil {
-		return v.VisitComptimeExpression(ctx.ComptimeExpression().(*generated.ComptimeExpressionContext))
+		// return v.VisitComptimeExpression(ctx.ComptimeExpression().(*generated.ComptimeExpressionContext))
 	}
-	log.DecreasePadding()
-	log.Info("exit Expression")
+
 	return nil
 }
 
 // VisitCommandExpression implements the Visitor interface for CommandExpression
-func (v *Visitor) VisitCommandExpression(ctx *generated.CommandExpressionContext) interface{} {
+func (v *Visitor) VisitCommandExpression(ctx *generated.CommandExpressionContext) any {
 	if ctx == nil {
 		return nil
 	}
-	log.Info("visit CommandExpression")
+	log.Info("enter CommandExpression")
 	log.IncreasePadding()
 
 	var fun ast.Expr
@@ -428,13 +499,14 @@ func (v *Visitor) VisitCommandExpression(ctx *generated.CommandExpressionContext
 	return call
 }
 
-func (v *Visitor) VisitMemberAccess(ctx *generated.MemberAccessContext) interface{} {
-	log.Info("enter member access")
-	defer log.Info("exit member access")
-
+func (v *Visitor) VisitMemberAccess(ctx *generated.MemberAccessContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter member access")
+	log.IncreasePadding()
+	defer log.Info("exit member access")
+	defer log.DecreasePadding()
 
 	// Handle identifier with generic arguments
 	if ctx.Identifier() != nil && ctx.GenericArguments() != nil {
@@ -524,6 +596,13 @@ func (v *Visitor) VisitMemberAccess(ctx *generated.MemberAccessContext) interfac
 		return base
 	}
 
+	if ctx.Identifier() != nil {
+		return &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+	}
+
 	return nil
 }
 
@@ -531,6 +610,10 @@ func (v *Visitor) visitMemberAccessPoint(base ast.Expr, ctx *generated.MemberAcc
 	if ctx == nil {
 		return base
 	}
+	log.Info("enter member access point")
+	log.IncreasePadding()
+	defer log.Info("exit member access point")
+	defer log.DecreasePadding()
 
 	// Handle dot access
 	if ctx.DOT() != nil && ctx.Identifier() != nil {
@@ -596,4 +679,187 @@ func (v *Visitor) visitMemberAccessPoint(base ast.Expr, ctx *generated.MemberAcc
 	}
 
 	return base
+}
+
+// VisitConditionalBoolExpression implements the Visitor interface for ConditionalBoolExpression
+func (v *Visitor) VisitConditionalBoolExpression(ctx *generated.ConditionalBoolExpressionContext) any {
+	if ctx == nil {
+		return nil
+	}
+	log.Info("enter ConditionalBoolExpression")
+	log.IncreasePadding()
+
+	// Get the first logical expression
+	x, _ := accept[ast.Expr](ctx.LogicalExpression(0), v)
+	if len(ctx.AllLogicalExpression()) > 1 {
+		// Handle multiple logical expressions with operators
+		for i := 1; i < len(ctx.AllLogicalExpression()); i++ {
+			y, _ := accept[ast.Expr](ctx.LogicalExpression(i), v)
+			op := token.Token(ctx.GetConditionalOp().GetTokenType())
+			opPos := token.Pos(ctx.GetConditionalOp().GetStart())
+
+			x = &ast.BinaryExpr{
+				X:     x,
+				OpPos: opPos,
+				Op:    op,
+				Y:     y,
+			}
+		}
+	}
+
+	log.DecreasePadding()
+	log.Info("exit ConditionalBoolExpression")
+
+	return x
+}
+
+// VisitIncDecExpression implements the Visitor interface for IncDecExpression
+func (v *Visitor) VisitIncDecExpression(ctx *generated.IncDecExpressionContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter IncDecExpression")
+	log.IncreasePadding()
+
+	var ret ast.Expr
+	// Handle pre-increment/decrement
+	if ctx.PreIncDecExpression() != nil {
+		ret, _ = accept[ast.Expr](ctx.PreIncDecExpression(), v)
+	}
+
+	// Handle post-increment/decrement
+	if ctx.PostIncDecExpression() != nil {
+		ret, _ = accept[ast.Expr](ctx.PostIncDecExpression(), v)
+	}
+
+	log.DecreasePadding()
+	log.Info("exit IncDecExpression")
+
+	return ret
+}
+
+// VisitPreIncDecExpression implements the Visitor interface for PreIncDecExpression
+func (v *Visitor) VisitPreIncDecExpression(ctx *generated.PreIncDecExpressionContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter PreIncDecExpression")
+	log.IncreasePadding()
+
+	expr := v.VisitFactor(ctx.Factor().(*generated.FactorContext))
+	if expr == nil {
+		return nil
+	}
+
+	var ret ast.Expr
+	if ctx.INC() != nil {
+		ret = &ast.IncDecExpr{
+			Pre:    true,
+			X:      expr.(ast.Expr),
+			Tok:    token.INC,
+			TokPos: token.Pos(ctx.GetStart().GetStart()),
+		}
+	} else if ctx.DEC() != nil {
+		ret = &ast.IncDecExpr{
+			Pre:    true,
+			X:      expr.(ast.Expr),
+			Tok:    token.DEC,
+			TokPos: token.Pos(ctx.GetStart().GetStart()),
+		}
+	} else {
+		ret = expr.(ast.Expr)
+	}
+
+	log.DecreasePadding()
+	log.Info("exit PreIncDecExpression")
+
+	return ret
+}
+
+// VisitPostIncDecExpression implements the Visitor interface for PostIncDecExpression
+func (v *Visitor) VisitPostIncDecExpression(ctx *generated.PostIncDecExpressionContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter PostIncDecExpression")
+	log.IncreasePadding()
+	defer log.Info("exit PostIncDecExpression")
+	defer log.DecreasePadding()
+
+	expr := v.Visit(ctx.Factor())
+	if expr == nil {
+		return nil
+	}
+
+	var tok token.Token
+	if ctx.INC() != nil {
+		tok = token.INC
+	} else if ctx.DEC() != nil {
+		tok = token.DEC
+	}
+
+	return &ast.IncDecExpr{
+		Pre:    false,
+		X:      expr.(ast.Expr),
+		Tok:    tok,
+		TokPos: token.Pos(ctx.GetStart().GetStart()),
+	}
+}
+
+// VisitFactor implements the Visitor interface for Factor
+func (v *Visitor) VisitFactor(ctx *generated.FactorContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter Factor")
+	log.IncreasePadding()
+	defer log.Info("exit Factor")
+	defer log.DecreasePadding()
+
+	// Handle unary expressions
+	if ctx.SUB() != nil {
+		expr := v.VisitFactor(ctx.Factor().(*generated.FactorContext))
+		if expr == nil {
+			return nil
+		}
+		return &ast.UnaryExpr{
+			OpPos: token.Pos(ctx.SUB().GetSymbol().GetStart()),
+			Op:    token.MINUS,
+			X:     expr.(ast.Expr),
+		}
+	}
+
+	// Handle literals
+	if ctx.Literal() != nil {
+		return v.VisitLiteral(ctx.Literal().(*generated.LiteralContext))
+	}
+
+	// Handle identifiers
+	if ctx.VariableExpression() != nil {
+		return v.VisitVariableExpression(ctx.VariableExpression().(*generated.VariableExpressionContext))
+	}
+
+	// Handle parenthesized expressions
+	if ctx.LPAREN() != nil {
+		return v.VisitFactor(ctx.Factor().(*generated.FactorContext))
+	}
+
+	return nil
+}
+
+func (v *Visitor) VisitVariableExpression(ctx *generated.VariableExpressionContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter VariableExpression")
+	log.IncreasePadding()
+	defer log.Info("exit VariableExpression")
+	defer log.DecreasePadding()
+
+	return v.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
 }

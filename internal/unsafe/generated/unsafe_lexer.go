@@ -1,13 +1,12 @@
 // Code generated from unsafeLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package unsafe
+package generated
 
 import (
 	"fmt"
+	"github.com/antlr4-go/antlr/v4"
 	"sync"
 	"unicode"
-
-	"github.com/antlr4-go/antlr/v4"
 )
 
 // Suppress unused import error

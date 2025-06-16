@@ -14,25 +14,30 @@ func Generate() {
 	log.Info("generating code...")
 	start := time.Now()
 
-	mg.Deps(generateParser, generateStringer, generateUnsafe)
+	mg.Deps(generateHuloParser, generateStringer, generateUnsafeParser)
 
 	elapsed := time.Since(start)
 	log.Infof("generator completed in %.2fs", elapsed.Seconds())
 }
 
-// generateParser generates the Go parser code from ANTLR grammar files.
-func generateParser() error {
-	log.Info("Generating parser")
+// generateHuloParser generates the Go parser code from ANTLR grammar files.
+func generateHuloParser() error {
+	log.Info("generating hulo parser")
 	return runCmdInDir("syntax/hulo/parser/grammar",
 		"java", "-jar", "../antlr.jar",
 		"-Dlanguage=Go", "-visitor", "-no-listener",
 		"-o", "../generated", "-package", "generated", "*.g4")
 }
 
-func generateUnsafe() error {
-	return nil
+// generateUnsafeParser generates the Go parser code from ANTLR grammar files.
+func generateUnsafeParser() error {
+	log.Info("gnerating unsafe parser")
+	return runCmdInDir("internal/unsafe/grammar",
+		"java", "-jar", "../antlr.jar",
+		"-Dlanguage=Go", "-visitor", "-no-listener",
+		"-o", "../generated", "-package", "generated", "*.g4")
 }
 
 func generateStringer() error {
-	return nil
+	return runCmd("go", "generate", "./...")
 }

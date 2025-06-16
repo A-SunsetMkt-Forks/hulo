@@ -1,0 +1,4 @@
+fn sayHello() {
+    defer echo "World!"
+    defer echo "Hello,"
+}

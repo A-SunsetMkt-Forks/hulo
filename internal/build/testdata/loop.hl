@@ -1,0 +1,13 @@
+loop {
+    sleep 10
+    echo "Hello, World!"
+}
+
+loop $i := 0; $i < 10; $i++ {
+    echo $i
+}
+
+loop 2 > 1 && true {
+    sleep 10
+    echo "Hello, World!"
+}

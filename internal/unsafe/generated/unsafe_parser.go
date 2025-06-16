@@ -1,6 +1,6 @@
 // Code generated from UnsafeParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package unsafe // UnsafeParser
+package generated // UnsafeParser
 import (
 	"fmt"
 	"strconv"

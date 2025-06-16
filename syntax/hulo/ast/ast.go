@@ -706,6 +706,13 @@ type (
 		Dot token.Pos // position of "."
 		Y   Expr
 	}
+
+	// A UnaryExpr node represents a unary expression.
+	UnaryExpr struct {
+		OpPos token.Pos   // position of Op
+		Op    token.Token // operator
+		X     Expr        // operand
+	}
 )
 
 func (x *IndexExpr) Pos() token.Pos      { return x.X.Pos() }
@@ -719,6 +726,7 @@ func (x *UnsafeExpr) Pos() token.Pos     { return x.Dollar }
 func (x *RefExpr) Pos() token.Pos        { return x.Dollar }
 func (x *IncDecExpr) Pos() token.Pos     { return x.X.Pos() }
 func (x *SelectExpr) Pos() token.Pos     { return x.X.Pos() }
+func (x *UnaryExpr) Pos() token.Pos      { return x.OpPos }
 
 func (x *IndexExpr) End() token.Pos      { return x.Rbrack }
 func (x *BinaryExpr) End() token.Pos     { return x.Y.End() }
@@ -738,6 +746,7 @@ func (x *IncDecExpr) End() token.Pos {
 	return x.TokPos + 2
 }
 func (x *SelectExpr) End() token.Pos { return x.Y.End() }
+func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
 
 func (x *Ident) String() string {
 	return x.Name
@@ -810,6 +819,10 @@ func (x *SelectExpr) String() string {
 	return fmt.Sprintf("%s.%s", x.X, x.Y)
 }
 
+func (x *UnaryExpr) String() string {
+	return fmt.Sprintf("%s%s", x.Op, x.X)
+}
+
 func (x *CallExpr) String() string {
 	args := []string{}
 	for _, arg := range x.Recv {
@@ -829,6 +842,7 @@ func (*RefExpr) exprNode()        {}
 func (*IncDecExpr) exprNode()     {}
 func (*SelectExpr) exprNode()     {}
 func (*IndexExpr) exprNode()      {}
+func (*UnaryExpr) exprNode()      {}
 
 type Modifier int
 

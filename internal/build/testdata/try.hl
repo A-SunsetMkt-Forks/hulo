@@ -1,0 +1,7 @@
+try {
+    throw "error happen"
+} catch {
+    echo ""
+} finally {
+
+}

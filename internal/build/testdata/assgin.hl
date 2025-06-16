@@ -4,5 +4,5 @@ $c := "hello"
 $d := true
 $e := false
 $f := null
-$g := undefined
+$g := echo
 let e: num = 3e+10

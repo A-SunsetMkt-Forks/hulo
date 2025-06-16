@@ -4,6 +4,8 @@
 package build
 
 import (
+	"fmt"
+
 	"github.com/hulo-lang/hulo/internal/config"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
@@ -66,6 +68,24 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			Kind:  Token(node.Kind),
 			Value: node.Value,
 		}
+	case *hast.ExprStmt:
+		return &bast.ExprStmt{
+			X: translate2Bash(opts, node.X).(bast.Expr),
+		}
+	case *hast.CallExpr:
+		fun := translate2Bash(opts, node.Fun).(*bast.Ident)
+
+		recv := []bast.Expr{}
+		for _, r := range node.Recv {
+			recv = append(recv, translate2Bash(opts, r).(bast.Expr))
+		}
+
+		return &bast.CallExpr{
+			Func: fun,
+			Recv: recv,
+		}
+	default:
+		fmt.Printf("%T\n", node)
 	}
 
 	return nil

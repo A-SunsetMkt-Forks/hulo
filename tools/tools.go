@@ -4,8 +4,11 @@
 package tools
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/caarlos0/log"
@@ -36,4 +39,46 @@ func runCmdInDir(dir, name string, args ...string) error {
 		WithField("dir", dir).
 		Info("execute command")
 	return cmd.Run()
+}
+
+// CopyFileIfNotExists copies a file from src to dst if dst doesn't exist.
+// Returns error if copy fails or if src doesn't exist.
+func CopyFileIfNotExists(src, dst string) error {
+	// Check if destination file already exists
+	if _, err := os.Stat(dst); err == nil {
+		log.WithField("path", dst).Info("file already exists, skipping copy")
+		return nil
+	}
+
+	// Check if source file exists
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		return fmt.Errorf("source file does not exist: %s", src)
+	}
+
+	// Create destination directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %v", err)
+	}
+
+	// Open source file
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %v", err)
+	}
+	defer srcFile.Close()
+
+	// Create destination file
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %v", err)
+	}
+	defer dstFile.Close()
+
+	// Copy file contents
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("failed to copy file contents: %v", err)
+	}
+
+	log.WithField("src", src).WithField("dst", dst).Info("file copied successfully")
+	return nil
 }

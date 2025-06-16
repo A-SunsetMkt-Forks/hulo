@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser/generated"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,9 +21,9 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseSourceFile(t *testing.T) {
-	node, err := ParseSourceScript("Write-Host", ParseOptions{})
+	node, err := ParseSourceScript("Write-Host 'abc'", ParseOptions{})
 	assert.NoError(t, err)
-	fmt.Println(node)
+	ast.Print(node)
 }
 
 func TestIdentifier(t *testing.T) {

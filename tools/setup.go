@@ -150,6 +150,10 @@ func ensureAntlrJar() error {
 		}
 	}
 
+	err := CopyFileIfNotExists(antlrPath, filepath.Join("internal", "unsafe", "antlr.jar"))
+	if err != nil {
+		return err
+	}
 	log.Info("antlr.jar is ready")
 	return nil
 }

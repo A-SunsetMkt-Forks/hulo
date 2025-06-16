@@ -6,10 +6,12 @@ package build_test
 import (
 	"testing"
 
+	"github.com/caarlos0/log"
 	build "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/config"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
@@ -43,4 +45,19 @@ func TestBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	bast.Print(node)
+}
+
+func TestSorceScriptBuild(t *testing.T) {
+	log.SetLevel(log.ErrorLevel)
+	script := `echo "Hello, World!" 3.14 true`
+	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// hast.Print(node)
+	bnode, err := build.Translate(&config.BashOptions{}, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bast.Print(bnode)
 }

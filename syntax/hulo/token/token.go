@@ -62,11 +62,14 @@ const (
 	LT // <
 	GT // >
 
+	NOT   // !
+	QUEST // ?
+
 	EQ  // ==
 	NEQ // !=
 
-	LEQ // <=
-	GEQ // >=
+	LE // <=
+	GE // >=
 
 	DOCS // '
 
@@ -139,7 +142,4 @@ const (
 
 	THROW  // throw
 	THROWS // throws
-
-	// Additional operators
-	QUEST // ?
 )

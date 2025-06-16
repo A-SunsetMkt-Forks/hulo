@@ -15,7 +15,7 @@ func Build() {
 	log.Info("starting build...")
 	start := time.Now()
 
-	mg.Deps(generateParser)
+	mg.Deps(generateHuloParser)
 
 	elapsed := time.Since(start)
 	log.Infof("build completed in %.2fs", elapsed.Seconds())
