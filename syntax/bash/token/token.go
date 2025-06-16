@@ -16,251 +16,146 @@ func (p Pos) IsValid() bool {
 // for NoPos is the zero value for Position.
 const NoPos Pos = 0
 
-type Token uint
+//go:generate stringer -type=Token -linecomment
+type Token uint32
 
 const (
-	NONE = iota
+	Illegal Token = iota
 
-	ADD // +
-	SUB // -
-	MUL // *
-	DIV // /
-	MOD // %
-	EXP // **
+	SglQuote // '
+	DblQuote // "
+	BckQuote // `
 
-	HASH   // #
-	QUEST  // ?
-	AT     // @
-	DOLLAR // $
+	And    // &
+	AndAnd // &&
+	Or     // |
+	OrOr   // ||
+	OrAnd  // |&
 
-	INC // ++
-	DEC // --
-	EQ  // ==
-	NEQ // !=
+	Dollar       // $
+	DollSglQuote // $'
+	DollDblQuote // $"
+	DollBrace    // ${
+	DollBrack    // $[
+	DollParen    // $(
+	DollDblParen // $((
 
-	LT_AND // >&
-	AND_LT // &>
+	LeftBrack    // [
+	DblLeftBrack // [[
+	LeftParen    // (
+	DblLeftParen // ((
 
-	DOLLAR_MUL   // $*
-	DOLLAR_AT    // $@
-	DOLLAR_HASH  // $#
-	DOLLAR_QUEST // $?
-	DOLLAR_SUB   // $-
-	DOLLAR_TWO   // $$
-	DOLLAR_NOT   // $!
-	DOLLAR_ZERO  // $0
+	RightBrace    // }
+	RightBrack    // ]
+	RightParen    // )
+	DblRightParen // ))
 
-	SINGLE_QUOTE // '
-	DOUBLE_QUOTE // "
+	Semicolon    // ;
+	DblSemicolon // ;;
+	SemiAnd      // ;&
+	DblSemiAnd   // ;;&
+	SemiOr       // ;|
 
-	BACK_QUOTE // `
+	ExclMark   // !
+	Tilde      // ~
+	AddAdd     // ++
+	SubSub     // --
+	Star       // *
+	Power      // **
+	Equal      // ==
+	NotEqual   // !=
+	LessEqual  // <=
+	GreatEqual // >=
 
-	LT // <
-	GT // >
+	AddAssgn // +=
+	SubAssgn // -=
+	MulAssgn // *=
+	QuoAssgn // /=
+	RemAssgn // %=
+	AndAssgn // &=
+	OrAssgn  // |=
+	XorAssgn // ^=
+	ShlAssgn // <<=
+	ShrAssgn // >>=
 
-	LT_LIT // -lt
-	GT_LIT // -gt
+	RdrOut   // >
+	AppOut   // >>
+	RdrIn    // <
+	RdrInOut // <>
+	DplIn    // <&
+	DplOut   // >&
+	ClbOut   // >|
+	Hdoc     // <<
+	DashHdoc // <<-
+	WordHdoc // <<<
+	RdrAll   // &>
+	AppAll   // &>>
 
-	LT_ASSIGN        // <=
-	GT_ASSIGN        // >=
-	MUL_ASSIGN       // *=
-	DIV_ASSIGN       // /=
-	ADD_ASSIGN       // +=
-	SUB_ASSIGN       // -=
-	DOUBLE_LT_ASSIGN // <<=
-	DOUBLE_GT_ASSIGN // >>=
-	AND_ASSIGN       // &=
-	XOR_ASSIGN       // ^=
-	OR_ASSIGN        // |=
+	CmdIn  // <(
+	CmdOut // >(
 
-	DOUBLE_LT // <<
-	TRIPLE_LT // <<<
-	DOUBLE_GT // >>
+	Plus     // +
+	ColPlus  // :+
+	Minus    // -
+	ColMinus // :-
+	Quest    // ?
+	ColQuest // :?
+	Assgn    // =
+	ColAssgn // :=
+	Perc     // %
+	DblPerc  // %%
+	Hash     // #
+	DblHash  // ##
+	Caret    // ^
+	DblCaret // ^^
+	Comma    // ,
+	DblComma // ,,
+	At       // @
+	Slash    // /
+	DblSlash // //
+	Colon    // :
 
-	LPAREN   // (
-	RPAREN   // )
-	LBRACE   // {
-	RBRACE   // }
-	LBRACKET // [
-	RBRACKET // ]
+	TsExists  // -e
+	TsRegFile // -f
+	TsDirect  // -d
+	TsCharSp  // -c
+	TsBlckSp  // -b
+	TsNmPipe  // -p
+	TsSocket  // -S
+	TsSmbLink // -L
+	TsSticky  // -k
+	TsGIDSet  // -g
+	TsUIDSet  // -u
+	TsGrpOwn  // -G
+	TsUsrOwn  // -O
+	TsModif   // -N
+	TsRead    // -r
+	TsWrite   // -w
+	TsExec    // -x
+	TsNoEmpty // -s
+	TsFdTerm  // -t
+	TsEmpStr  // -z
+	TsNempStr // -n
+	TsOptSet  // -o
+	TsVarSet  // -v
+	TsRefVar  // -R
 
-	DOUBLE_LPAREN // ((
-	DOUBLE_RPAREN // ))
+	TsReMatch // =~
+	TsNewer   // -nt
+	TsOlder   // -ot
+	TsDevIno  // -ef
+	TsEql     // -eq
+	TsNeq     // -ne
+	TsLeq     // -le
+	TsGeq     // -ge
+	TsLss     // -lt
+	TsGtr     // -gt
 
-	BITOR  // |
-	BITAND // &
-	BITNOT // !
-	BITNEG // ~
+	GlobQuest // ?(
+	GlobStar  // *(
+	GlobPlus  // +(
+	GlobAt    // @(
+	GlobExcl  // !(
 
-	ASSIGN        // =
-	ASSIGN_BITNEG // =~
-
-	COMMA // ,
-	COLON // :
-	SEMI  // ;
-
-	DOUBLE_SEMI // ;;
-
-	AND // &&
-	OR  // ||
-	XOR // ^
-
-	IF       // if
-	THEN     // then
-	ELIF     // elif
-	ELSE     // else
-	FI       // fi
-	FOR      // for
-	IN       // in
-	UNTIL    // until
-	WHILE    // while
-	DO       // do
-	DONE     // done
-	CASE     // case
-	ESAC     // esac
-	SELECT   // select
-	FUNCTION // function
-	LOCAL    // local
-	RETURN   // return
-	BREAK    // break
-	CONTINUE // continue
-
-	STRING // string
-	NUMBER // number
-	WORD   // word
-
-	EOF // eof
+	// EOF
 )
-
-var ToString = map[Token]string{
-	NONE: "",
-
-	// Arithmetic operators
-	ADD: "+",
-	SUB: "-",
-	MUL: "*",
-	DIV: "/",
-	MOD: "%",
-	EXP: "**",
-
-	// Special symbols
-	HASH:   "#",
-	QUEST:  "?",
-	AT:     "@",
-	DOLLAR: "$",
-
-	// Increment/decrement
-	INC: "++",
-	DEC: "--",
-
-	// Comparison operators
-	EQ:  "==",
-	NEQ: "!=",
-
-	// Redirection operators
-	LT_AND: ">&",
-	AND_LT: "&>",
-
-	// Special variables
-	DOLLAR_MUL:   "$*",
-	DOLLAR_AT:    "$@",
-	DOLLAR_HASH:  "$#",
-	DOLLAR_QUEST: "$?",
-	DOLLAR_SUB:   "$-",
-	DOLLAR_TWO:   "$$",
-	DOLLAR_NOT:   "$!",
-	DOLLAR_ZERO:  "$0",
-
-	// Quotes
-	SINGLE_QUOTE: "'",
-	DOUBLE_QUOTE: "\"",
-	BACK_QUOTE:   "`",
-
-	// Comparison
-	LT: "<",
-	GT: ">",
-
-	LT_LIT: "-lt",
-	GT_LIT: "-gt",
-
-	// Compound assignments
-	LT_ASSIGN:        "<=",
-	GT_ASSIGN:        ">=",
-	MUL_ASSIGN:       "*=",
-	DIV_ASSIGN:       "/=",
-	ADD_ASSIGN:       "+=",
-	SUB_ASSIGN:       "-=",
-	DOUBLE_LT_ASSIGN: "<<=",
-	DOUBLE_GT_ASSIGN: ">>=",
-	AND_ASSIGN:       "&=",
-	XOR_ASSIGN:       "^=",
-	OR_ASSIGN:        "|=",
-
-	// Bit shifting
-	DOUBLE_LT: "<<",
-	TRIPLE_LT: "<<<",
-	DOUBLE_GT: ">>",
-
-	// Brackets
-	LPAREN:   "(",
-	RPAREN:   ")",
-	LBRACE:   "{",
-	RBRACE:   "}",
-	LBRACKET: "[",
-	RBRACKET: "]",
-
-	// Arithmetic expansion
-	DOUBLE_LPAREN: "((",
-	DOUBLE_RPAREN: "))",
-
-	// Bitwise operators
-	BITOR:  "|",
-	BITAND: "&",
-	BITNOT: "!",
-	BITNEG: "~",
-
-	// Assignment and pattern matching
-	ASSIGN:        "=",
-	ASSIGN_BITNEG: "=~",
-
-	// Punctuation
-	COMMA: ",",
-	COLON: ":",
-	SEMI:  ";",
-
-	DOUBLE_SEMI: ";;",
-
-	// Logical operators
-	AND: "&&",
-	OR:  "||",
-	XOR: "^",
-
-	// Keywords
-	IF:       "if",
-	THEN:     "then",
-	ELIF:     "elif",
-	ELSE:     "else",
-	FI:       "fi",
-	FOR:      "for",
-	IN:       "in",
-	UNTIL:    "until",
-	WHILE:    "while",
-	DO:       "do",
-	DONE:     "done",
-	CASE:     "case",
-	ESAC:     "esac",
-	SELECT:   "select",
-	FUNCTION: "function",
-	LOCAL:    "local",
-	RETURN:   "return",
-	BREAK:    "break",
-	CONTINUE: "continue",
-
-	// Literals
-	STRING: "string",
-	NUMBER: "number",
-	WORD:   "word",
-
-	// End of file
-	EOF: "",
-}

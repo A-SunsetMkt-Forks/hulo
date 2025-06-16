@@ -21,7 +21,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseSourceFile(t *testing.T) {
-	node, err := ParseSourceScript("Write-Host 'abc'", ParseOptions{})
+	node, err := ParseSourceScript("Write-Host 'Hello World!'", ParseOptions{})
 	assert.NoError(t, err)
 	ast.Print(node)
 }

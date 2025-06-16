@@ -558,10 +558,10 @@ func (*ArrExpr) exprNode()          {}
 
 func (e *BinaryExpr) String() string {
 	switch e.Op {
-	case token.LT_LIT, token.GT_LIT:
-		return fmt.Sprintf("%s %s %s", e.X, token.ToString[e.Op], e.Y)
+	case token.TsLss, token.TsGtr:
+		return fmt.Sprintf("%s %s %s", e.X, e.Op, e.Y)
 	default:
-		return fmt.Sprintf("%s%s%s", e.X, token.ToString[e.Op], e.Y)
+		return fmt.Sprintf("%s%s%s", e.X, e.Op, e.Y)
 	}
 }
 
@@ -600,14 +600,14 @@ func (e *ArithEvalExpr) String() string {
 }
 
 func (e *CmdSubst) String() string {
-	if e.Tok == token.LPAREN {
+	if e.Tok == token.LeftParen {
 		return fmt.Sprintf("$( %s )", e.X)
 	}
 	return fmt.Sprintf("` %s `", e.X)
 }
 
 func (e *ProcSubst) String() string {
-	if e.Tok == token.LT {
+	if e.Tok == token.RdrIn {
 		return fmt.Sprintf("<( %s )", e.X)
 	}
 	return fmt.Sprintf(">( %s )", e.X)
@@ -636,7 +636,7 @@ func (e *ParamExpExpr) String() string {
 	case e.PrefixArrayExp != nil:
 		return fmt.Sprintf("${!%s@}", e.Var)
 	case e.ArrayIndexExp != nil:
-		if e.Tok == token.MUL {
+		if e.Tok == token.Star {
 			return fmt.Sprintf("${!%s[*]}", e.Var)
 		}
 		return fmt.Sprintf("${!%s[@]}", e.Var)
