@@ -9,19 +9,19 @@ import (
 )
 
 var bashTokenMap = map[htok.Token]btok.Token{
-	htok.EQ: btok.EQ,
+	htok.EQ: btok.Equal,
 	// htok.NE: btok.NE,
-	htok.LT: btok.LT,
+	htok.LT: btok.LessEqual,
 	// htok.LE: btok.LE,
-	htok.GT: btok.GT,
+	htok.GT: btok.TsGtr,
 	// htok.GE: btok.GE,
-	htok.AND: btok.AND,
-	htok.OR:  btok.OR,
+	htok.AND: btok.And,
+	htok.OR:  btok.Or,
 }
 
 func Token(tok htok.Token) btok.Token {
 	if t, ok := bashTokenMap[tok]; ok {
 		return t
 	}
-	return btok.NONE
+	return btok.Illegal
 }

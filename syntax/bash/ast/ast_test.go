@@ -94,7 +94,7 @@ func TestForStmt(t *testing.T) {
 		},
 		Cond: &ast.BinaryExpr{
 			X:  &ast.Ident{Name: "i"},
-			Op: token.LT,
+			Op: token.TsLss,
 			Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
 		},
 		Post: &ast.AssignStmt{
