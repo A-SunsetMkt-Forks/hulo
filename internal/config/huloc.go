@@ -14,8 +14,9 @@ type Huloc struct {
 }
 
 type CompilerOptions struct {
-	Bash  *BashOptions  `json:"bash"`
-	Batch *BatchOptions `json:"batch"`
+	Bash     *BashOptions     `json:"bash"`
+	Batch    *BatchOptions    `json:"batch"`
+	VBScript *VBScriptOptions `json:"vbs"`
 }
 
 type Language string

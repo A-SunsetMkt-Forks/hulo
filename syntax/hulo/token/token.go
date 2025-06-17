@@ -42,6 +42,15 @@ const (
 
 	COLON_ASSIGN // :=
 
+	PLUS_ASSIGN // +=
+	MINUS_ASSIGN // -=
+	ASTERISK_ASSIGN // *=
+	SLASH_ASSIGN // /=
+	MOD_ASSIGN // %=
+	AND_ASSIGN // &&=
+	OR_ASSIGN // ||=
+	POWER_ASSIGN // **=
+
 	INC // ++
 	DEC // --
 

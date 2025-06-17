@@ -18,10 +18,8 @@ func TestAST(t *testing.T) {
 	}{
 		{
 			&ast.File{
-				Decls: []ast.Decl{
-					&ast.DimDecl{List: []ast.Expr{&ast.Ident{Name: "A"}}},
-				},
 				Stmts: []ast.Stmt{
+					&ast.DimDecl{List: []ast.Expr{&ast.Ident{Name: "A"}}},
 					&ast.AssignStmt{
 						Lhs: &ast.Ident{Name: "A"},
 						Rhs: &ast.CallExpr{
@@ -32,7 +30,7 @@ func TestAST(t *testing.T) {
 				},
 			}, `Dim A
 A = Array(10,20,30)`},
-		{&ast.File{Decls: []ast.Decl{
+		{&ast.File{Stmts: []ast.Stmt{
 			&ast.DimDecl{List: []ast.Expr{&ast.IndexExpr{X: &ast.Ident{Name: "Names"}, Index: &ast.Ident{Name: "9"}}}},
 			&ast.DimDecl{List: []ast.Expr{&ast.IndexListExpr{X: &ast.Ident{Name: "Names"}, Indices: []ast.Expr{&ast.Ident{Name: "10"}, &ast.Ident{Name: "10"}, &ast.Ident{Name: "10"}}}}},
 			&ast.DimDecl{List: []ast.Expr{&ast.Ident{Name: "MyVar"}, &ast.Ident{Name: "MyNum"}}}}}, `Dim Names(9)
@@ -46,21 +44,21 @@ Dim MyVar, MyNum`},
 					Recv: []ast.Expr{&ast.BasicLit{Kind: token.INTEGER, Value: "6"}},
 				}},
 			&ast.ExprStmt{
-				Doc: &ast.CommentGroup{List: []*ast.Comment{{Tok: token.APOSTROPHE, Text: "Clear the error"}}},
+				Doc: &ast.CommentGroup{List: []*ast.Comment{{Tok: token.SGL_QUOTE, Text: "Clear the error"}}},
 				X: &ast.CallExpr{
 					Func: &ast.Ident{Name: "MsgBox"},
 					Recv: []ast.Expr{&ast.BinaryExpr{
 						X:  &ast.Ident{Name: `"Error # "`},
-						Op: token.BITAND,
+						Op: token.AND,
 						Y: &ast.BinaryExpr{
 							X: &ast.CallExpr{
 								Func: &ast.Ident{Name: "CStr"},
 								Recv: []ast.Expr{&ast.SelectorExpr{X: &ast.Ident{Name: "Err"}, Sel: &ast.Ident{Name: "Number"}}},
 							},
-							Op: token.BITAND,
+							Op: token.AND,
 							Y: &ast.BinaryExpr{
 								X:  &ast.BasicLit{Kind: token.STRING, Value: " "},
-								Op: token.BITAND,
+								Op: token.AND,
 								Y: &ast.SelectorExpr{
 									X:   &ast.Ident{Name: "Err"},
 									Sel: &ast.Ident{Name: "Description"},
@@ -79,15 +77,17 @@ Err.Clear      ' Clear the error`},
 
 func TestPrint(t *testing.T) {
 	ast.Print(&ast.File{
-		Decls: []ast.Decl{
+		Stmts: []ast.Stmt{
 			&ast.DimDecl{
 				List:  []ast.Expr{&ast.Ident{Name: "x"}},
 				Colon: token.DynPos,
-				Set: &ast.AssignStmt{
+				Set: &ast.SetStmt{
 					Lhs: &ast.Ident{Name: "x"},
-					Rhs: &ast.CallExpr{
-						Func: &ast.Ident{Name: "CreateObject"},
-						Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "Scripting.Dictionary"}},
+					Rhs: &ast.NewExpr{
+						X: &ast.CallExpr{
+							Func: &ast.Ident{Name: "CreateObject"},
+							Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "Scripting.Dictionary"}},
+						},
 					},
 				},
 			},
@@ -101,18 +101,14 @@ func TestPrint(t *testing.T) {
 				},
 			},
 			&ast.ClassDecl{
-				Mod:  ast.M_PUBLIC,
+				Mod:  token.PUBLIC,
 				Name: &ast.Ident{Name: "RGB"},
 				Stmts: []ast.Stmt{
-					&ast.MemberStmt{
-						Mod:  ast.M_PRIVATE,
-						Name: &ast.Ident{Name: "m_value"},
+					&ast.PrivateStmt{
+						List: []ast.Expr{&ast.Ident{Name: "m_value"}},
 					},
-				},
-				Decls: []ast.Decl{
-					&ast.PropertyDecl{
-						Mod:  ast.M_PUBLIC,
-						Tok:  token.GET,
+					&ast.PropertyGetStmt{
+						Mod:  token.PUBLIC,
 						Name: &ast.Ident{Name: "Value"},
 						Recv: []*ast.Field{
 							{Tok: token.BYREF, TokPos: token.DynPos, Name: &ast.Ident{Name: "val"}},
@@ -122,7 +118,7 @@ func TestPrint(t *testing.T) {
 								&ast.IfStmt{
 									Cond: &ast.BinaryExpr{
 										X:  &ast.Ident{Name: "val"},
-										Op: token.LT_ASSIGN,
+										Op: token.LTQ,
 										Y:  &ast.BasicLit{Kind: token.INTEGER, Value: "0"},
 									},
 									Body: &ast.BlockStmt{
@@ -155,7 +151,7 @@ func TestPrint(t *testing.T) {
 						},
 					},
 					&ast.FuncDecl{
-						Mod:  ast.M_PUBLIC,
+						Mod:  token.PUBLIC,
 						Name: &ast.Ident{Name: "color"},
 						Body: &ast.BlockStmt{
 							List: []ast.Stmt{
@@ -183,19 +179,19 @@ func TestPrint(t *testing.T) {
 														&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
 													},
 												},
-												ElseIf: []*ast.IfStmt{
-													{Cond: &ast.BinaryExpr{X: &ast.Ident{Name: "X"}, Op: token.GT, Y: &ast.BasicLit{Kind: token.INTEGER, Value: "17"}},
-														Body: &ast.BlockStmt{List: []ast.Stmt{
-															&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
-														}}},
-													{Cond: &ast.BinaryExpr{X: &ast.Ident{Name: "X"}, Op: token.GT, Y: &ast.BasicLit{Kind: token.INTEGER, Value: "17"}},
-														Body: &ast.BlockStmt{List: []ast.Stmt{
-															&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
-														}}},
-												},
-												Else: &ast.BlockStmt{
-													List: []ast.Stmt{
+												Else: &ast.IfStmt{Cond: &ast.BinaryExpr{X: &ast.Ident{Name: "X"}, Op: token.GT, Y: &ast.BasicLit{Kind: token.INTEGER, Value: "17"}},
+													Body: &ast.BlockStmt{List: []ast.Stmt{
 														&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
+													}},
+													Else: &ast.IfStmt{
+														Cond: &ast.BinaryExpr{X: &ast.Ident{Name: "X"}, Op: token.GT, Y: &ast.BasicLit{Kind: token.INTEGER, Value: "17"}},
+														Body: &ast.BlockStmt{
+															List: []ast.Stmt{
+																&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
+															}},
+														Else: &ast.BlockStmt{List: []ast.Stmt{
+															&ast.ExprStmt{X: &ast.CallExpr{Func: &ast.Ident{Name: "MsgBox"}, Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "right"}}}},
+														}},
 													},
 												},
 											},
@@ -209,6 +205,5 @@ func TestPrint(t *testing.T) {
 				},
 			},
 		},
-		Stmts: []ast.Stmt{},
 	})
 }

@@ -157,5 +157,9 @@ const (
 	GlobAt    // @(
 	GlobExcl  // !(
 
-	// EOF
+	EOF // EOF
+
+	// compitable with old version
+	STRING
+	NUMBER
 )

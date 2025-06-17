@@ -31,10 +31,32 @@ func (p *printer) println(a ...any) (n int, err error) {
 	return fmt.Fprintln(p.output, a...)
 }
 
+func (p *printer) writeString(a any) *printer {
+	fmt.Fprint(p.output, a)
+	return p
+}
+func (p *printer) spacedString(a ...any) *printer {
+	for i, v := range a {
+		if i > 0 {
+			fmt.Fprint(p.output, " ")
+		}
+		fmt.Fprint(p.output, v)
+	}
+	return p
+}
+func (p *printer) indent() *printer {
+	fmt.Fprint(p.output, p.ident)
+	return p
+}
+func (p *printer) space() *printer {
+	fmt.Fprint(p.output, " ")
+	return p
+}
+
 func (p *printer) Visit(node Node) Visitor {
 	switch n := node.(type) {
 	case *File:
-		for _, d := range n.Decls {
+		for _, d := range n.Doc {
 			Walk(p, d)
 		}
 
@@ -42,31 +64,44 @@ func (p *printer) Visit(node Node) Visitor {
 			Walk(p, s)
 		}
 
+	case *CommentGroup:
+		for _, c := range n.List {
+			if !c.Tok.IsValid() {
+				c.Tok = token.REM
+			}
+			p.printf("%s%s %s\n", p.ident, c.Tok, c.Text)
+		}
+
 	case *DimDecl:
-		p.printf("%s %s", p.ident+"Dim", ExprListStr(n.List))
+		list := []string{}
+		for _, l := range n.List {
+			list = append(list, l.String())
+		}
+		p.printf("%s %s", p.ident+"Dim", strings.Join(list, ", "))
 		if n.Colon.IsValid() {
-			p.printf(": Set %s = %s", ExprStr(n.Set.Lhs), ExprStr(n.Set.Rhs))
+			p.printf(": %s %s = %s", token.SET, n.Set.Lhs, n.Set.Rhs)
 		}
 		p.println()
 
 	case *ReDimDecl:
-		p.print("ReDim ")
+		p.indent().writeString(token.REDIM).space()
 		if n.Preserve.IsValid() {
-			p.print("Preserve ")
+			p.writeString(token.PRESERVE).space()
 		}
-		p.println(ExprListStr(n.List))
+		list := []string{}
+		for _, l := range n.List {
+			list = append(list, l.String())
+		}
+		p.println(strings.Join(list, ", "))
 
 	case *ClassDecl:
-		if n.Mod.HasPublic() {
-			p.print(p.ident + "Public ")
+		if n.Mod.IsValid() {
+			p.printf("%s%s ", p.ident, n.Mod)
 		}
-		p.printf(p.ident+"Class %s\n", ExprStr(n.Name))
+		p.printf(p.ident+"Class %s\n", n.Name)
 
 		temp := p.ident
 		p.ident += "  "
-		for _, d := range n.Decls {
-			Walk(p, d)
-		}
 
 		for _, s := range n.Stmts {
 			Walk(p, s)
@@ -77,11 +112,11 @@ func (p *printer) Visit(node Node) Visitor {
 
 	case *SubDecl:
 		ident := p.ident
-		if n.Mod.HasPublic() {
-			p.print(p.ident + "Public ")
+		if n.Mod.IsValid() {
+			p.printf("%s%s ", ident, n.Mod)
 			ident = ""
 		}
-		p.printf(ident+"Sub %s\n", ExprStr(n.Name))
+		p.printf(ident+"Sub %s\n", n.Name)
 
 		for _, s := range n.Body.List {
 			temp := p.ident
@@ -89,14 +124,20 @@ func (p *printer) Visit(node Node) Visitor {
 			Walk(p, s)
 			p.ident = temp
 		}
-
-		p.println(p.ident + "End Sub")
+		p.indent().spacedString(token.END, token.SUB)
+		p.println()
 
 	case *FuncDecl:
 		ident := p.ident
-		if n.Mod.HasPublic() {
+		if n.Mod.IsValid() {
 			p.print(ident + "Public ")
 			ident = ""
+		}
+		if n.Default.IsValid() {
+			if n.Mod == token.PRIVATE {
+				panic("Used only with the Public keyword in a Class block to indicate that the Function procedure is the default method for the class.")
+			}
+			p.print("Default ")
 		}
 		list := []string{}
 		for _, r := range n.Recv {
@@ -106,7 +147,7 @@ func (p *printer) Visit(node Node) Visitor {
 				list = append(list, r.Name.Name)
 			}
 		}
-		p.printf(ident+"Function %s(%s)\n", ExprStr(n.Name), strings.Join(list, ", "))
+		p.printf(ident+"Function %s(%s)\n", n.Name, strings.Join(list, ", "))
 
 		for _, s := range n.Body.List {
 			temp := p.ident
@@ -117,10 +158,10 @@ func (p *printer) Visit(node Node) Visitor {
 
 		p.println(p.ident + "End Function")
 
-	case *PropertyDecl:
+	case *PropertyGetStmt:
 		ident := p.ident
-		if n.Mod.HasPublic() {
-			p.print(ident + "Public ")
+		if n.Mod.IsValid() {
+			p.printf("%s%s ", ident, n.Mod)
 			ident = ""
 		}
 		list := []string{}
@@ -131,7 +172,7 @@ func (p *printer) Visit(node Node) Visitor {
 				list = append(list, r.Name.Name)
 			}
 		}
-		p.printf(ident+"Property %s %s(%s)\n", n.Tok, ExprStr(n.Name), strings.Join(list, ", "))
+		p.printf(ident+"Property Get %s(%s)\n", n.Name, strings.Join(list, ", "))
 
 		for _, s := range n.Body.List {
 			temp := p.ident
@@ -143,7 +184,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(p.ident + "End Property")
 
 	case *IfStmt:
-		p.printf(p.ident+"If %s Then\n", ExprStr(n.Cond))
+		p.printf(p.ident+"If %s Then\n", n.Cond)
 
 		for _, s := range n.Body.List {
 			temp := p.ident
@@ -152,54 +193,56 @@ func (p *printer) Visit(node Node) Visitor {
 			p.ident = temp
 		}
 
-		if n.ElseIf != nil {
-			for _, elif := range n.ElseIf {
-				p.println(p.ident+"ElseIf", ExprStr(elif.Cond), "Then")
-				for _, s := range elif.Body.List {
-					temp := p.ident
-					p.ident += "  "
-					Walk(p, s)
-					p.ident = temp
-				}
-			}
-		}
-
-		if n.Else != nil {
-			p.println(p.ident + "Else")
-			for _, s := range n.Else.List {
-				temp := p.ident
-				p.ident += "  "
-				Walk(p, s)
-				p.ident = temp
+		for n.Else != nil {
+			switch el := n.Else.(type) {
+			case *IfStmt:
+				p.println(p.ident+"ElseIf", el.Cond, "Then")
+				Walk(p, el.Body)
+				n.Else = el.Else
+			case *BlockStmt:
+				p.println(p.ident + "Else")
+				Walk(p, el)
+				n.Else = nil
 			}
 		}
 
 		p.println(p.ident + "End If")
+	case *BlockStmt:
+		for _, s := range n.List {
+			temp := p.ident
+			p.ident += "  "
+			Walk(p, s)
+			p.ident = temp
+		}
 
 	case *ExprStmt:
-		p.printf(p.ident+"%s\n", ExprStr(n.X))
+		p.printf(p.ident+"%s\n", n.X)
 
-	case *MemberStmt:
-		if n.Mod.HasPublic() {
-			p.print(p.ident + "Public ")
+	case *PrivateStmt:
+		list := []string{}
+		for _, l := range n.List {
+			list = append(list, l.String())
 		}
-		if n.Mod.HasPrivate() {
-			p.print(p.ident + "Private ")
+		p.printf(p.ident+"Private %s\n", strings.Join(list, ", "))
+
+	case *PublicStmt:
+		list := []string{}
+		for _, l := range n.List {
+			list = append(list, l.String())
 		}
-		p.println(ExprStr(n.Name))
+		p.printf(p.ident+"Public %s\n", strings.Join(list, ", "))
+
+	case *ConstStmt:
+		p.printf(p.ident+"%s %s = %s\n", token.CONST, n.Lhs, n.Rhs)
+
+	case *SetStmt:
+		p.printf(p.ident+"%s %s = %s\n", token.SET, n.Lhs, n.Rhs)
 
 	case *AssignStmt:
-		modifier := ""
-		switch n.Tok {
-		case token.SET:
-			modifier = "Set "
-		case token.CONST:
-			modifier = "Const "
-		}
-		p.printf(p.ident+"%s%s = %s\n", modifier, ExprStr(n.Lhs), ExprStr(n.Rhs))
+		p.printf(p.ident+"%s = %s\n", n.Lhs, n.Rhs)
 
 	case *ForEachStmt:
-		p.printf(p.ident+"For Each %s In %s\n", ExprStr(n.Elem), ExprStr(n.Group))
+		p.printf(p.ident+"For Each %s In %s\n", n.Elem, n.Group)
 		for _, s := range n.Body.List {
 			temp := p.ident
 			p.ident += "  "
@@ -215,9 +258,9 @@ func (p *printer) Visit(node Node) Visitor {
 		}
 
 	case *ForNextStmt:
-		p.printf(p.ident+"For %s To %s", ExprStr(n.Start), ExprStr(n.End_))
+		p.indent().spacedString(token.FOR, n.Start, token.TO, n.End_)
 		if n.Step != nil {
-			p.printf(" Step %s\n", ExprStr(n.Step))
+			p.space().spacedString(token.STEP, n.Step).println()
 		}
 		for _, s := range n.Body.List {
 			temp := p.ident
@@ -228,7 +271,7 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(p.ident + "Next")
 
 	case *WhileWendStmt:
-		p.printf(p.ident+"While %s\n", ExprStr(n.Cond))
+		p.printf(p.ident+"While %s\n", n.Cond)
 		for _, s := range n.Body.List {
 			temp := p.ident
 			p.ident += "  "
@@ -239,7 +282,7 @@ func (p *printer) Visit(node Node) Visitor {
 
 	case *DoLoopStmt:
 		if n.Pre {
-			p.printf(p.ident+"Do %s %s\n", n.Tok, ExprStr(n.Cond))
+			p.printf(p.ident+"Do %s %s\n", n.Tok, n.Cond)
 			for _, s := range n.Body.List {
 				temp := p.ident
 				p.ident += "  "
@@ -248,30 +291,34 @@ func (p *printer) Visit(node Node) Visitor {
 			}
 			p.println(p.ident + "Loop")
 		} else {
-			p.printf(p.ident + "Do\n")
+			p.printf("%sDo\n", p.ident)
 			for _, s := range n.Body.List {
 				temp := p.ident
 				p.ident += "  "
 				Walk(p, s)
 				p.ident = temp
 			}
-			p.printf(p.ident+"Loop %s %s\n", n.Tok, ExprStr(n.Cond))
+			p.printf(p.ident+"Loop %s %s\n", n.Tok, n.Cond)
 		}
 
 	case *CallStmt:
-		p.printf(p.ident+"Call %s %s\n", ExprStr(n.Name), ExprListStr(n.Recv))
+		recv := []string{}
+		for _, r := range n.Recv {
+			recv = append(recv, r.String())
+		}
+		p.printf(p.ident+"%s %s %s\n", token.CALL, n.Name, strings.Join(recv, ", "))
 
 	case *ExitStmt:
-		if len(n.X) == 0 {
+		if n.Tok == token.ILLEGAL {
 			p.println(p.ident + "Exit")
 		} else {
-			p.printf(p.ident+"Exit %s\n", n.X)
+			p.printf(p.ident+"Exit %s\n", n.Tok)
 		}
 
 	case *SelectStmt:
-		p.printf(p.ident+"Select Case %s\n", ExprStr(n.Var))
+		p.printf(p.ident+"Select Case %s\n", n.Var)
 		for _, c := range n.Cases {
-			p.printf(p.ident+"  Case %s\n", ExprStr(c.Cond))
+			p.printf(p.ident+"  Case %s\n", c.Cond)
 			for _, s := range c.Body.List {
 				temp := p.ident
 				p.ident += "    "
@@ -291,22 +338,24 @@ func (p *printer) Visit(node Node) Visitor {
 		p.println(p.ident + "End Select")
 
 	case *WithStmt:
-		p.printf(p.ident+"With %s\n", ExprStr(n.Cond))
+		p.indent().spacedString(token.WITH, n.Cond).println()
 		for _, s := range n.Body.List {
 			temp := p.ident
 			p.ident += "  "
 			Walk(p, s)
 			p.ident = temp
 		}
-		p.println(p.ident + "End With")
+		p.indent().spacedString(token.END, token.WITH)
+		p.println()
 
 	case *OnErrorStmt:
 		if n.OnErrorGoto != nil {
-			p.println(p.ident + "On Error GoTo 0")
+			p.indent().spacedString(token.ON, token.ERROR, token.GOTO, "0")
 		}
 		if n.OnErrorResume != nil {
-			p.println(p.ident + "On Error Resume Next")
+			p.indent().spacedString(token.ON, token.ERROR, token.RESUME, token.NEXT)
 		}
+		p.println()
 	case *StopStmt:
 		p.println(p.ident + "Stop")
 	case *RandomizeStmt:
@@ -325,35 +374,4 @@ func String(node Node) string {
 	buf := &strings.Builder{}
 	Walk(&printer{ident: "", output: buf}, node)
 	return buf.String()
-}
-
-func ExprStr(e Expr) string {
-	switch e := e.(type) {
-	case *Ident:
-		return e.Name
-	case *BasicLit:
-		if e.Kind == token.STRING {
-			return fmt.Sprintf(`"%s"`, e.Value)
-		}
-		return e.Value
-	case *SelectorExpr:
-		return fmt.Sprintf("%s.%s", ExprStr(e.X), ExprStr(e.Sel))
-	case *BinaryExpr:
-		return fmt.Sprintf("%s %s %s", ExprStr(e.X), e.Op, ExprStr(e.Y))
-	case *CallExpr:
-		return fmt.Sprintf("%s(%s)", ExprStr(e.Func), ExprListStr(e.Recv))
-	case *IndexExpr:
-		return fmt.Sprintf("%s(%s)", ExprStr(e.X), ExprStr(e.Index))
-	case *IndexListExpr:
-		return fmt.Sprintf("%s(%s)", ExprStr(e.X), ExprListStr(e.Indices))
-	}
-	return ""
-}
-
-func ExprListStr(list []Expr) string {
-	res := []string{}
-	for _, e := range list {
-		res = append(res, ExprStr(e))
-	}
-	return strings.Join(res, ", ")
 }

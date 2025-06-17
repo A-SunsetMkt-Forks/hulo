@@ -16,14 +16,16 @@ func (p Pos) IsValid() bool {
 // for NoPos is the zero value for Position.
 const NoPos Pos = 0
 
-type Token string
+type Token uint32
 
 const (
-	ADD = "+"
-	SUB = "-"
-	MUL = "*"
-	DIV = "/"
-	MOD = "%"
+	ILLEGAL = iota // ILLEGAL
+
+	ADD // +
+	SUB // -
+	MUL // *
+	DIV // /
+	MOD // %
 
 	// Arithmetic Operators
 
@@ -142,6 +144,7 @@ const (
 
 	AT     = "@"
 	DOLLAR = "$"
+	HASH   = "#"
 	RANGE  = ".."
 
 	STR = "STR"

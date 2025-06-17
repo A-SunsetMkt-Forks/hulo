@@ -11,6 +11,7 @@ func Print(stmt Stmt) {
 }
 
 func print(stmt Stmt, ident string) {
+	// fmt.Printf("%T\n", stmt)
 	switch node := stmt.(type) {
 	case *File:
 		for _, ss := range node.Stmts {
@@ -82,6 +83,60 @@ func print(stmt Stmt, ident string) {
 		for _, ss := range node.List {
 			print(ss, ident)
 		}
+	case *WhileStmt:
+		fmt.Printf("%sloop {\n", ident)
+		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
+	case *DoWhileStmt:
+		fmt.Printf("%sdo {\n", ident)
+		print(node.Body, ident+"  ")
+		fmt.Printf("%s} loop (%s)\n", ident, node.Cond)
+	case *ForStmt:
+		fmt.Printf("%sloop ", ident)
+		if node.Init != nil {
+			if as, ok := node.Init.(*AssignStmt); ok {
+				fmt.Printf("%s := %s", as.Lhs, as.Rhs)
+			} else {
+				print(node.Init, "")
+			}
+		}
+		fmt.Print("; ")
+		if node.Cond != nil {
+			fmt.Print(node.Cond)
+		}
+		fmt.Print("; ")
+		if node.Post != nil {
+			print(node.Post, "")
+		}
+		fmt.Println(" {")
+		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
+	case *RangeStmt:
+		fmt.Printf("%sloop %s in range(", ident, node.Index)
+		if node.RangeClauseExpr.Start != nil {
+			fmt.Print(node.RangeClauseExpr.Start)
+		}
+		fmt.Print(", ")
+		if node.RangeClauseExpr.End != nil {
+			fmt.Print(node.RangeClauseExpr.End)
+		}
+		if node.RangeClauseExpr.Step != nil {
+			fmt.Printf(", %s", node.RangeClauseExpr.Step)
+		}
+		fmt.Println(") {")
+		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
+	case *ForeachStmt:
+		fmt.Printf("%sloop (", ident)
+		if node.Index != nil {
+			fmt.Print(node.Index)
+		}
+		if node.Value != nil {
+			fmt.Printf(", %s", node.Value)
+		}
+		fmt.Printf(") in %s {\n", node.Var)
+		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
 	default:
 		fmt.Printf("%T\n", node)
 	}

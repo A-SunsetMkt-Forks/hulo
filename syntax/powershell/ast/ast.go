@@ -264,15 +264,12 @@ type (
 type SwitchPattern int
 
 func (p SwitchPattern) String() string {
-	switch p {
-	case SwitchPatternRegex:
-		return "-regex"
-	case SwitchPatternWildcard:
-		return "-wildcard"
-	case SwitchPatternExact:
-		return "-exact"
-	}
-	return ""
+	return []string{
+		"",
+		"-regex",
+		"-wildcard",
+		"-exact",
+	}[p]
 }
 
 const (

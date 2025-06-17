@@ -33,7 +33,7 @@ func TestIfStmt(t *testing.T) {
 		Cond: &ast.TestExpr{
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-				Op: token.ASSIGN,
+				Op: token.Assgn,
 				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
 			},
 		},
@@ -51,7 +51,7 @@ func TestIfStmt(t *testing.T) {
 		Cond: &ast.ExtendedTestExpr{
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-				Op: token.ASSIGN,
+				Op: token.Assgn,
 				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
 			},
 		},
@@ -99,7 +99,7 @@ func TestForStmt(t *testing.T) {
 		},
 		Post: &ast.AssignStmt{
 			Lhs: &ast.Ident{Name: "i"},
-			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.NUMBER, Value: "1"}},
+			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.Plus, Y: &ast.BasicLit{Kind: token.NUMBER, Value: "1"}},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
@@ -124,7 +124,7 @@ func TestForStmt(t *testing.T) {
 						X: &ast.BinaryExpr{
 							// TODO "$var"
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "var"}},
-							Op: token.ASSIGN,
+							Op: token.Assgn,
 							Y:  &ast.BasicLit{Kind: token.STRING, Value: "."},
 						},
 					},
@@ -159,7 +159,7 @@ func TestWhileStmt(t *testing.T) {
 		Cond: &ast.TestExpr{
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
-				Op: token.LT_LIT,
+				Op: token.TsLss,
 				Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
 			},
 		},
@@ -170,7 +170,7 @@ func TestWhileStmt(t *testing.T) {
 					Rhs: &ast.ArithExpr{
 						X: &ast.BinaryExpr{
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
-							Op: token.ADD,
+							Op: token.Plus,
 							Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "1"},
 						},
 					},
@@ -185,14 +185,12 @@ func TestStmt(t *testing.T) {
 		List: []ast.Stmt{
 			&ast.IfStmt{
 				Cond: &ast.ArithEvalExpr{
-					X: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "-d"},
-						Op: token.NONE,
-						Y:  &ast.Ident{Name: "file.txt"},
+					X: &ast.UnaryExpr{
+						Op: token.TsDirect,
+						X:  &ast.Ident{Name: "file.txt"},
 					},
 				},
 				Body: &ast.BlockStmt{
-					Tok: token.NONE,
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
@@ -211,7 +209,7 @@ func TestStmt(t *testing.T) {
 							Func: &ast.Ident{Name: "echo"},
 							Recv: []ast.Expr{&ast.Ident{Name: "-e"}, &ast.BasicLit{Kind: token.STRING, Value: "${string}"}},
 						},
-						Op: token.BITOR,
+						Op: token.Or,
 						Y: &ast.CallExpr{
 							Func: &ast.Ident{Name: "rev"},
 						},
@@ -262,14 +260,12 @@ func TestPrint(t *testing.T) {
 		Stmts: []ast.Stmt{
 			&ast.IfStmt{
 				Cond: &ast.ExtendedTestExpr{
-					X: &ast.BinaryExpr{
-						X:  &ast.Ident{Name: "-d"},
-						Op: token.NONE,
-						Y:  &ast.Ident{Name: "test.txt"},
+					X: &ast.UnaryExpr{
+						Op: token.TsDirect,
+						X:  &ast.Ident{Name: "test.txt"},
 					},
 				},
 				Body: &ast.BlockStmt{
-					Tok: token.NONE,
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
@@ -279,13 +275,12 @@ func TestPrint(t *testing.T) {
 						},
 					},
 				},
-				Else: &ast.IfStmt{Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "!"},
-					Op: token.NONE,
-					Y: &ast.ExtendedTestExpr{
+				Else: &ast.IfStmt{Cond: &ast.UnaryExpr{
+					Op: token.ExclMark,
+					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
 							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-							Op: token.ASSIGN_BITNEG,
+							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
 					},
@@ -298,13 +293,12 @@ func TestPrint(t *testing.T) {
 							},
 						},
 					},
-				}, Else: &ast.IfStmt{Cond: &ast.BinaryExpr{
-					X:  &ast.Ident{Name: "!"},
-					Op: token.NONE,
-					Y: &ast.ExtendedTestExpr{
+				}, Else: &ast.IfStmt{Cond: &ast.UnaryExpr{
+					Op: token.ExclMark,
+					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
 							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
-							Op: token.ASSIGN_BITNEG,
+							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
 					},

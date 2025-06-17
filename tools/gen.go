@@ -14,7 +14,7 @@ func Generate() {
 	log.Info("generating code...")
 	start := time.Now()
 
-	mg.Deps(generateHuloParser, generateStringer, generateUnsafeParser)
+	mg.Deps(generateHuloParser, generateUnsafeParser, generateStringer)
 
 	elapsed := time.Since(start)
 	log.Infof("generator completed in %.2fs", elapsed.Seconds())

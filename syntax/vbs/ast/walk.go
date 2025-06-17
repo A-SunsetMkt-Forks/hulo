@@ -40,7 +40,13 @@ func Walk(v Visitor, node Node) {
 	case *FuncDecl:
 		Walk(v, n)
 
-	case *PropertyDecl:
+	case *PropertyGetStmt:
+		Walk(v, n)
+
+	case *PropertySetStmt:
+		Walk(v, n)
+
+	case *PropertyLetStmt:
 		Walk(v, n)
 
 	case *SubDecl:
@@ -50,9 +56,6 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n)
 
 	case *ExprStmt:
-		Walk(v, n)
-
-	case *MemberStmt:
 		Walk(v, n)
 
 	case *IfStmt:

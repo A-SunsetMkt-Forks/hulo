@@ -24,9 +24,13 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			decls[i] = translate2Bash(opts, d).(bast.Decl)
 		}
 
-		stmts := make([]bast.Stmt, len(node.Stmts))
-		for i, s := range node.Stmts {
-			stmts[i] = translate2Bash(opts, s).(bast.Stmt)
+		stmts := []bast.Stmt{
+			&bast.Comment{
+				Text: "!/bin/bash",
+			},
+		}
+		for _, s := range node.Stmts {
+			stmts = append(stmts, translate2Bash(opts, s).(bast.Stmt))
 		}
 
 		return &bast.File{

@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
@@ -10,6 +13,7 @@ import (
 
 type Visitor struct {
 	*generated.BasehuloParserVisitor
+	comments []*ast.Comment
 }
 
 func accept[T any](tree antlr.ParseTree, visitor antlr.ParseTreeVisitor) (T, bool) {
@@ -53,9 +57,16 @@ func (v *Visitor) VisitLiteral(ctx *generated.LiteralContext) any {
 		}
 	}
 	if ctx.BoolLiteral() != nil {
+		if ctx.BoolLiteral().GetText() == "true" {
+			return &ast.BasicLit{
+				Kind:     token.TRUE,
+				Value:    "true",
+				ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
+			}
+		}
 		return &ast.BasicLit{
-			Kind:     token.IDENT, // Using IDENT for boolean literals
-			Value:    ctx.BoolLiteral().GetText(),
+			Kind:     token.FALSE,
+			Value:    "false",
 			ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
 		}
 	}
@@ -85,20 +96,22 @@ func (v *Visitor) VisitConditionalExpression(ctx *generated.ConditionalExpressio
 	log.Info("enter ConditionalExpression")
 	log.IncreasePadding()
 
-	defer log.Info("exit ConditionalExpression")
-	defer log.DecreasePadding()
-	
 	// Get the condition expression
 	cond, _ := accept[ast.Expr](ctx.ConditionalBoolExpression(), v)
 
 	// If there's no question mark, just return the condition
 	if ctx.QUEST() == nil {
+		log.DecreasePadding()
+		log.Info("exit ConditionalExpression")
 		return cond
 	}
 
 	// If there's a question mark, we have a ternary expression
 	then, _ := accept[ast.Expr](ctx.ConditionalExpression(0), v)
 	els, _ := accept[ast.Expr](ctx.ConditionalExpression(1), v)
+
+	log.DecreasePadding()
+	log.Info("exit ConditionalExpression")
 
 	return &ast.BinaryExpr{
 		X:     cond,
@@ -122,16 +135,17 @@ func (v *Visitor) VisitLogicalExpression(ctx *generated.LogicalExpressionContext
 	log.IncreasePadding()
 
 	var ret ast.Expr
-	switch ctx.GetChildCount() {
+	switch len(ctx.AllShiftExpression()) {
 	case 1:
 		ret, _ = accept[ast.Expr](ctx.ShiftExpression(0), v)
 	case 2:
 		x, _ := accept[ast.Expr](ctx.ShiftExpression(0), v)
 		y, _ := accept[ast.Expr](ctx.ShiftExpression(1), v)
+
 		ret = &ast.BinaryExpr{
 			X:     x,
 			OpPos: token.Pos(ctx.GetLogicalOp().GetStart()),
-			Op:    token.Token(ctx.GetLogicalOp().GetTokenType()),
+			Op:    logicalOpMap[ctx.GetLogicalOp().GetText()],
 			Y:     y,
 		}
 	}
@@ -140,6 +154,17 @@ func (v *Visitor) VisitLogicalExpression(ctx *generated.LogicalExpressionContext
 	log.Info("exit LogicalExpression")
 
 	return ret
+}
+
+var logicalOpMap = map[string]token.Token{
+	"&&": token.AND,
+	"||": token.OR,
+	"==": token.EQ,
+	"!=": token.NEQ,
+	"<":  token.LT,
+	">":  token.GT,
+	"<=": token.LE,
+	">=": token.GE,
 }
 
 // VisitShiftExpression implements the Visitor interface for ShiftExpression
@@ -274,6 +299,8 @@ func (v *Visitor) VisitIfStatement(ctx *generated.IfStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
+	log.Info("enter IfStatement")
+	log.IncreasePadding()
 
 	cond, _ := accept[ast.Expr](ctx.ConditionalExpression(), v)
 	body, _ := accept[ast.Stmt](ctx.Block(0), v)
@@ -283,6 +310,8 @@ func (v *Visitor) VisitIfStatement(ctx *generated.IfStatementContext) any {
 		else_, _ = accept[ast.Stmt](ctx.Block(1), v)
 	}
 
+	log.DecreasePadding()
+	log.Info("exit IfStatement")
 	return &ast.IfStmt{
 		If:   token.Pos(ctx.IF().GetSymbol().GetStart()),
 		Cond: cond,
@@ -310,6 +339,13 @@ func (v *Visitor) VisitFile(ctx *generated.FileContext) any {
 			file.Stmts = append(file.Stmts, s)
 		}
 	}
+	if len(v.comments) != 0 {
+		file.Docs = append(file.Docs, &ast.CommentGroup{
+			List: v.comments,
+		})
+		v.comments = nil
+	}
+
 	log.DecreasePadding()
 	log.Info("exit file")
 	return file
@@ -325,9 +361,25 @@ func (v *Visitor) VisitStatement(ctx *generated.StatementContext) any {
 	defer log.Info("exit statement")
 	defer log.DecreasePadding()
 
+	if ctx.Comment() != nil {
+		if ctx.Comment().LineComment() != nil {
+			cmt := v.fmtLineComment(ctx.Comment().LineComment().GetText())
+			cmt.Slash = token.Pos(ctx.Comment().LineComment().GetSymbol().GetStart())
+			v.comments = append(v.comments, cmt)
+		} else {
+			cmts := v.fmtBlockComment(ctx.Comment().BlockComment().GetText())
+			for _, cmt := range cmts {
+				cmt.Slash = token.Pos(ctx.Comment().BlockComment().GetSymbol().GetStart())
+				v.comments = append(v.comments, cmt)
+			}
+		}
+	}
 	// Handle different types of statements
 	if ctx.ExpressionStatement() != nil {
 		return v.VisitExpressionStatement(ctx.ExpressionStatement().(*generated.ExpressionStatementContext))
+	}
+	if ctx.LambdaAssignStatement() != nil {
+		return v.VisitLambdaAssignStatement(ctx.LambdaAssignStatement().(*generated.LambdaAssignStatementContext))
 	}
 	if ctx.AssignStatement() != nil {
 		return v.VisitAssignStatement(ctx.AssignStatement().(*generated.AssignStatementContext))
@@ -343,6 +395,9 @@ func (v *Visitor) VisitStatement(ctx *generated.StatementContext) any {
 	}
 	if ctx.IfStatement() != nil {
 		return v.VisitIfStatement(ctx.IfStatement().(*generated.IfStatementContext))
+	}
+	if ctx.LoopStatement() != nil {
+		return v.VisitLoopStatement(ctx.LoopStatement().(*generated.LoopStatementContext))
 	}
 	// TODO: Add more statement types
 
@@ -366,19 +421,92 @@ func (v *Visitor) VisitExpressionStatement(ctx *generated.ExpressionStatementCon
 	}
 }
 
+// VisitLambdaAssignStatement implements the Visitor interface for LambdaAssignStatement
+func (v *Visitor) VisitLambdaAssignStatement(ctx *generated.LambdaAssignStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	lhs, _ := accept[ast.Expr](ctx.VariableExpression(), v)
+	rhs, _ := accept[ast.Expr](ctx.Expression(), v)
+
+	return &ast.AssignStmt{
+		Lhs: lhs,
+		Tok: token.COLON_ASSIGN, // Use COLON_ASSIGN token for lambda assignment
+		Rhs: rhs,
+	}
+}
+
 // VisitAssignStatement implements the Visitor interface for AssignStatement
 func (v *Visitor) VisitAssignStatement(ctx *generated.AssignStatementContext) any {
 	if ctx == nil {
 		return nil
 	}
 
-	lhs, _ := accept[ast.Expr](ctx.Expression(), v)
-	rhs, _ := accept[ast.Expr](ctx.Expression(), v)
+	var scope token.Token
+	var scopePos token.Pos
+
+	// Handle scope modifiers (LET, CONST, VAR)
+	if ctx.LET() != nil {
+		scope = token.LET
+		scopePos = token.Pos(ctx.LET().GetSymbol().GetStart())
+	} else if ctx.CONST() != nil {
+		scope = token.CONST
+		scopePos = token.Pos(ctx.CONST().GetSymbol().GetStart())
+	} else if ctx.VAR() != nil {
+		scope = token.VAR
+		scopePos = token.Pos(ctx.VAR().GetSymbol().GetStart())
+	}
+
+	// Get left hand side expression
+	var lhs ast.Expr
+	if ctx.Identifier() != nil {
+		lhs = &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+	} else if ctx.VariableNames() != nil {
+		lhs, _ = accept[ast.Expr](ctx.VariableNames(), v)
+	} else if ctx.VariableExpression() != nil {
+		lhs, _ = accept[ast.Expr](ctx.VariableExpression(), v)
+	} else if ctx.VariableNullableExpressions() != nil {
+		lhs, _ = accept[ast.Expr](ctx.VariableNullableExpressions(), v)
+	}
+
+	// Get assignment operator
+	var tok token.Token
+	if ctx.ASSIGN() != nil {
+		tok = token.ASSIGN
+	} else if ctx.ADD_ASSIGN() != nil {
+		tok = token.PLUS_ASSIGN
+	} else if ctx.SUB_ASSIGN() != nil {
+		tok = token.MINUS_ASSIGN
+	} else if ctx.MUL_ASSIGN() != nil {
+		tok = token.ASTERISK_ASSIGN
+	} else if ctx.DIV_ASSIGN() != nil {
+		tok = token.SLASH_ASSIGN
+	} else if ctx.MOD_ASSIGN() != nil {
+		tok = token.MOD_ASSIGN
+	} else if ctx.AND_ASSIGN() != nil {
+		tok = token.AND_ASSIGN
+	} else if ctx.EXP_ASSIGN() != nil {
+		tok = token.POWER_ASSIGN
+	}
+
+	// Get right hand side expression
+	var rhs ast.Expr
+	if ctx.Expression() != nil {
+		rhs, _ = accept[ast.Expr](ctx.Expression(), v)
+	} else if ctx.MatchStatement() != nil {
+		rhs, _ = accept[ast.Expr](ctx.MatchStatement(), v)
+	}
 
 	return &ast.AssignStmt{
-		Lhs: lhs,
-		Tok: token.ASSIGN, // Default to ASSIGN token
-		Rhs: rhs,
+		Scope:    scope,
+		ScopePos: scopePos,
+		Lhs:      lhs,
+		Tok:      tok,
+		Rhs:      rhs,
 	}
 }
 
@@ -691,6 +819,7 @@ func (v *Visitor) VisitConditionalBoolExpression(ctx *generated.ConditionalBoolE
 
 	// Get the first logical expression
 	x, _ := accept[ast.Expr](ctx.LogicalExpression(0), v)
+
 	if len(ctx.AllLogicalExpression()) > 1 {
 		// Handle multiple logical expressions with operators
 		for i := 1; i < len(ctx.AllLogicalExpression()); i++ {
@@ -723,12 +852,11 @@ func (v *Visitor) VisitIncDecExpression(ctx *generated.IncDecExpressionContext) 
 	log.IncreasePadding()
 
 	var ret ast.Expr
-	// Handle pre-increment/decrement
+
 	if ctx.PreIncDecExpression() != nil {
 		ret, _ = accept[ast.Expr](ctx.PreIncDecExpression(), v)
 	}
 
-	// Handle post-increment/decrement
 	if ctx.PostIncDecExpression() != nil {
 		ret, _ = accept[ast.Expr](ctx.PostIncDecExpression(), v)
 	}
@@ -786,11 +914,12 @@ func (v *Visitor) VisitPostIncDecExpression(ctx *generated.PostIncDecExpressionC
 
 	log.Info("enter PostIncDecExpression")
 	log.IncreasePadding()
-	defer log.Info("exit PostIncDecExpression")
-	defer log.DecreasePadding()
 
-	expr := v.Visit(ctx.Factor())
+	expr := v.VisitFactor(ctx.Factor().(*generated.FactorContext))
+
 	if expr == nil {
+		log.DecreasePadding()
+		log.Info("exit PostIncDecExpression")
 		return nil
 	}
 
@@ -801,6 +930,8 @@ func (v *Visitor) VisitPostIncDecExpression(ctx *generated.PostIncDecExpressionC
 		tok = token.DEC
 	}
 
+	log.DecreasePadding()
+	log.Info("exit PostIncDecExpression")
 	return &ast.IncDecExpr{
 		Pre:    false,
 		X:      expr.(ast.Expr),
@@ -858,8 +989,239 @@ func (v *Visitor) VisitVariableExpression(ctx *generated.VariableExpressionConte
 
 	log.Info("enter VariableExpression")
 	log.IncreasePadding()
-	defer log.Info("exit VariableExpression")
+
+	ret := v.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
+
+	log.DecreasePadding()
+	log.Info("exit VariableExpression")
+	return &ast.RefExpr{
+		X: ret.(ast.Expr),
+	}
+}
+
+func (v *Visitor) fmtLineComment(cmt string) *ast.Comment {
+	// remove the first two characters
+	return &ast.Comment{Text: cmt[2:]}
+}
+
+var removeStar = regexp.MustCompile(`^\s*\*`)
+
+// fmtBlockComment formats a block comment.
+// Because most compiled languages do not support multi-line comments,
+// so we need to convert them into single-line comments
+func (v *Visitor) fmtBlockComment(cmt string) (ret []*ast.Comment) {
+	ret = make([]*ast.Comment, 0)
+	if strings.HasPrefix(cmt, "/**") {
+		cmt = cmt[3 : len(cmt)-2]
+		lines := strings.SplitSeq(cmt, "\n")
+		for line := range lines {
+			// remove the first * and the space before it
+			line = removeStar.ReplaceAllString(line, "")
+			ret = append(ret, &ast.Comment{Text: line})
+		}
+		return ret
+	}
+	lines := strings.SplitSeq(cmt[2:len(cmt)-2], "\n")
+	for line := range lines {
+		ret = append(ret, &ast.Comment{Text: line})
+	}
+
+	return ret
+}
+
+// VisitBlock implements the Visitor interface for Block
+func (v *Visitor) VisitBlock(ctx *generated.BlockContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter Block")
+	log.IncreasePadding()
+
+	// Create a new block statement
+	block := &ast.BlockStmt{
+		Lbrace: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+		Rbrace: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+	}
+
+	// Process all statements in the block
+	for _, stmtCtx := range ctx.AllStatement() {
+		stmt, _ := accept[ast.Stmt](stmtCtx, v)
+		if stmt != nil {
+			block.List = append(block.List, stmt)
+		}
+	}
+
+	log.DecreasePadding()
+	log.Info("exit Block")
+
+	return block
+}
+
+// VisitLoopStatement implements the Visitor interface for LoopStatement
+func (v *Visitor) VisitLoopStatement(ctx *generated.LoopStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	log.Info("enter LoopStatement")
+	log.IncreasePadding()
+	defer log.Info("exit LoopStatement")
 	defer log.DecreasePadding()
 
-	return v.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
+	// Handle different types of loops
+	if ctx.WhileStatement() != nil {
+		return v.VisitWhileStatement(ctx.WhileStatement().(*generated.WhileStatementContext))
+	} else if ctx.DoWhileStatement() != nil {
+		return v.VisitDoWhileStatement(ctx.DoWhileStatement().(*generated.DoWhileStatementContext))
+	} else if ctx.RangeStatement() != nil {
+		return v.VisitRangeStatement(ctx.RangeStatement().(*generated.RangeStatementContext))
+	} else if ctx.ForStatement() != nil {
+		return v.VisitForStatement(ctx.ForStatement().(*generated.ForStatementContext))
+	} else if ctx.ForeachStatement() != nil {
+		return v.VisitForeachStatement(ctx.ForeachStatement().(*generated.ForeachStatementContext))
+	}
+
+	return nil
+}
+
+// VisitWhileStatement implements the Visitor interface for WhileStatement
+func (v *Visitor) VisitWhileStatement(ctx *generated.WhileStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	return &ast.WhileStmt{
+		Loop: token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Body: body.(*ast.BlockStmt),
+	}
+}
+
+// VisitDoWhileStatement implements the Visitor interface for DoWhileStatement
+func (v *Visitor) VisitDoWhileStatement(ctx *generated.DoWhileStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	body, _ := accept[ast.Stmt](ctx.Block(), v)
+	cond, _ := accept[ast.Expr](ctx.Expression(), v)
+
+	return &ast.DoWhileStmt{
+		Do:     token.Pos(ctx.DO().GetSymbol().GetStart()),
+		Body:   body.(*ast.BlockStmt),
+		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+		Cond:   cond,
+		Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+	}
+}
+
+// VisitRangeStatement implements the Visitor interface for RangeStatement
+func (v *Visitor) VisitRangeStatement(ctx *generated.RangeStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	index := &ast.Ident{
+		NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+		Name:    ctx.Identifier().GetText(),
+	}
+
+	rangeExpr, _ := accept[ast.Expr](ctx.RangeClause(), v)
+	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	return &ast.RangeStmt{
+		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Index:  index,
+		In:     token.Pos(ctx.IN().GetSymbol().GetStart()),
+		Range:  token.Pos(ctx.RangeClause().RANGE().GetSymbol().GetStart()),
+		Lparen: token.Pos(ctx.RangeClause().LPAREN().GetSymbol().GetStart()),
+		RangeClauseExpr: ast.RangeClauseExpr{
+			Start: rangeExpr.(*ast.BinaryExpr).X,
+			End:   rangeExpr.(*ast.BinaryExpr).Y,
+		},
+		Rparen: token.Pos(ctx.RangeClause().RPAREN().GetSymbol().GetStart()),
+		Body:   body.(*ast.BlockStmt),
+	}
+}
+
+// VisitForStatement implements the Visitor interface for ForStatement
+func (v *Visitor) VisitForStatement(ctx *generated.ForStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	var init ast.Stmt
+	var cond ast.Expr
+	var post ast.Stmt
+	var comma1, comma2 token.Pos
+
+	if ctx.ForClause() != nil {
+		if ctx.ForClause().Statement() != nil {
+			init, _ = accept[ast.Stmt](ctx.ForClause().Statement(), v)
+		}
+		if ctx.ForClause().Expression(0) != nil {
+			cond, _ = accept[ast.Expr](ctx.ForClause().Expression(0), v)
+		}
+		if ctx.ForClause().Expression(1) != nil {
+			post, _ = accept[ast.Stmt](ctx.ForClause().Expression(1), v)
+		}
+		if len(ctx.ForClause().AllSEMI()) > 0 {
+			comma1 = token.Pos(ctx.ForClause().SEMI(0).GetSymbol().GetStart())
+		}
+		if len(ctx.ForClause().AllSEMI()) > 1 {
+			comma2 = token.Pos(ctx.ForClause().SEMI(1).GetSymbol().GetStart())
+		}
+	}
+
+	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	var lparen, rparen token.Pos
+	if ctx.LPAREN() != nil {
+		lparen = token.Pos(ctx.LPAREN().GetSymbol().GetStart())
+	}
+	if ctx.RPAREN() != nil {
+		rparen = token.Pos(ctx.RPAREN().GetSymbol().GetStart())
+	}
+
+	return &ast.ForStmt{
+		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Lparen: lparen,
+		Init:   init,
+		Comma1: comma1,
+		Cond:   cond,
+		Comma2: comma2,
+		Post:   post,
+		Rparen: rparen,
+		Body:   body.(*ast.BlockStmt),
+	}
+}
+
+// VisitForeachStatement implements the Visitor interface for ForeachStatement
+func (v *Visitor) VisitForeachStatement(ctx *generated.ForeachStatementContext) any {
+	if ctx == nil {
+		return nil
+	}
+
+	index, _ := accept[ast.Expr](ctx.ForeachClause().VariableName(0), v)
+	var value ast.Expr
+	if len(ctx.ForeachClause().AllVariableName()) > 1 {
+		value, _ = accept[ast.Expr](ctx.ForeachClause().VariableName(1), v)
+	}
+
+	expr, _ := accept[ast.Expr](ctx.Expression(), v)
+	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	return &ast.ForeachStmt{
+		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+		Index:  index,
+		Value:  value,
+		Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+		In:     token.Pos(ctx.IN().GetSymbol().GetStart()),
+		Var:    expr,
+		Body:   body.(*ast.BlockStmt),
+	}
 }

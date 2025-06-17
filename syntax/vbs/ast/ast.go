@@ -1,170 +1,206 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
+// Package ast declares the types used to represent syntax trees for VBScript.
 package ast
 
-import "github.com/hulo-lang/hulo/syntax/vbs/token"
+import (
+	"fmt"
+	"strings"
 
+	"github.com/hulo-lang/hulo/syntax/vbs/token"
+)
+
+// All node types implement the Node interface.
 type Node interface {
-	Pos() token.Pos
-	End() token.Pos
+	Pos() token.Pos // position of first character belonging to the node
+	End() token.Pos // position of first character immediately after the node
 }
 
-type Decl interface {
-	Node
-	declNode()
-}
-
+// All statement nodes implement the Stmt interface.
 type Stmt interface {
 	Node
 	stmtNode()
 }
 
+// All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
 	exprNode()
+
+	String() string // string representation of the expression
 }
 
+// A CommentGroup represents a sequence of comments
+// with no other tokens and no empty lines between.
 type CommentGroup struct {
-	List []*Comment
+	List []*Comment // len(List) > 0
 }
 
 func (g *CommentGroup) Pos() token.Pos { return g.List[0].Pos() }
 func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
 
+// A Comment represents a single comment.
 type Comment struct {
-	TokPos token.Pos
+	TokPos token.Pos   // position of comment token
 	Tok    token.Token // ' or Rem
-	Text   string
+	Text   string      // comment text (excluding '\n' for line comments)
 }
 
 func (c *Comment) Pos() token.Pos { return c.TokPos }
 func (c *Comment) End() token.Pos { return token.Pos(int(c.TokPos) + len(c.Text)) }
 
-type Modifier int
-
-func (m Modifier) IsNone() bool {
-	return m == M_NONE
-}
-
-func (m Modifier) HasPublic() bool {
-	return m&M_PUBLIC != 0
-}
-
-func (m Modifier) HasPrivate() bool {
-	return m&M_PRIVATE != 0
-}
-
-func (m Modifier) IsAll() bool {
-	return m == M_ALL
-}
-
-const (
-	M_NONE   = 0
-	M_PUBLIC = 1 << iota
-	M_PRIVATE
-	M_ALL = M_PUBLIC | M_PRIVATE
-)
-
-// ----------------------------------------------------------------------------
-// Declarations
-
 type (
 	// A SubDecl node represents a sub declaration.
 	SubDecl struct {
-		Mod    Modifier
-		ModPos token.Pos
-		Sub    token.Pos // position of "Sub"
-		Name   *Ident
-		Recv   []*Field
-		Body   *BlockStmt
-		EndSub token.Pos // position of "End Sub"
+		Doc    *CommentGroup // associated documentation; or nil
+		Mod    token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos token.Pos     // position of Mod
+		Sub    token.Pos     // position of "Sub"
+		Name   *Ident        // sub name
+		Recv   []*Field      // receiver parameters; or nil
+		Body   *BlockStmt    // sub body
+		EndSub token.Pos     // position of "End Sub"
 	}
 
 	// A FuncDecl node represents a function declaration.
 	FuncDecl struct {
-		Mod      Modifier
-		ModPos   token.Pos
-		Function token.Pos // position of "Function"
-		Name     *Ident
-		Recv     []*Field
-		Body     *BlockStmt
-		EndFunc  token.Pos // position of "End Function"
+		Doc    *CommentGroup // associated documentation; or nil
+		Mod    token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos token.Pos     // position of Mod
+		// Default is used only with the Public keyword in a Class block
+		// to indicate that the Function procedure is the default method for the class.
+		Default  token.Pos  // position of "Default"
+		Function token.Pos  // position of "Function"
+		Name     *Ident     // function name
+		Recv     []*Field   // receiver parameters; or nil
+		Body     *BlockStmt // function body
+		EndFunc  token.Pos  // position of "End Function"
 	}
 
-	// A PropertyDecl node represents a property declaration.
-	PropertyDecl struct {
-		Mod         Modifier
-		ModPos      token.Pos
-		Property    token.Pos   // position of "Property"
-		Tok         token.Token // Token.LET | Token.GET | Token.SET
-		TokPos      token.Pos
-		Name        *Ident
-		Recv        []*Field
-		Body        *BlockStmt
-		EndProverty token.Pos // position of "End Property"
+	// A PropertyStmt node represents a property declaration.
+	PropertyStmt struct {
+		Doc         *CommentGroup // associated documentation; or nil
+		Mod         token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos      token.Pos     // position of Mod
+		Property    token.Pos     // position of "Property"
+		Name        *Ident        // property name
+		LParen      token.Pos     // position of "("
+		Recv        []*Field      // receiver parameters; or nil
+		RParen      token.Pos     // position of ")"
+		Body        *BlockStmt    // property body
+		EndProverty token.Pos     // position of "End Property"
+	}
+
+	// A PropertySetStmt node represents a property set declaration.
+	PropertySetStmt struct {
+		Doc         *CommentGroup // associated documentation; or nil
+		Mod         token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos      token.Pos     // position of Mod
+		Property    token.Pos     // position of "Property"
+		Set         token.Pos     // position of "Set"
+		Name        *Ident        // property name
+		LParen      token.Pos     // position of "("
+		Recv        []*Field      // receiver parameters; or nil
+		RParen      token.Pos     // position of ")"
+		Body        *BlockStmt    // property body
+		EndProverty token.Pos     // position of "End Property"
+	}
+
+	// A PropertyLetStmt node represents a property let declaration.
+	PropertyLetStmt struct {
+		Doc         *CommentGroup // associated documentation; or nil
+		Mod         token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos      token.Pos     // position of Mod
+		Property    token.Pos     // position of "Property"
+		Let         token.Pos     // position of "Let"
+		Name        *Ident        // property name
+		LParen      token.Pos     // position of "("
+		Recv        []*Field      // receiver parameters; or nil
+		RParen      token.Pos     // position of ")"
+		Body        *BlockStmt    // property body
+		EndProverty token.Pos     // position of "End Property"
+	}
+
+	// A PropertyGetStmt node represents a property get declaration.
+	PropertyGetStmt struct {
+		Doc         *CommentGroup // associated documentation; or nil
+		Mod         token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos      token.Pos     // position of Mod
+		Property    token.Pos     // position of "Property"
+		Get         token.Pos     // position of "Get"
+		Name        *Ident        // property name
+		LParen      token.Pos     // position of "("
+		Recv        []*Field      // receiver parameters; or nil
+		RParen      token.Pos     // position of ")"
+		Body        *BlockStmt    // property body
+		EndProverty token.Pos     // position of "End Property"
 	}
 
 	// A ClassDecl node represents a class declaration.
 	ClassDecl struct {
-		Mod    Modifier
-		ModPos token.Pos
-		Class  token.Pos // position of "Class"
-		Name   *Ident
-		// dim, func, member, proverpty, assign
-		Stmts    []Stmt
-		Decls    []Decl
+		Doc    *CommentGroup // associated documentation; or nil
+		Mod    token.Token   // modifier token (PUBLIC, PRIVATE)
+		ModPos token.Pos     // position of Mod
+		Class  token.Pos     // position of "Class"
+		Name   *Ident        // class name
+		// Stmts contains all statements in the class body:
+		// dim, func, member, property, assign statements
+		Stmts    []Stmt    // class body statements
 		EndClass token.Pos // position of "End Class"
 	}
 
-	// A DimDecl node represents an dim declaration.
+	// A DimDecl node represents a variable declaration.
 	DimDecl struct {
-		Dim   token.Pos // position of "Dim"
-		List  []Expr
-		Colon token.Pos // position of ":"
-		Set   *AssignStmt
+		Doc   *CommentGroup // associated documentation; or nil
+		Dim   token.Pos     // position of "Dim"
+		List  []Expr        // variable list
+		Colon token.Pos     // position of ":"
+		Set   *SetStmt      // optional initial value
 	}
 
-	// A ReDimDecl node represents a redim declaration.
+	// A ReDimDecl node represents a variable redimension declaration.
 	ReDimDecl struct {
-		ReDim    token.Pos // position of "ReDim"
-		Preserve token.Pos // position of "Preserve"
-		List     []Expr
+		Doc      *CommentGroup // associated documentation; or nil
+		ReDim    token.Pos     // position of "ReDim"
+		Preserve token.Pos     // position of "Preserve"
+		List     []Expr        // variable list
 	}
 )
 
 func (d *SubDecl) Pos() token.Pos {
-	if d.Mod.HasPublic() {
-		return d.ModPos
-	}
-	if d.Mod.HasPrivate() {
+	if d.ModPos.IsValid() {
 		return d.ModPos
 	}
 	return d.Sub
 }
-func (d *PropertyDecl) Pos() token.Pos {
-	if d.Mod.HasPublic() {
+func (d *PropertyGetStmt) Pos() token.Pos {
+	if d.ModPos.IsValid() {
 		return d.ModPos
 	}
-	if d.Mod.HasPrivate() {
+	return d.Property
+}
+func (d *PropertyLetStmt) Pos() token.Pos {
+	if d.ModPos.IsValid() {
+		return d.ModPos
+	}
+	return d.Property
+}
+func (d *PropertySetStmt) Pos() token.Pos {
+	if d.ModPos.IsValid() {
 		return d.ModPos
 	}
 	return d.Property
 }
 func (d *FuncDecl) Pos() token.Pos {
-	if d.Mod.HasPublic() {
-		return d.ModPos
-	}
-	if d.Mod.HasPrivate() {
+	if d.ModPos.IsValid() {
 		return d.ModPos
 	}
 	return d.Function
 }
 func (d *ClassDecl) Pos() token.Pos {
-	if d.Mod.HasPublic() {
-		return d.ModPos
-	}
-	if d.Mod.HasPrivate() {
+	if d.ModPos.IsValid() {
 		return d.ModPos
 	}
 	return d.Class
@@ -172,19 +208,23 @@ func (d *ClassDecl) Pos() token.Pos {
 func (s *DimDecl) Pos() token.Pos   { return s.Dim }
 func (s *ReDimDecl) Pos() token.Pos { return s.ReDim }
 
-func (d *SubDecl) End() token.Pos      { return d.EndSub }
-func (d *PropertyDecl) End() token.Pos { return d.EndProverty }
-func (d *FuncDecl) End() token.Pos     { return d.EndFunc }
-func (d *ClassDecl) End() token.Pos    { return d.EndClass }
-func (d *DimDecl) End() token.Pos      { return d.List[len(d.List)-1].End() }
-func (d *ReDimDecl) End() token.Pos    { return d.List[len(d.List)-1].End() }
+func (d *SubDecl) End() token.Pos         { return d.EndSub }
+func (d *PropertyLetStmt) End() token.Pos { return d.EndProverty }
+func (d *PropertyGetStmt) End() token.Pos { return d.EndProverty }
+func (d *PropertySetStmt) End() token.Pos { return d.EndProverty }
+func (d *FuncDecl) End() token.Pos        { return d.EndFunc }
+func (d *ClassDecl) End() token.Pos       { return d.EndClass }
+func (d *DimDecl) End() token.Pos         { return d.List[len(d.List)-1].End() }
+func (d *ReDimDecl) End() token.Pos       { return d.List[len(d.List)-1].End() }
 
-func (*SubDecl) declNode()      {}
-func (*PropertyDecl) declNode() {}
-func (*FuncDecl) declNode()     {}
-func (*ClassDecl) declNode()    {}
-func (*DimDecl) declNode()      {}
-func (*ReDimDecl) declNode()    {}
+func (*SubDecl) stmtNode()         {}
+func (*PropertyGetStmt) stmtNode() {}
+func (*PropertyLetStmt) stmtNode() {}
+func (*PropertySetStmt) stmtNode() {}
+func (*FuncDecl) stmtNode()        {}
+func (*ClassDecl) stmtNode()       {}
+func (*DimDecl) stmtNode()         {}
+func (*ReDimDecl) stmtNode()       {}
 
 type Field struct {
 	TokPos token.Pos
@@ -198,169 +238,218 @@ type Field struct {
 type (
 	// An OptionStmt node represents an option statement.
 	OptionStmt struct {
-		Option   token.Pos // position of "Option"
-		Explicit token.Pos // position of "Explicit"
+		Doc      *CommentGroup // associated documentation; or nil
+		Option   token.Pos     // position of "Option"
+		Explicit token.Pos     // position of "Explicit"
+	}
+
+	// An AssignStmt node represents an assignment statement.
+	AssignStmt struct {
+		Doc    *CommentGroup // associated documentation; or nil
+		Lhs    Expr          // left hand side
+		Aggign token.Pos     // position of "="
+		Rhs    Expr          // right hand side
 	}
 
 	// A RandomizeStmt node represents a randomize statement.
 	RandomizeStmt struct {
-		Randomize token.Pos // position of "Randomize"
+		Doc       *CommentGroup // associated documentation; or nil
+		Randomize token.Pos     // position of "Randomize"
 	}
 
 	// A WithStmt node represents a with statement.
 	WithStmt struct {
-		With    token.Pos // position of "With"
-		Cond    Expr
-		Body    *BlockStmt
-		EndWith token.Pos // position of "End With"
-	}
-
-	// An AssignStmt node represents an assign statement.
-	AssignStmt struct {
-		Tok    token.Token // Token.SET | Token.CONST
-		TokPos token.Pos   // position of Tok
-		Lhs    Expr
-		Assign token.Pos // position of '='
-		Rhs    Expr
+		Doc     *CommentGroup // associated documentation; or nil
+		With    token.Pos     // position of "With"
+		Cond    Expr          // condition expression
+		Body    *BlockStmt    // with body
+		EndWith token.Pos     // position of "End With"
 	}
 
 	// A StopStmt node represents a stop statement.
 	StopStmt struct {
-		Stop token.Pos // position of "Stop"
+		Doc  *CommentGroup // associated documentation; or nil
+		Stop token.Pos     // position of "Stop"
 	}
 
 	// A SelectStmt node represents a select statement.
 	SelectStmt struct {
-		Select    token.Pos // position of "Select"
-		Var       Expr
-		Cases     []*CaseStmt
-		Else      *CaseStmt
-		EndSelect token.Pos // position of "End Select"
+		Doc       *CommentGroup // associated documentation; or nil
+		Select    token.Pos     // position of "Select"
+		Var       Expr          // select variable
+		Cases     []*CaseStmt   // case statements
+		Else      *CaseStmt     // else case; or nil
+		EndSelect token.Pos     // position of "End Select"
 	}
 
 	// A CaseStmt node represents a case statement.
 	CaseStmt struct {
-		Case token.Pos // position of "Case"
-		Cond Expr
-		Body *BlockStmt
+		Doc  *CommentGroup // associated documentation; or nil
+		Case token.Pos     // position of "Case"
+		Cond Expr          // case condition
+		Body *BlockStmt    // case body
 	}
 
 	// An IfStmt node represents an if statement.
 	IfStmt struct {
-		If     token.Pos // position of "If"
-		Cond   Expr
-		Then   token.Pos // position of "Then"
-		Body   *BlockStmt
-		ElseIf []*IfStmt
-		Else   *BlockStmt
-		EndIf  token.Pos // position of "End If"
+		Doc   *CommentGroup // associated documentation; or nil
+		If    token.Pos     // position of "If"
+		Cond  Expr          // condition expression
+		Then  token.Pos     // position of "Then"
+		Body  *BlockStmt    // if body
+		Else  Stmt          // elseif or else
+		EndIf token.Pos     // position of "End If"
 	}
 
 	// A BlockStmt node represents a block statement.
 	BlockStmt struct {
-		List []Stmt
+		List []Stmt // statement list
 	}
 
 	// A CallStmt node represents a call statement.
 	CallStmt struct {
 		Call token.Pos // position of "Call"
-		Name *Ident
-		Recv []Expr
+		Name *Ident    // procedure name
+		Recv []Expr    // arguments
+	}
+
+	// A ConstStmt node represents a constant declaration.
+	ConstStmt struct {
+		Doc         *CommentGroup // associated documentation; or nil
+		ModifierPos token.Pos     // position of Modifier
+		Modifier    token.Token   // Token.PUBLIC | PRIVATE
+		Const       token.Pos     // position of "Const"
+		Lhs         Expr          // left hand side
+		Assign      token.Pos     // position of "="
+		Rhs         Expr          // right hand side
 	}
 
 	// An ExitStmt node represents an exit statement.
 	ExitStmt struct {
-		Exit token.Pos   // position of "Exit"
-		X    token.Token // Token.Do | For | Function | Property | Sub
+		Doc  *CommentGroup // associated documentation; or nil
+		Exit token.Pos     // position of "Exit"
+		Tok  token.Token   // Token.Do | For | Function | Property | Sub
 	}
 
 	// A ForNextStmt node represents a For..Next statement.
 	ForNextStmt struct {
-		For     token.Pos // position of "For"
-		Start   Expr
-		To      token.Pos // position of "To"
-		End_    Expr
-		StepPos token.Pos // position of "Step"
-		Step    Expr
-		Body    *BlockStmt
-		Next    token.Pos // position of "Next"
+		Doc     *CommentGroup // associated documentation; or nil
+		For     token.Pos     // position of "For"
+		Start   Expr          // start expression
+		To      token.Pos     // position of "To"
+		End_    Expr          // end expression
+		StepPos token.Pos     // position of "Step"
+		Step    Expr          // step expression; or nil
+		Body    *BlockStmt    // for body
+		Next    token.Pos     // position of "Next"
 	}
 
 	// A ForEachStmt node represents a For..Each statement.
 	ForEachStmt struct {
-		For   token.Pos // position of "For"
-		Each  token.Pos // position of "Each"
-		Elem  Expr
-		In    token.Pos // position of "In"
-		Group Expr
-		Body  *BlockStmt
-		Next  token.Pos // position of "Next"
-		Stmt  Stmt
+		Doc   *CommentGroup // associated documentation; or nil
+		For   token.Pos     // position of "For"
+		Each  token.Pos     // position of "Each"
+		Elem  Expr          // element expression
+		In    token.Pos     // position of "In"
+		Group Expr          // group expression
+		Body  *BlockStmt    // for body
+		Next  token.Pos     // position of "Next"
+		Stmt  Stmt          // next statement; or nil
 	}
 
 	// A WhileWendStmt node represents a While..Wend statement.
 	WhileWendStmt struct {
-		While token.Pos // position of "While"
-		Cond  Expr
-		Body  *BlockStmt
-		Wend  token.Pos // position of "Wend"
+		Doc   *CommentGroup // associated documentation; or nil
+		While token.Pos     // position of "While"
+		Cond  Expr          // condition expression
+		Body  *BlockStmt    // while body
+		Wend  token.Pos     // position of "Wend"
 	}
 
-	// A DoLoopStmt node represents a Doop..Loop statement.
+	// A DoLoopStmt node represents a Do..Loop statement.
 	DoLoopStmt struct {
-		Do     token.Pos // position of "Do"
-		Pre    bool
-		Tok    token.Token // Token.WHILE | Token.UNTIL
-		TokPos token.Pos
-		Cond   Expr
-		Body   *BlockStmt
-		Loop   token.Pos // position of "Loop"
+		Doc    *CommentGroup // associated documentation; or nil
+		Do     token.Pos     // position of "Do"
+		Pre    bool          // whether condition is before loop
+		Tok    token.Token   // Token.WHILE | Token.UNTIL
+		TokPos token.Pos     // position of Tok
+		Cond   Expr          // condition expression
+		Body   *BlockStmt    // do body
+		Loop   token.Pos     // position of "Loop"
 	}
 
-	// A OnErrorStmt node represents a on..error statement.
+	// An OnErrorStmt node represents an on error statement.
 	OnErrorStmt struct {
-		On    token.Pos
-		Error token.Pos
-		*OnErrorResume
-		*OnErrorGoto
+		Doc            *CommentGroup // associated documentation; or nil
+		On             token.Pos     // position of "On"
+		Error          token.Pos     // position of "Error"
+		*OnErrorResume               // resume next; or nil
+		*OnErrorGoto                 // goto 0; or nil
 	}
 
+	// An OnErrorResume node represents a resume next statement.
 	OnErrorResume struct {
-		Resume token.Pos
-		Next   token.Pos
+		Resume token.Pos // position of "Resume"
+		Next   token.Pos // position of "Next"
 	}
 
+	// An OnErrorGoto node represents a goto 0 statement.
 	OnErrorGoto struct {
-		GoTo token.Pos
-		Zero token.Pos
+		GoTo token.Pos // position of "Goto"
+		Zero token.Pos // position of "0"
 	}
 
-	MemberStmt struct {
-		Mod    Modifier // public or private
-		ModPos token.Pos
-		Name   *Ident
+	// A PrivateStmt node represents a private statement.
+	PrivateStmt struct {
+		Doc     *CommentGroup // associated documentation; or nil
+		Private token.Pos     // position of "Private"
+		List    []Expr        // variable list
+	}
+
+	// A PublicStmt node represents a public statement.
+	PublicStmt struct {
+		Doc    *CommentGroup // associated documentation; or nil
+		Public token.Pos     // position of "Public"
+		List   []Expr        // variable list
 	}
 
 	// An ExprStmt node represents a (stand-alone) expression
 	// in a statement list.
 	ExprStmt struct {
-		Doc *CommentGroup
-		X   Expr // expression
+		Doc *CommentGroup // associated documentation; or nil
+		X   Expr          // expression
+	}
+
+	// An EraseStmt node represents an erase statement.
+	EraseStmt struct {
+		Doc   *CommentGroup // associated documentation; or nil
+		Erase token.Pos     // position of "Erase"
+		X     Expr          // array expression
+	}
+
+	// An ExecuteStmt node represents an execute statement.
+	ExecuteStmt struct {
+		Doc       *CommentGroup // associated documentation; or nil
+		Execute   token.Pos     // position of "Execute"
+		Statement string        // statement to execute
+	}
+
+	// A SetStmt node represents a set statement.
+	SetStmt struct {
+		Doc    *CommentGroup // associated documentation; or nil
+		Set    token.Pos     // position of "Set"
+		Lhs    Expr          // left hand side
+		Assign token.Pos     // position of "="
+		Rhs    Expr          // right hand side
 	}
 )
 
 func (s *OptionStmt) Pos() token.Pos    { return s.Option }
 func (s *RandomizeStmt) Pos() token.Pos { return s.Randomize }
 func (s *WithStmt) Pos() token.Pos      { return s.With }
-func (s *AssignStmt) Pos() token.Pos {
-	if s.TokPos.IsValid() {
-		return s.TokPos
-	}
-	return s.Lhs.Pos()
-}
-func (s *StopStmt) Pos() token.Pos   { return s.Stop }
-func (s *SelectStmt) Pos() token.Pos { return s.Select }
-func (s *IfStmt) Pos() token.Pos     { return s.If }
+func (s *StopStmt) Pos() token.Pos      { return s.Stop }
+func (s *SelectStmt) Pos() token.Pos    { return s.Select }
+func (s *IfStmt) Pos() token.Pos        { return s.If }
 func (s *BlockStmt) Pos() token.Pos {
 	if len(s.List) > 0 {
 		return s.List[0].Pos()
@@ -374,18 +463,23 @@ func (s *ForEachStmt) Pos() token.Pos   { return s.For }
 func (s *WhileWendStmt) Pos() token.Pos { return s.While }
 func (s *DoLoopStmt) Pos() token.Pos    { return s.Do }
 func (s *OnErrorStmt) Pos() token.Pos   { return s.Error }
-func (s *MemberStmt) Pos() token.Pos {
-	if !s.Mod.IsNone() {
-		return s.ModPos
+func (s *ExprStmt) Pos() token.Pos      { return s.X.Pos() }
+func (s *ConstStmt) Pos() token.Pos {
+	if s.Modifier == token.ILLEGAL {
+		return s.Const
 	}
-	return s.Name.End()
+	return s.ModifierPos
 }
-func (s *ExprStmt) Pos() token.Pos { return s.X.Pos() }
+func (s *EraseStmt) Pos() token.Pos   { return s.Erase }
+func (s *ExecuteStmt) Pos() token.Pos { return s.Execute }
+func (s *PrivateStmt) Pos() token.Pos { return s.Private }
+func (s *PublicStmt) Pos() token.Pos  { return s.Public }
+func (s *SetStmt) Pos() token.Pos     { return s.Set }
+func (s *AssignStmt) Pos() token.Pos  { return s.Lhs.Pos() }
 
 func (s *OptionStmt) End() token.Pos    { return s.Explicit }
 func (s *RandomizeStmt) End() token.Pos { return s.Randomize }
 func (s *WithStmt) End() token.Pos      { return s.EndWith }
-func (s *AssignStmt) End() token.Pos    { return s.Rhs.End() }
 func (s *StopStmt) End() token.Pos      { return s.Stop }
 func (s *SelectStmt) End() token.Pos    { return s.EndSelect }
 func (s *IfStmt) End() token.Pos        { return s.EndIf }
@@ -401,7 +495,7 @@ func (s *CallStmt) End() token.Pos {
 	}
 	return s.Name.End()
 }
-func (s *ExitStmt) End() token.Pos    { return token.Pos(int(s.Exit) + len(s.X)) }
+func (s *ExitStmt) End() token.Pos    { return token.Pos(int(s.Exit) + len(s.Tok.String())) }
 func (s *ForNextStmt) End() token.Pos { return s.Next }
 func (s *ForEachStmt) End() token.Pos {
 	if s.Stmt != nil {
@@ -420,13 +514,18 @@ func (s *OnErrorStmt) End() token.Pos {
 	}
 	return token.NoPos
 }
-func (s *MemberStmt) End() token.Pos { return s.Name.Pos() }
-func (s *ExprStmt) End() token.Pos   { return s.X.End() }
+func (s *ExprStmt) End() token.Pos    { return s.X.End() }
+func (s *ConstStmt) End() token.Pos   { return s.Rhs.End() }
+func (s *EraseStmt) End() token.Pos   { return s.X.End() }
+func (s *ExecuteStmt) End() token.Pos { return token.Pos(int(s.Execute) + len(s.Statement)) }
+func (s *PrivateStmt) End() token.Pos { return s.List[len(s.List)-1].End() }
+func (s *PublicStmt) End() token.Pos  { return s.List[len(s.List)-1].End() }
+func (s *AssignStmt) End() token.Pos  { return s.Rhs.End() }
+func (s *SetStmt) End() token.Pos     { return s.Rhs.End() }
 
 func (*OptionStmt) stmtNode()    {}
 func (*RandomizeStmt) stmtNode() {}
 func (*WithStmt) stmtNode()      {}
-func (*AssignStmt) stmtNode()    {}
 func (*StopStmt) stmtNode()      {}
 func (*SelectStmt) stmtNode()    {}
 func (*IfStmt) stmtNode()        {}
@@ -438,8 +537,14 @@ func (*ForEachStmt) stmtNode()   {}
 func (*WhileWendStmt) stmtNode() {}
 func (*DoLoopStmt) stmtNode()    {}
 func (*OnErrorStmt) stmtNode()   {}
-func (*MemberStmt) stmtNode()    {}
 func (*ExprStmt) stmtNode()      {}
+func (*ConstStmt) stmtNode()     {}
+func (*EraseStmt) stmtNode()     {}
+func (*ExecuteStmt) stmtNode()   {}
+func (*PrivateStmt) stmtNode()   {}
+func (*PublicStmt) stmtNode()    {}
+func (*AssignStmt) stmtNode()    {}
+func (*SetStmt) stmtNode()       {}
 
 // ----------------------------------------------------------------------------
 // Expression
@@ -448,8 +553,8 @@ type (
 	// A BasicLit node represents a literal of basic type.
 	BasicLit struct {
 		Kind     token.Token // Token.Empty | Token.Null | Token.Boolean | Token.Byte | Token.Integer | Token.Currency | Token.Long | Token.Single | Token.Double | Token.Date | Token.String | Token.Object | Token.Error
-		Value    string
-		ValuePos token.Pos // literal position
+		Value    string      // literal value
+		ValuePos token.Pos   // literal position
 	}
 
 	// An Ident node represents an identifier.
@@ -538,12 +643,50 @@ func (*SelectorExpr) exprNode()  {}
 func (*BinaryExpr) exprNode()    {}
 func (*BasicLit) exprNode()      {}
 
+func (e *Ident) String() string { return e.Name }
+func (e *BasicLit) String() string {
+	switch e.Kind {
+	case token.TRUE:
+		return "True"
+	case token.FALSE:
+		return "False"
+	case token.STRING:
+		return fmt.Sprintf(`"%s"`, e.Value)
+	}
+	return e.Value
+}
+func (e *SelectorExpr) String() string { return fmt.Sprintf("%s.%s", e.X, e.Sel) }
+func (e *BinaryExpr) String() string   { return fmt.Sprintf("%s %s %s", e.X, e.Op, e.Y) }
+func (e *CallExpr) String() string {
+	recv := []string{}
+	for _, r := range e.Recv {
+		recv = append(recv, r.String())
+	}
+	return fmt.Sprintf("%s(%s)", e.Func, strings.Join(recv, ", "))
+}
+func (e *IndexExpr) String() string { return fmt.Sprintf("%s(%s)", e.X, e.Index) }
+func (e *IndexListExpr) String() string {
+	recv := []string{}
+	for _, r := range e.Indices {
+		recv = append(recv, r.String())
+	}
+	return fmt.Sprintf("%s(%s)", e.X, strings.Join(recv, ", "))
+}
+func (e *NewExpr) String() string {
+	return fmt.Sprintf("%s %s", token.NEW, e.X)
+}
+
+// A File node represents a VBScript source file.
 type File struct {
-	Doc *CommentGroup
+	Doc []*CommentGroup
 
 	Stmts []Stmt
-	Decls []Decl
 }
 
 func (*File) Pos() token.Pos { return token.NoPos }
-func (*File) End() token.Pos { return token.NoPos }
+func (f *File) End() token.Pos {
+	if len(f.Stmts) > 0 {
+		return f.Stmts[len(f.Stmts)-1].End()
+	}
+	return token.NoPos
+}

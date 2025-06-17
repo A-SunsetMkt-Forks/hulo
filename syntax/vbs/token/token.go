@@ -18,102 +18,149 @@ const NoPos Pos = 0
 
 const DynPos Pos = -1
 
-type Token string
+//go:generate stringer -type=Token -linecomment
+type Token uint8
+
+func (t Token) IsValid() bool {
+	return t != ILLEGAL
+}
 
 const (
-	ADD  = "+"
-	SUB  = "-"
-	MUL  = "*"
-	DIV  = "/"
-	IDIV = "\\"
-	MOD  = "Mod"
-	EXP  = "^"
+	ILLEGAL Token = iota // ILLEGAL
 
-	IS = "Is"
+	/// Operators
 
-	BITAND = "&"
+	// Arithmetic
 
-	NOT = "Not"
-	AND = "And"
-	OR  = "Or"
-	XOR = "Xor"
-	EQV = "Eqv"
-	IMP = "Imp"
+	// Addition Operator
+	ADD // +
+	// Subtraction or Negation Operator
+	SUB // -
+	// Multiplication Operator
+	MUL // *
+	// Division Operator
+	DIV // /
+	// Integer Division Operator
+	IDIV // \
+	// Mod Operator
+	MOD // Mod
+	// Exponentiation Operator
+	EXP // ^
+	// Concatenation Operator or Logical
+	CONCAT // &
 
-	EQ  = "="
-	NEQ = "<>"
+	// Comparison
 
-	LT = "<"
-	GT = ">"
+	// Equality or Assignment Operator
+	EQ // =
+	// Inequality
+	IEQ // <>
+	// Less than
+	LT // <
+	// Greater than
+	GT // >
+	// Less than or equal to
+	LTQ // <=
+	// Greater than or equal to
+	GTQ // >=
+	// Is Operator
+	IS // Is
 
-	COLON = ":"
-	COMMA = ","
+	// Logical
 
-	LT_ASSIGN = "<="
-	GT_ASSIGN = ">="
+	// Not Operator
+	NOT // Not
+	// And Operator
+	AND // And
+	// Or Operator
+	OR // Or
+	// Xor Operator
+	XOR // Xor
+	// Eqv Operator
+	EQV // Eqv
+	// Imp Operator
+	IMP // Imp
 
-	APOSTROPHE = "'"
+	COLON // :
+	COMMA // ,
 
-	FALSE   = "False"
-	TRUE    = "True"
-	NOTHING = "Nothing"
+	// Single Quote
+	SGL_QUOTE // '
+	// Double Quote
+	DBL_QUOTE // "
 
-	BYVAL = "ByVal"
-	BYREF = "ByRef"
+	FALSE   // False
+	TRUE    // True
+	NOTHING // Nothing
 
-	GET   = "Get"
-	LET   = "Let"
-	SET   = "Set"
-	CONST = "Const"
+	// By Value
+	BYVAL // ByVal
+	// By Reference
+	BYREF // ByRef
 
-	// Data Types
+	/// Property
 
-	EMPTY    = "Empty"
-	NULL     = "Null"
-	BOOLEAN  = "Boolean"
-	BYTE     = "Byte"
-	INTEGER  = "Integer"
-	CURRENCY = "Currency"
-	LONG     = "Long"
-	SINGLE   = "Single"
-	DOUBLE   = "Double"
-	DATE     = "Date"
-	STRING   = "String"
-	OBJECT   = "Object"
-	ERROR    = "Error"
+	GET // Get
+	LET // Let
+	SET // Set
 
-	DIM       = "Dim"
-	REDIM     = "ReDim"
-	PRESERVE  = "Preserve"
-	FOR       = "For"
-	EACH      = "Each"
-	IN        = "In"
-	TO        = "To"
-	STEP      = "Step"
-	NEXT      = "Next"
-	EXIT      = "Exit"
-	SELECT    = "Select"
-	CASE      = "Case"
-	THEN      = "Then"
-	IF        = "If"
-	ELSEIF    = "ElseIf"
-	ELSE      = "Else"
-	WITH      = "With"
-	WHILE     = "While"
-	WEND      = "Wend"
-	END       = "End"
-	SUB_LIT   = "Sub"
-	PROPERTY  = "Property"
-	FUNCTION  = "Function"
-	CLASS     = "Class"
-	PUBLIC    = "Public"
-	PRIVATE   = "Private"
-	CALL      = "Call"
-	ON        = "On"
-	GOTO      = "GoTo"
-	RESUME    = "Resume"
-	STOP      = "Stop"
-	RANDOMIZE = "Randomize"
-	OPTION    = "Option"
-	EXPLICIT  = "Explicit"
+	CONST // Const
+
+	/// Data Types
+
+	EMPTY    // Empty
+	NULL     // Null
+	BOOLEAN  // Boolean
+	BYTE     // Byte
+	INTEGER  // Integer
+	CURRENCY // Currency
+	LONG     // Long
+	SINGLE   // Single
+	DOUBLE   // Double
+	DATE     // Date
+	STRING   // String
+	OBJECT   // Object
+	ERROR    // Error
+
+	DIM       // Dim
+	REDIM     // ReDim
+	PRESERVE  // Preserve
+	FOR       // For
+	EACH      // Each
+	IN        // In
+	TO        // To
+	STEP      // Step
+	NEXT      // Next
+	EXIT      // Exit
+	SELECT    // Select
+	CASE      // Case
+	THEN      // Then
+	IF        // If
+	ELSEIF    // ElseIf
+	ELSE      // Else
+	WITH      // With
+	WHILE     // While
+	WEND      // Wend
+	END       // End
+	SUB_LIT   // Sub
+	PROPERTY  // Property
+	FUNCTION  // Function
+	DEFAULT   // Default
+	CLASS     // Class
+	PUBLIC    // Public
+	PRIVATE   // Private
+	CALL      // Call
+	ON        // On
+	GOTO      // GoTo
+	RESUME    // Resume
+	STOP      // Stop
+	RANDOMIZE // Randomize
+	OPTION    // Option
+	EXPLICIT  // Explicit
+	ERASE     // Erase
+	EXECUTE   // Excute
+	NEW       // New
+	REM       // Rem
+
+	EOF // EOF
 )

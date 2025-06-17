@@ -48,6 +48,7 @@ type Comment struct {
 
 func (c *Comment) Pos() token.Pos { return c.Hash }
 func (c *Comment) End() token.Pos { return token.Pos(int(c.Hash) + len(c.Text)) }
+func (c *Comment) stmtNode()      {}
 
 type CommentGroup struct {
 	List []*Comment
@@ -55,6 +56,7 @@ type CommentGroup struct {
 
 func (g *CommentGroup) Pos() token.Pos { return g.List[0].Pos() }
 func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
+func (c *CommentGroup) stmtNode()      {}
 
 type FuncDecl struct {
 	Function token.Pos
@@ -269,7 +271,7 @@ type (
 
 	// A BasicLit node represents a literal of basic type.
 	BasicLit struct {
-		Kind     token.Token // Token.Empty | Token.Null | Token.Boolean | Token.Byte | Token.Integer | Token.Currency | Token.Long | Token.Single | Token.Double | Token.Date | Token.String | Token.Object | Token.Error
+		Kind     token.Token
 		Value    string
 		ValuePos token.Pos // literal position
 	}
@@ -501,6 +503,12 @@ type (
 		Vars   []Expr
 		Rparen token.Pos // position of ")"
 	}
+
+	UnaryExpr struct {
+		OpPos token.Pos   // position of Op
+		Op    token.Token // operator
+		X     Expr
+	}
 )
 
 // func (x Word) Pos() token.Pos              { return token.NoPos }
@@ -518,6 +526,7 @@ func (x *VarExpExpr) Pos() token.Pos       { return x.Dollar }
 func (x *ParamExpExpr) Pos() token.Pos     { return x.Dollar }
 func (x *IndexExpr) Pos() token.Pos        { return x.X.Pos() }
 func (x *ArrExpr) Pos() token.Pos          { return x.Lparen }
+func (x *UnaryExpr) Pos() token.Pos        { return x.OpPos }
 
 // func (x Word) End() token.Pos        { return token.NoPos }
 func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
@@ -539,6 +548,7 @@ func (x *VarExpExpr) End() token.Pos       { return x.X.End() }
 func (x *ParamExpExpr) End() token.Pos     { return x.Rbrace }
 func (x *IndexExpr) End() token.Pos        { return x.Rbrack }
 func (x *ArrExpr) End() token.Pos          { return x.Rparen }
+func (x *UnaryExpr) End() token.Pos        { return x.X.End() }
 
 // func (Word) exprNode()              {}
 func (*BinaryExpr) exprNode()       {}
@@ -555,6 +565,7 @@ func (*VarExpExpr) exprNode()       {}
 func (*ParamExpExpr) exprNode()     {}
 func (*IndexExpr) exprNode()        {}
 func (*ArrExpr) exprNode()          {}
+func (*UnaryExpr) exprNode()        {}
 
 func (e *BinaryExpr) String() string {
 	switch e.Op {
@@ -689,6 +700,10 @@ func (e *ArrExpr) String() string {
 		vars = append(vars, v.String())
 	}
 	return fmt.Sprintf("(%s)", strings.Join(vars, " "))
+}
+
+func (e *UnaryExpr) String() string {
+	return fmt.Sprintf("%s%s", e.Op, e.X)
 }
 
 type ExpOperator string

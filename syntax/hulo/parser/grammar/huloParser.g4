@@ -49,7 +49,7 @@ statement:
 ;
 
 // -----------------------
-// 
+//
 // expression
 
 // assignModifier ident = expr
@@ -162,7 +162,7 @@ expression:
 // expr (, expr)*
 expressionList: expression (COMMA expression)*;
 
-/* memberAccess: 
+/* memberAccess:
  * std::time.now -> IDENT (DOUBLE_COLON IDENT (DOT IDENT LPAREN RPAREN))
  * time.now -> IDENT (DOT IDENT LPAREN expression RPAREN)
  * time.utc::now -> IDENT (DOT IDENT (DOUBLE_COLON IDENT LPAREN RPAREN (DOT IDENT LPAREN RPAREN (DOT IDENT LPAREN RPAREN))))
@@ -186,7 +186,7 @@ memberAccess:
 
 fileExpression: FileStringLiteral callExpressionLinkedList?;
 
-/* callExpression: 
+/* callExpression:
  * memberAccess(...).call()..call2()..call3()
  * println!()
  */
@@ -225,7 +225,7 @@ rangeExpression: NumberLiteral DOUBLE_DOT NumberLiteral;
 expressionStatement: expression;
 
 // -----------------------
-// 
+//
 // command
 
 option: SUB Identifier;
@@ -253,7 +253,7 @@ commandAccessPoint:
 ;
 
 // -----------------------
-// 
+//
 // function
 
 /* receiverParameters:
@@ -343,7 +343,7 @@ functionModifier: PUB | COMPTIME;
 macroStatement: AT memberAccess (LPAREN receiverArgumentList? RPAREN)?;
 
 // -----------------------
-// 
+//
 // class and object
 
 // ? class -------------
@@ -403,7 +403,7 @@ classNamedParameterList: classNamedParameter (COMMA classNamedParameter)*;
 
 /* classNamedParameter:
  * required this.name
- * required super.name 
+ * required super.name
  * required super.classA.name = 10
  * kind: str = "hello"
  */
@@ -487,7 +487,7 @@ extendType: TYPE Identifier LBRACE type? RBRACE;
 extendMod: MOD_LIT Identifier LBRACE (moduleStatement)* RBRACE;
 
 // -----------------------
-// 
+//
 // module
 
 pacakgeDeclaration: PACKAGE Identifier;
@@ -547,7 +547,7 @@ useMulti: LBRACE identifierAsIdentifier (COMMA identifierAsIdentifier)* RBRACE F
 useAll: MUL asIdentifier? FROM StringLiteral;
 
 // -----------------------
-// 
+//
 // type system
 
 typeDeclaration: TYPE Identifier ASSIGN type;
@@ -593,14 +593,14 @@ typeofExpression: TYPEOF expression;
 ellipsisType: ELLIPSIS type;
 
 /* functionType:
- * (x: str) 
- * (str) -> num 
+ * (x: str)
+ * (str) -> num
  * (x: str, y: num) throws -> (num, user)
  */
 functionType: receiverParameters THROWS? (ARROW functionReturnValue)?;
 
 // -----------------------
-// 
+//
 // exception
 
 tryStatement: TRY block catchClause* finallyClause?;
@@ -624,7 +624,7 @@ finallyClause: FINALLY block;
 throwStatement: THROW (newDelExpression | callExpression);
 
 // -----------------------
-// 
+//
 // control flow
 
 breakStatement: BREAK Identifier?;
@@ -674,7 +674,7 @@ foreachStatement: LOOP LPAREN foreachClause RPAREN IN expression block;
 
 foreachClause: variableName (COMMA variableName)?;
 
-forStatement: LOOP LPAREN forClause RPAREN block;
+forStatement: LOOP LPAREN? forClause RPAREN? block;
 
 forClause: statement? SEMI expression SEMI expression?;
 
@@ -687,7 +687,7 @@ doWhileStatement: DO block LOOP LPAREN expression RPAREN;
 whileStatement: LOOP block;
 
 // -----------------------
-// 
+//
 // spec
 
 deferStatement: DEFER callExpression;

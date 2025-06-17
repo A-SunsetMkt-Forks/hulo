@@ -580,6 +580,7 @@ func (*WhileStmt) stmtNode()    {}
 func (*DoWhileStmt) stmtNode()  {}
 func (*BreakStmt) stmtNode()    {}
 func (*ContinueStmt) stmtNode() {}
+func (*RangeStmt) stmtNode()    {}
 
 type (
 	// range(1, 5, 0.1)
