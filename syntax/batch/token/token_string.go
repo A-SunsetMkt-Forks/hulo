@@ -31,14 +31,38 @@ func _() {
 	_ = x[BITAND-20]
 	_ = x[BITOR-21]
 	_ = x[BITXOR-22]
-	_ = x[ASSIGN-23]
-	_ = x[SEMI-24]
-	_ = x[EOF-25]
+	_ = x[ANDAND-23]
+	_ = x[OROR-24]
+	_ = x[ASSIGN-25]
+	_ = x[COMMA-26]
+	_ = x[SEMI-27]
+	_ = x[RdrOut-28]
+	_ = x[AppOut-29]
+	_ = x[RdrIn-30]
+	_ = x[TILDE-31]
+	_ = x[EXCL-32]
+	_ = x[COLON-33]
+	_ = x[DOUBLE_COLON-34]
+	_ = x[LPAREN-35]
+	_ = x[RPAREN-36]
+	_ = x[LBRACE-37]
+	_ = x[RBRACE-38]
+	_ = x[LBRACK-39]
+	_ = x[RBRACK-40]
+	_ = x[AT-41]
+	_ = x[REM-42]
+	_ = x[IF-43]
+	_ = x[GOTO-44]
+	_ = x[FOR-45]
+	_ = x[DO-46]
+	_ = x[IN-47]
+	_ = x[CALL-48]
+	_ = x[EOF-49]
 }
 
-const _Token_name = "ILLEGAL+-*/%EQUNEQLSSLEQGTRGEQANDORNOT+=-=*=/=%=&|^=;EOF"
+const _Token_name = "ILLEGAL+-*/%EQUNEQLSSLEQGTRGEQANDORNOT+=-=*=/=%=&|^&&||=,;>>><~!:::(){}[]@RemifgotofordoinCallEOF"
 
-var _Token_index = [...]uint8{0, 7, 8, 9, 10, 11, 12, 15, 18, 21, 24, 27, 30, 33, 35, 38, 40, 42, 44, 46, 48, 49, 50, 51, 52, 53, 56}
+var _Token_index = [...]uint8{0, 7, 8, 9, 10, 11, 12, 15, 18, 21, 24, 27, 30, 33, 35, 38, 40, 42, 44, 46, 48, 49, 50, 51, 53, 55, 56, 57, 58, 59, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 72, 73, 74, 77, 79, 83, 86, 88, 90, 94, 97}
 
 func (i Token) String() string {
 	if i >= Token(len(_Token_index)-1) {

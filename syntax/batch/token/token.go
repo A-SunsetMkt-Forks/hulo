@@ -66,9 +66,43 @@ const (
 	// This is the bitwise xor or Exclusive or operator
 	BITXOR // ^
 
+	ANDAND // &&
+	OROR   // ||
+
 	ASSIGN // =
 
-	SEMI // ;
+	COMMA // ,
+	SEMI  // ;
+
+	RdrOut // >
+	AppOut // >>
+	RdrIn  // <
+
+	// Unary Operators
+	TILDE // ~
+	EXCL  // !
+
+	COLON        // :
+	DOUBLE_COLON // ::
+
+	LPAREN // (
+	RPAREN // )
+	LBRACE // {
+	RBRACE // }
+	LBRACK // [
+	RBRACK // ]
+
+	AT // @
+
+	// Keywords
+
+	REM  // Rem
+	IF   // if
+	GOTO // goto
+	FOR  // for
+	DO   // do
+	IN   // in
+	CALL // Call
 
 	EOF // EOF
 )
