@@ -11,6 +11,15 @@ English | [简体中文](README.zh-CN.md)
 > Hulo is a modern, batch-oriented programming language that compiles to Bash, PowerShell, and VBScript. It is designed to unify scripting across platforms with a clean and consistent DSL.
 
 ## 📦 Install
+```sh
+git clone git@github.com:hulo-lang/hulo.git
+
+# for Windows
+tools/scripts/setup.ps1
+
+# for linux
+tools/scripts/setup.sh
+```
 
 ## 🚀 Usage
 

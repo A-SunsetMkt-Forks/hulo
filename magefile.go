@@ -41,6 +41,7 @@ var Aliases = map[string]any{
 	"t":   tools.Test,
 	"g":   tools.Generate,
 	"gen": tools.Generate,
+	"p":   tools.Pack,
 }
 
 // A var named Default indicates which target is the default.  If there is no

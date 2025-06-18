@@ -12,6 +12,15 @@
 > Hulo 是一种现代的批处理式编程语言，它可以编译为 Bash、PowerShell 和 VBScript。它旨在通过简洁一致的 DSL 统一跨平台脚本编写体验。
 
 ## 📦 安装
+```sh
+git clone git@github.com:hulo-lang/hulo.git
+
+# for Windows
+tools/scripts/setup.ps1
+
+# for linux
+tools/scripts/setup.sh
+```
 
 ## 🚀 使用示例
 

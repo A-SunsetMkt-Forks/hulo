@@ -6,7 +6,9 @@ require (
 	dagger.io/dagger v0.18.10
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/antlr4-go/antlr/v4 v4.13.1
+	github.com/go-playground/validator/v10 v10.26.0
 	github.com/magefile/mage v1.15.0
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	sigs.k8s.io/yaml v1.4.0
@@ -27,7 +29,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.23.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

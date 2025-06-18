@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/caarlos0/log"
+	ignore "github.com/sabhiram/go-gitignore"
 )
 
 // runCmd executes a system command specified by name and arguments,
@@ -81,4 +83,99 @@ func CopyFileIfNotExists(src, dst string) error {
 
 	log.WithField("src", src).WithField("dst", dst).Info("file copied successfully")
 	return nil
+}
+
+// ZipDirWithGitIgnore creates a zip file from the source directory,
+// excluding files matching .gitignore patterns.
+func ZipDirWithGitIgnore(sourceDir, outputZip string) error {
+	log.WithField("dir", sourceDir).
+		WithField("output", outputZip).
+		Info("packing directory")
+
+	// Load .gitignore if exists
+	ig := ignore.CompileIgnoreLines()
+	if data, err := os.ReadFile(filepath.Join(sourceDir, ".gitignore")); err == nil {
+		lines := strings.Split(string(data), "\n")
+		ig = ignore.CompileIgnoreLines(lines...)
+		log.Info(".gitignore loaded")
+	} else {
+		log.Info("no .gitignore found or failed to read, using default ignore rules")
+	}
+
+	// Create the zip file
+	outFile, err := os.Create(outputZip)
+	if err != nil {
+		log.WithError(err).Errorf("failed to create zip file: %s", outputZip)
+		return err
+	}
+	defer outFile.Close()
+
+	zipWriter := zip.NewWriter(outFile)
+	defer zipWriter.Close()
+
+	var fileCount int
+	err = filepath.WalkDir(sourceDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			log.WithError(err).Errorf("walk error at %s", path)
+			return err
+		}
+
+		// Skip the output zip itself
+		if path == outputZip {
+			return nil
+		}
+
+		// Skip ignored paths
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			log.WithError(err).Errorf("failed to get relative path for %s", path)
+			return err
+		}
+		if relPath == "." || relPath == "" {
+			return nil
+		}
+		relPath = filepath.ToSlash(relPath) // normalize to forward slashes for gitignore
+
+		if ig.MatchesPath(relPath) {
+			if d.IsDir() {
+				log.Debugf("skip dir (gitignore): %s", relPath)
+				return filepath.SkipDir
+			}
+			log.Debugf("skip file (gitignore): %s", relPath)
+			return nil
+		}
+
+		// Directories are not added to zip
+		if d.IsDir() {
+			return nil
+		}
+
+		// Add file to zip
+		err = addFileToZip(zipWriter, path, relPath)
+		if err != nil {
+			log.WithError(err).Errorf("failed to add file: %s", relPath)
+			return err
+		}
+		fileCount++
+		log.Debugf("added: %s", relPath)
+		return nil
+	})
+
+	return nil
+}
+
+func addFileToZip(zipWriter *zip.Writer, fullPath, relPath string) error {
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	w, err := zipWriter.Create(relPath)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(w, file)
+	return err
 }
