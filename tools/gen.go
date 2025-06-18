@@ -10,6 +10,7 @@ import (
 	"github.com/magefile/mage/mg"
 )
 
+// generates code (Go bindings, DSL grammar, etc).
 func Generate() {
 	log.Info("generating code...")
 	start := time.Now()

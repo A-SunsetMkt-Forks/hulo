@@ -29,18 +29,22 @@ var (
 
 type Release mg.Namespace
 
+// builds and publishes releases to all targets (npm, pypi, homebrew, etc).
 func (r Release) All() {
 	mg.Deps(r.Npm, r.Pypi, r.Gofish)
 }
 
+// builds and publishes the PyPI package.
 func (r Release) Pypi() {
 	r.prepare()
 }
 
+// builds and publishes the npm package.
 func (r Release) Npm() {
 	r.prepare()
 }
 
+// generates and publishes GoFish manifest files.
 func (r Release) Gofish() {
 	r.prepare()
 	food := release.Food{

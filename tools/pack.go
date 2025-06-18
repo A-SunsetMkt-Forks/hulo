@@ -10,16 +10,18 @@ import (
 	"github.com/caarlos0/log"
 )
 
+// builds distributable archives into current directory.
 func Pack() {
 	log.Info("running pack...")
 	start := time.Now()
 
-	err := ZipDirWithGitIgnore(".", fmt.Sprintf("%s-%s.zip", name, version))
+	outputZip := fmt.Sprintf("%s-%s.zip", name, version)
+	fileCount, err := ZipDirWithGitIgnore(".", outputZip)
 	if err != nil {
 		elapsed := time.Since(start)
 		log.WithError(err).Fatalf("pack failed after %.2fs", elapsed.Seconds())
 	}
 
 	elapsed := time.Since(start)
-	log.Infof("pack completed in %.2fs", elapsed.Seconds())
+	log.Infof("packed %d files in %.2fs", fileCount, elapsed.Seconds())
 }

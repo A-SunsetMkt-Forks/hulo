@@ -87,7 +87,7 @@ func CopyFileIfNotExists(src, dst string) error {
 
 // ZipDirWithGitIgnore creates a zip file from the source directory,
 // excluding files matching .gitignore patterns.
-func ZipDirWithGitIgnore(sourceDir, outputZip string) error {
+func ZipDirWithGitIgnore(sourceDir, outputZip string) (int, error) {
 	log.WithField("dir", sourceDir).
 		WithField("output", outputZip).
 		Info("packing directory")
@@ -106,7 +106,7 @@ func ZipDirWithGitIgnore(sourceDir, outputZip string) error {
 	outFile, err := os.Create(outputZip)
 	if err != nil {
 		log.WithError(err).Errorf("failed to create zip file: %s", outputZip)
-		return err
+		return 0, err
 	}
 	defer outFile.Close()
 
@@ -161,7 +161,7 @@ func ZipDirWithGitIgnore(sourceDir, outputZip string) error {
 		return nil
 	})
 
-	return nil
+	return fileCount, err
 }
 
 func addFileToZip(zipWriter *zip.Writer, fullPath, relPath string) error {
