@@ -7,11 +7,10 @@ import (
 	"testing"
 
 	"github.com/caarlos0/log"
-	build "github.com/hulo-lang/hulo/internal/build/vbs"
+	build "github.com/hulo-lang/hulo/internal/build/batch"
 	"github.com/hulo-lang/hulo/internal/config"
+	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
-	vast "github.com/hulo-lang/hulo/syntax/vbs/ast"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCommandStmt(t *testing.T) {
@@ -22,11 +21,11 @@ func TestCommandStmt(t *testing.T) {
 		t.Fatal(err)
 	}
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
+	bnode, err := build.Translate(&config.BatchOptions{}, node)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vast.Print(bnode)
+	bast.Print(bnode)
 }
 
 func TestComment(t *testing.T) {
@@ -49,13 +48,13 @@ func TestComment(t *testing.T) {
 		t.Fatal(err)
 	}
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{
-		CommentSyntax: "'",
+	bnode, err := build.Translate(&config.BatchOptions{
+		CommentSyntax: "::",
 	}, node)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vast.Print(bnode)
+	bast.Print(bnode)
 }
 
 func TestAssign(t *testing.T) {
@@ -69,16 +68,18 @@ func TestAssign(t *testing.T) {
 		t.Fatal(err)
 	}
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
+	bnode, err := build.Translate(&config.BatchOptions{}, node)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vast.Print(bnode)
+	bast.Print(bnode)
 }
 
 func TestIf(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
-	script := `if $a > 10 {
+	script := `
+	$a := 20
+	if $a > 10 {
 		echo "a is greater than 10"
 	} else {
 		echo "a is less than or equal to 10"
@@ -88,46 +89,36 @@ func TestIf(t *testing.T) {
 		t.Fatal(err)
 	}
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
+	bnode, err := build.Translate(&config.BatchOptions{}, node)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vast.Print(bnode)
+	bast.Print(bnode)
 }
 
-func TestWhile(t *testing.T) {
+func TestLoop(t *testing.T) {
 	// log.SetLevel(log.ErrorLevel)
 	script := `loop {
 		echo "Hello, World!"
 	}
 
-	loop $a == true {
-		echo "Hello, World!"
-	}
-
 	do {
 		echo "Hello, World!"
-	} loop ($a > 10)`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
-	assert.NoError(t, err)
-	vast.Print(bnode)
-}
+	} loop ($a > 10)
 
-func TestFor(t *testing.T) {
-	// log.SetLevel(log.ErrorLevel)
-	script := `
 	loop $i := 0; $i < 10; $i++ {
 		echo "Hello, World!"
 	}`
 	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
-	assert.NoError(t, err)
-	vast.Print(bnode)
+	bnode, err := build.Translate(&config.BatchOptions{}, node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bast.Print(bnode)
 }
 
 func TestMatch(t *testing.T) {

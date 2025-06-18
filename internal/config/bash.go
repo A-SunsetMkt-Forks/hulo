@@ -3,7 +3,8 @@
 // license that can be found in the LICENSE file.
 package config
 
+// BashOptions is the configuration for the Bash compiler.
 type BashOptions struct {
-	MultiString string `json:"multiString"`
-	Boolean     string `json:"boolean"`
+	MultiString   string `json:"multiString"`
+	BooleanFormat string `json:"booleanFormat" validate:"oneof=number string command"`
 }

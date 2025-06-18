@@ -1,0 +1,8 @@
+compilerOptions:
+  bash:
+  batch:
+    commentSyntax: rem
+  vbs:
+main: main.hl
+exclude:
+include:

@@ -42,14 +42,14 @@ const (
 
 	COLON_ASSIGN // :=
 
-	PLUS_ASSIGN // +=
-	MINUS_ASSIGN // -=
+	PLUS_ASSIGN     // +=
+	MINUS_ASSIGN    // -=
 	ASTERISK_ASSIGN // *=
-	SLASH_ASSIGN // /=
-	MOD_ASSIGN // %=
-	AND_ASSIGN // &&=
-	OR_ASSIGN // ||=
-	POWER_ASSIGN // **=
+	SLASH_ASSIGN    // /=
+	MOD_ASSIGN      // %=
+	AND_ASSIGN      // &&=
+	OR_ASSIGN       // ||=
+	POWER_ASSIGN    // **=
 
 	INC // ++
 	DEC // --
@@ -80,7 +80,12 @@ const (
 	LE // <=
 	GE // >=
 
-	DOCS // '
+	SGL_QUOTE // '
+	DBL_QUOTE // "
+
+	DEFER   // defer
+	DECLARE // declare
+	WHEN    // when
 
 	// Delimiters
 	COMMA     // ,
@@ -98,11 +103,17 @@ const (
 
 	/// keywords
 
-	// Package
+	// Module
 
 	MODLIT // mod
 	IMPORT // import
 	FROM   // from
+	USE    // use
+
+	// type system
+
+	TYPE   // type
+	TYPEOF // typeof
 	AS     // as
 
 	// Scopes
@@ -113,16 +124,20 @@ const (
 
 	// Function
 
-	FN     // fn
-	RETURN // return
+	FN       // fn
+	OPERATOR // operator
+	RETURN   // return
 
 	// Controll Flow
 
-	IF    // if
-	ELSE  // else
-	MATCH // match
-	LOOP  // loop
-	DO    // do
+	IF       // if
+	ELSE     // else
+	MATCH    // match
+	LOOP     // loop
+	DO       // do
+	IN       // in
+	CONTINUE // continue
+	BREAK    // break
 
 	// Modifiers
 
@@ -148,7 +163,6 @@ const (
 	TRY     // try
 	CATCH   // catch
 	FINALLY // finally
-
-	THROW  // throw
-	THROWS // throws
+	THROW   // throw
+	THROWS  // throws
 )

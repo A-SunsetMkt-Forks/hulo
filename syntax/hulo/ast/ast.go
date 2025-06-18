@@ -402,6 +402,7 @@ type (
 	// A WhileStmt node represents a while statement.
 	WhileStmt struct {
 		Loop token.Pos // position of "loop"
+		Cond Expr
 		Body *BlockStmt
 	}
 
@@ -413,7 +414,7 @@ type (
 		Comma1 token.Pos // position of ";"
 		Cond   Expr
 		Comma2 token.Pos // position of ";"
-		Post   Stmt
+		Post   Expr
 		Rparen token.Pos // position of ")"
 		Body   *BlockStmt
 	}
@@ -785,7 +786,10 @@ func (x *KeyValueExpr) String() string {
 }
 
 func (x *IncDecExpr) String() string {
-	return fmt.Sprintf("%s %s", x.X, x.Tok)
+	if x.Pre {
+		return fmt.Sprintf("%s%s", x.Tok, x.X)
+	}
+	return fmt.Sprintf("%s%s", x.X, x.Tok)
 }
 
 func (x *NewDelExpr) String() string {

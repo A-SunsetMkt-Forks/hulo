@@ -43,7 +43,7 @@ func translate2VBScript(opts *config.VBScriptOptions, node hast.Node) vast.Node 
 	case *hast.CommentGroup:
 		docs := make([]*vast.Comment, len(node.List))
 		var tok vtok.Token
-		if opts.CommentStyle == "'" {
+		if opts.CommentSyntax == "'" {
 			tok = vtok.SGL_QUOTE
 		} else {
 			tok = vtok.REM
@@ -130,6 +130,41 @@ func translate2VBScript(opts *config.VBScriptOptions, node hast.Node) vast.Node 
 		return &vast.Ident{
 			Name: node.X.String(),
 		}
+	case *hast.WhileStmt:
+		body := translate2VBScript(opts, node.Body).(*vast.BlockStmt)
+		var (
+			cond vast.Expr
+			tok  vtok.Token
+		)
+		if node.Cond != nil {
+			tok = vtok.WHILE
+			cond = translate2VBScript(opts, node.Cond).(vast.Expr)
+		}
+		return &vast.DoLoopStmt{
+			Pre:  true,
+			Tok:  tok,
+			Cond: cond,
+			Body: body,
+		}
+	case *hast.DoWhileStmt:
+		body := translate2VBScript(opts, node.Body).(*vast.BlockStmt)
+		cond := translate2VBScript(opts, node.Cond).(vast.Expr)
+		return &vast.DoLoopStmt{
+			Body: body,
+			Tok:  vtok.WHILE,
+			Cond: cond,
+		}
+	case *hast.ForStmt:
+		init := translate2VBScript(opts, node.Init).(vast.Expr)
+		cond := translate2VBScript(opts, node.Cond).(vast.Expr)
+		// post := translate2VBScript(opts, node.Post).(vast.Expr)
+		body := translate2VBScript(opts, node.Body).(*vast.BlockStmt)
+		return &vast.ForNextStmt{
+			Start: init,
+			End_:  cond,
+			Body:  body,
+		}
+	// case *hast.RangeStmt:
 	default:
 		fmt.Printf("%T\n", node)
 	}

@@ -282,7 +282,11 @@ func (p *printer) Visit(node Node) Visitor {
 
 	case *DoLoopStmt:
 		if n.Pre {
-			p.printf(p.ident+"Do %s %s\n", n.Tok, n.Cond)
+			p.print(p.ident + "Do ")
+			if n.Cond != nil {
+				p.printf("%s %s", n.Tok, n.Cond)
+			}
+			p.println()
 			for _, s := range n.Body.List {
 				temp := p.ident
 				p.ident += "  "
@@ -298,7 +302,11 @@ func (p *printer) Visit(node Node) Visitor {
 				Walk(p, s)
 				p.ident = temp
 			}
-			p.printf(p.ident+"Loop %s %s\n", n.Tok, n.Cond)
+			p.print(p.ident + "Loop ")
+			if n.Cond != nil {
+				p.printf("%s %s", n.Tok, n.Cond)
+			}
+			p.println()
 		}
 
 	case *CallStmt:

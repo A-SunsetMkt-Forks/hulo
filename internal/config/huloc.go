@@ -3,16 +3,27 @@
 // license that can be found in the LICENSE file.
 package config
 
-const FILE = "huloc.yaml"
+import "github.com/go-playground/validator/v10"
 
+// NAME is the default configuration file name.
+const NAME = "huloc.yaml"
+
+// Huloc is the configuration for the Hulo compiler.
 type Huloc struct {
 	CompilerOptions CompilerOptions `json:"compilerOptions"`
-	Main            string          `json:"main"`
+	Main            string          `json:"main" validate:"required,endswith=.hl"`
 	Language        Language        `json:"language"`
 	Include         []string        `json:"include"`
 	Exclude         []string        `json:"exclude"`
 }
 
+// Validate validates the Huloc configuration.
+func (c *Huloc) Validate() error {
+	validate := validator.New()
+	return validate.Struct(c)
+}
+
+// CompilerOptions is the configuration for the compiler.
 type CompilerOptions struct {
 	Bash     *BashOptions     `json:"bash"`
 	Batch    *BatchOptions    `json:"batch"`

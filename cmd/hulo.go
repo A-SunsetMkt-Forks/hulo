@@ -31,7 +31,7 @@ var (
 			}
 
 			log.Info("reading huloc.yaml")
-			src, err := os.ReadFile(config.FILE)
+			src, err := os.ReadFile(config.NAME)
 			if err != nil {
 				log.WithError(err).Fatal("fail to read file")
 			}
@@ -41,6 +41,11 @@ var (
 			err = yaml.Unmarshal(src, huloc)
 			if err != nil {
 				log.WithError(err).Fatal("fail to unmarshal yaml")
+			}
+
+			err = huloc.Validate()
+			if err != nil {
+				log.WithError(err).Fatal("fail to validate huloc")
 			}
 
 			file := args[0]

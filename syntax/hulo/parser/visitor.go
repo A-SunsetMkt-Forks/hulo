@@ -1,3 +1,6 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package parser
 
 import (
@@ -152,7 +155,6 @@ func (v *Visitor) VisitLogicalExpression(ctx *generated.LogicalExpressionContext
 
 	log.DecreasePadding()
 	log.Info("exit LogicalExpression")
-
 	return ret
 }
 
@@ -411,11 +413,11 @@ func (v *Visitor) VisitExpressionStatement(ctx *generated.ExpressionStatementCon
 	}
 	log.Info("enter ExpressionStatement")
 	log.IncreasePadding()
-	defer log.Info("exit ExpressionStatement")
-	defer log.DecreasePadding()
 
 	expr, _ := accept[ast.Expr](ctx.Expression(), v)
 
+	log.DecreasePadding()
+	log.Info("exit ExpressionStatement")
 	return &ast.ExprStmt{
 		X: expr,
 	}
@@ -525,7 +527,8 @@ func (v *Visitor) VisitExpression(ctx *generated.ExpressionContext) any {
 		// return v.VisitLambdaExpression(ctx.LambdaExpression().(*generated.LambdaExpressionContext))
 	}
 	if ctx.ConditionalExpression() != nil {
-		return v.VisitConditionalExpression(ctx.ConditionalExpression().(*generated.ConditionalExpressionContext))
+		node := v.VisitConditionalExpression(ctx.ConditionalExpression().(*generated.ConditionalExpressionContext))
+		return node
 	}
 	if ctx.NewDelExpression() != nil {
 		// return v.VisitNewDelExpression(ctx.NewDelExpression().(*generated.NewDelExpressionContext))
@@ -1091,10 +1094,22 @@ func (v *Visitor) VisitWhileStatement(ctx *generated.WhileStatementContext) any 
 		return nil
 	}
 
+	log.Info("enter WhileStatement")
+	log.IncreasePadding()
+
 	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	var cond ast.Expr
+	if ctx.Expression() != nil {
+		cond, _ = accept[ast.Expr](ctx.Expression(), v)
+	}
+
+	log.DecreasePadding()
+	log.Info("exit WhileStatement")
 
 	return &ast.WhileStmt{
 		Loop: token.Pos(ctx.LOOP().GetSymbol().GetStart()),
+		Cond: cond,
 		Body: body.(*ast.BlockStmt),
 	}
 }
@@ -1105,8 +1120,14 @@ func (v *Visitor) VisitDoWhileStatement(ctx *generated.DoWhileStatementContext) 
 		return nil
 	}
 
+	log.Info("enter DoWhileStatement")
+	log.IncreasePadding()
+
 	body, _ := accept[ast.Stmt](ctx.Block(), v)
 	cond, _ := accept[ast.Expr](ctx.Expression(), v)
+
+	log.DecreasePadding()
+	log.Info("exit DoWhileStatement")
 
 	return &ast.DoWhileStmt{
 		Do:     token.Pos(ctx.DO().GetSymbol().GetStart()),
@@ -1124,6 +1145,9 @@ func (v *Visitor) VisitRangeStatement(ctx *generated.RangeStatementContext) any 
 		return nil
 	}
 
+	log.Info("enter RangeStatement")
+	log.IncreasePadding()
+
 	index := &ast.Ident{
 		NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
 		Name:    ctx.Identifier().GetText(),
@@ -1131,6 +1155,9 @@ func (v *Visitor) VisitRangeStatement(ctx *generated.RangeStatementContext) any 
 
 	rangeExpr, _ := accept[ast.Expr](ctx.RangeClause(), v)
 	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	log.DecreasePadding()
+	log.Info("exit RangeStatement")
 
 	return &ast.RangeStmt{
 		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
@@ -1153,10 +1180,15 @@ func (v *Visitor) VisitForStatement(ctx *generated.ForStatementContext) any {
 		return nil
 	}
 
-	var init ast.Stmt
-	var cond ast.Expr
-	var post ast.Stmt
-	var comma1, comma2 token.Pos
+	log.Info("enter ForStatement")
+	log.IncreasePadding()
+
+	var (
+		init           ast.Stmt
+		cond           ast.Expr
+		post           ast.Expr
+		comma1, comma2 token.Pos
+	)
 
 	if ctx.ForClause() != nil {
 		if ctx.ForClause().Statement() != nil {
@@ -1166,7 +1198,7 @@ func (v *Visitor) VisitForStatement(ctx *generated.ForStatementContext) any {
 			cond, _ = accept[ast.Expr](ctx.ForClause().Expression(0), v)
 		}
 		if ctx.ForClause().Expression(1) != nil {
-			post, _ = accept[ast.Stmt](ctx.ForClause().Expression(1), v)
+			post, _ = accept[ast.Expr](ctx.ForClause().Expression(1), v)
 		}
 		if len(ctx.ForClause().AllSEMI()) > 0 {
 			comma1 = token.Pos(ctx.ForClause().SEMI(0).GetSymbol().GetStart())
@@ -1185,6 +1217,9 @@ func (v *Visitor) VisitForStatement(ctx *generated.ForStatementContext) any {
 	if ctx.RPAREN() != nil {
 		rparen = token.Pos(ctx.RPAREN().GetSymbol().GetStart())
 	}
+
+	log.DecreasePadding()
+	log.Info("exit ForStatement")
 
 	return &ast.ForStmt{
 		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
@@ -1205,6 +1240,9 @@ func (v *Visitor) VisitForeachStatement(ctx *generated.ForeachStatementContext) 
 		return nil
 	}
 
+	log.Info("enter ForeachStatement")
+	log.IncreasePadding()
+
 	index, _ := accept[ast.Expr](ctx.ForeachClause().VariableName(0), v)
 	var value ast.Expr
 	if len(ctx.ForeachClause().AllVariableName()) > 1 {
@@ -1213,6 +1251,9 @@ func (v *Visitor) VisitForeachStatement(ctx *generated.ForeachStatementContext) 
 
 	expr, _ := accept[ast.Expr](ctx.Expression(), v)
 	body, _ := accept[ast.Stmt](ctx.Block(), v)
+
+	log.DecreasePadding()
+	log.Info("exit ForeachStatement")
 
 	return &ast.ForeachStmt{
 		Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),

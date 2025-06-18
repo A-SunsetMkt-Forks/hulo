@@ -70,6 +70,7 @@ const (
 	OROR   // ||
 
 	ASSIGN // =
+	DOUBLE_ASSIGN // ==
 
 	COMMA // ,
 	SEMI  // ;

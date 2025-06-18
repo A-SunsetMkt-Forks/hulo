@@ -684,7 +684,7 @@ rangeClause: RANGE LPAREN expression COMMA expression (COMMA expression)? RPAREN
 
 doWhileStatement: DO block LOOP LPAREN expression RPAREN;
 
-whileStatement: LOOP block;
+whileStatement: LOOP expression? block;
 
 // -----------------------
 //

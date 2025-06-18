@@ -39,7 +39,7 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 		}
 	case *hast.IfStmt:
 		// opts.Boolean = "number & >= 1.2.3"
-		parse, err := hcrDispatcher.Get(opts.Boolean)
+		parse, err := hcrDispatcher.Get(opts.BooleanFormat)
 		if err != nil {
 			return nil
 		}

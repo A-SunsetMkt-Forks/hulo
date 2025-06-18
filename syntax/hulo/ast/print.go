@@ -106,7 +106,7 @@ func print(stmt Stmt, ident string) {
 		}
 		fmt.Print("; ")
 		if node.Post != nil {
-			print(node.Post, "")
+			fmt.Print(node.Post)
 		}
 		fmt.Println(" {")
 		print(node.Body, ident+"  ")
