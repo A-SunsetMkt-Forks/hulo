@@ -4,6 +4,7 @@
 package build_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/caarlos0/log"
@@ -17,15 +18,11 @@ import (
 func TestCommandStmt(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	script := `echo "Hello, World!" 3.14 true`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 
@@ -44,17 +41,13 @@ func TestComment(t *testing.T) {
 	 *    is a multi
 	 * comment
 	 */`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{
 		CommentSyntax: "'",
 	}, node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 
@@ -64,15 +57,11 @@ func TestAssign(t *testing.T) {
 	var b = 3.14
 	const c = "Hello, World!"
 	$d := true`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 
@@ -83,20 +72,16 @@ func TestIf(t *testing.T) {
 	} else {
 		echo "a is less than or equal to 10"
 	}`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 
 func TestWhile(t *testing.T) {
-	// log.SetLevel(log.ErrorLevel)
+	log.SetLevel(log.ErrorLevel)
 	script := `loop {
 		echo "Hello, World!"
 	}
@@ -108,24 +93,28 @@ func TestWhile(t *testing.T) {
 	do {
 		echo "Hello, World!"
 	} loop ($a > 10)`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
+	node, err := parser.ParseSourceScript(script)
 	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
 	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 
+// TODO j-- error
 func TestFor(t *testing.T) {
 	// log.SetLevel(log.ErrorLevel)
 	script := `
 	loop $i := 0; $i < 10; $i++ {
 		echo "Hello, World!"
+		loop $j := 10; $j > 0; $j-- {
+			echo "Hello, World!"
+		}
 	}`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.VBScriptOptions{}, node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
 	assert.NoError(t, err)
 	vast.Print(bnode)
 }

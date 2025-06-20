@@ -6,14 +6,17 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
-func Print(stmt Stmt) {
-	print(stmt, "")
+func Print(node Node) {
+	print(node, "")
 }
 
-func print(stmt Stmt, ident string) {
+func print(node Node, ident string) {
 	// fmt.Printf("%T\n", stmt)
-	switch node := stmt.(type) {
+	switch node := node.(type) {
 	case *File:
+		for _, decl := range node.Decls {
+			print(decl, ident+"  ")
+		}
 		for _, ss := range node.Stmts {
 			print(ss, ident+"  ")
 		}
@@ -136,6 +139,63 @@ func print(stmt Stmt, ident string) {
 		}
 		fmt.Printf(") in %s {\n", node.Var)
 		print(node.Body, ident+"  ")
+		fmt.Println(ident + "}")
+	case *FuncDecl:
+		// Print modifiers
+		if node.Mod != nil {
+			if node.Mod.Pub.IsValid() {
+				fmt.Print("pub ")
+			}
+			if node.Mod.Const.IsValid() {
+				fmt.Print("const ")
+			}
+			if node.Mod.Static.IsValid() {
+				fmt.Print("static ")
+			}
+		}
+
+		// Print function name
+		fmt.Printf("fn %s", node.Name)
+
+		// Print parameters
+		if node.Recv != nil && len(node.Recv.List) > 0 {
+			fmt.Print("(")
+			for i, field := range node.Recv.List {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				if field.Name != nil {
+					fmt.Print(field.Name.Name)
+				}
+				if field.Type != nil {
+					fmt.Printf(": %s", field.Type)
+				}
+				if field.Value != nil {
+					fmt.Printf(" = %s", field.Value)
+				}
+			}
+			fmt.Print(")")
+		} else {
+			fmt.Print("()")
+		}
+
+		// Print function body
+		if node.Body != nil {
+			fmt.Println(" {")
+			for _, stmt := range node.Body.List {
+				print(stmt, ident+"  ")
+			}
+			fmt.Print(ident + "}")
+		} else {
+			fmt.Print(" {}")
+		}
+		fmt.Println()
+	case *ComptimeStmt:
+		fmt.Println(ident + "comptime {")
+		switch x := node.X.(type) {
+		case *BlockStmt:
+			print(x, ident+"  ")
+		}
 		fmt.Println(ident + "}")
 	default:
 		fmt.Printf("%T\n", node)

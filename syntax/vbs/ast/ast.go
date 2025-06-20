@@ -247,7 +247,7 @@ type (
 	AssignStmt struct {
 		Doc    *CommentGroup // associated documentation; or nil
 		Lhs    Expr          // left hand side
-		Aggign token.Pos     // position of "="
+		Assign token.Pos     // position of "="
 		Rhs    Expr          // right hand side
 	}
 

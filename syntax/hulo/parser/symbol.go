@@ -3,10 +3,15 @@
 // license that can be found in the LICENSE file.
 package parser
 
-import "github.com/hulo-lang/hulo/syntax/hulo/ast"
+import (
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+)
 
 type SymbolInfo struct {
-	Name     string
-	Declared bool
-	Node     ast.Node
+	Name string
+	Node ast.Node
 }
+
+type SymbolTable struct{}
+
+// TODO 变量提升？作用域？exports表和 bindings表

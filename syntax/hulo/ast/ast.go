@@ -343,7 +343,7 @@ type (
 	// A ComptimeStmt node represents a comptime statement.
 	ComptimeStmt struct {
 		Comptime token.Pos // position of "comptime"
-		X        Stmt
+		X        Node
 	}
 
 	// unsafe { ... }
@@ -715,6 +715,11 @@ type (
 		Op    token.Token // operator
 		X     Expr        // operand
 	}
+
+	ComptimeExpr struct {
+		Comptime token.Pos // position of comptime
+		X        Expr
+	}
 )
 
 func (x *IndexExpr) Pos() token.Pos      { return x.X.Pos() }
@@ -729,6 +734,7 @@ func (x *RefExpr) Pos() token.Pos        { return x.Dollar }
 func (x *IncDecExpr) Pos() token.Pos     { return x.X.Pos() }
 func (x *SelectExpr) Pos() token.Pos     { return x.X.Pos() }
 func (x *UnaryExpr) Pos() token.Pos      { return x.OpPos }
+func (x *ComptimeExpr) Pos() token.Pos   { return x.Comptime }
 
 func (x *IndexExpr) End() token.Pos      { return x.Rbrack }
 func (x *BinaryExpr) End() token.Pos     { return x.Y.End() }
@@ -747,8 +753,9 @@ func (x *RefExpr) End() token.Pos {
 func (x *IncDecExpr) End() token.Pos {
 	return x.TokPos + 2
 }
-func (x *SelectExpr) End() token.Pos { return x.Y.End() }
-func (x *UnaryExpr) End() token.Pos  { return x.X.End() }
+func (x *SelectExpr) End() token.Pos   { return x.Y.End() }
+func (x *UnaryExpr) End() token.Pos    { return x.X.End() }
+func (x *ComptimeExpr) End() token.Pos { return x.X.End() }
 
 func (x *Ident) String() string {
 	return x.Name
@@ -836,6 +843,10 @@ func (x *CallExpr) String() string {
 	return fmt.Sprintf("%s(%s)", x.Fun, strings.Join(args, ", "))
 }
 
+func (x *ComptimeExpr) String() string {
+	return fmt.Sprintf("comptime { %s }", x.X)
+}
+
 func (*BinaryExpr) exprNode()     {}
 func (*CallExpr) exprNode()       {}
 func (*Ident) exprNode()          {}
@@ -848,6 +859,7 @@ func (*IncDecExpr) exprNode()     {}
 func (*SelectExpr) exprNode()     {}
 func (*IndexExpr) exprNode()      {}
 func (*UnaryExpr) exprNode()      {}
+func (*ComptimeExpr) exprNode()   {}
 
 type Modifier int
 

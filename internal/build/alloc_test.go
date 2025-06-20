@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/hulo-lang/hulo/internal/container"
 )
 
 func TestNewAllocator(t *testing.T) {
@@ -170,7 +172,7 @@ func TestConcurrentAllocation(t *testing.T) {
 	allocator := NewAllocator()
 	var wg sync.WaitGroup
 	mu := sync.Mutex{}
-	seen := make(map[string]bool)
+	seen := container.NewMapSet[string]()
 	const numGoroutines = 10 // reduce the number of goroutines
 
 	// Spawn multiple goroutines to allocate names concurrently
@@ -184,10 +186,10 @@ func TestConcurrentAllocation(t *testing.T) {
 			name := allocator.AllocName(originalName)
 
 			mu.Lock()
-			if seen[name] {
+			if seen.Contains(name) {
 				t.Errorf("duplicate name generated: %s", name)
 			}
-			seen[name] = true
+			seen.Add(name)
 			mu.Unlock()
 		}()
 	}
@@ -196,8 +198,8 @@ func TestConcurrentAllocation(t *testing.T) {
 	wg.Wait()
 
 	// Verify we got exactly numGoroutines unique names
-	if len(seen) != numGoroutines {
-		t.Errorf("expected %d unique names, got %d", numGoroutines, len(seen))
+	if seen.Size() != numGoroutines {
+		t.Errorf("expected %d unique names, got %d", numGoroutines, seen.Size())
 	}
 }
 

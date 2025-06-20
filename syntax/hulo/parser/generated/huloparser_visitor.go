@@ -133,6 +133,12 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#option.
 	VisitOption(ctx *OptionContext) interface{}
 
+	// Visit a parse tree produced by huloParser#shortOption.
+	VisitShortOption(ctx *ShortOptionContext) interface{}
+
+	// Visit a parse tree produced by huloParser#longOption.
+	VisitLongOption(ctx *LongOptionContext) interface{}
+
 	// Visit a parse tree produced by huloParser#commandExpression.
 	VisitCommandExpression(ctx *CommandExpressionContext) interface{}
 
@@ -321,9 +327,6 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#extendMod.
 	VisitExtendMod(ctx *ExtendModContext) interface{}
-
-	// Visit a parse tree produced by huloParser#pacakgeDeclaration.
-	VisitPacakgeDeclaration(ctx *PacakgeDeclarationContext) interface{}
 
 	// Visit a parse tree produced by huloParser#importDeclaration.
 	VisitImportDeclaration(ctx *ImportDeclarationContext) interface{}

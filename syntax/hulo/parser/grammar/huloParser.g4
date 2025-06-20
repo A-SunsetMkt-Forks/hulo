@@ -20,7 +20,6 @@ comment: LineComment | BlockComment;
 
 statement:
     comment
-    | pacakgeDeclaration
     | importDeclaration
     | moduleDeclaration
     | functionDeclaration
@@ -174,14 +173,18 @@ expressionList: expression (COMMA expression)*;
  * 10.to_str -> NumberLiteral (DOT IDENT LPAREN RPAREN)
  * "abc".split -> StringLiteral (DOT IDENT LPAREN RPAREN)
  * str.split -> STR (DOT IDENT LPAREN funcArgumentList? RPAREN)
+ * echo!
+ * time.now!
  */
 memberAccess:
-    Identifier genericArguments
-    | Identifier memberAccessPoint?
-    | (STR | NUM | BOOL) memberAccessPoint
-    | literal memberAccessPoint
-    | THIS memberAccessPoint?
-    | SUPER memberAccessPoint?
+    (
+        Identifier genericArguments
+        | Identifier memberAccessPoint?
+        | (STR | NUM | BOOL) memberAccessPoint
+        | literal memberAccessPoint
+        | THIS memberAccessPoint?
+        | SUPER memberAccessPoint?
+    ) NOT?
 ;
 
 fileExpression: FileStringLiteral callExpressionLinkedList?;
@@ -228,7 +231,13 @@ expressionStatement: expression;
 //
 // command
 
-option: SUB Identifier;
+option: (shortOption | longOption);
+
+// -a -abc
+shortOption: SUB Identifier;
+
+// --abc --a-b
+longOption: DEC Identifier;
 
 /*
  * std::grep -o "abc" "a.txt"
@@ -351,7 +360,7 @@ classDeclaration:
     macroStatement* classModifier* CLASS Identifier genericParameters? (COLON classSuper)? classBody
 ;
 
-classModifier: PUB | FACTORY;
+classModifier: PUB;
 
 classSuper: memberAccess (COMMA memberAccess)*;
 
@@ -489,8 +498,6 @@ extendMod: MOD_LIT Identifier LBRACE (moduleStatement)* RBRACE;
 // -----------------------
 //
 // module
-
-pacakgeDeclaration: PACKAGE Identifier;
 
 importDeclaration: IMPORT (importAll | importSingle | importMulti);
 

@@ -1,0 +1,9 @@
+if true {
+    echo "true is true"
+} else {
+    echo "false is not true"
+}
+
+if $a == 1 {
+    echo "a is 1"
+}

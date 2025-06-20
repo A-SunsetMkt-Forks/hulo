@@ -1,4 +1,4 @@
-package comptime
+package interpreter
 
 import (
 	"github.com/hulo-lang/hulo/internal/object"

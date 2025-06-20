@@ -175,6 +175,14 @@ func (v *BasehuloParserVisitor) VisitOption(ctx *OptionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitShortOption(ctx *ShortOptionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitLongOption(ctx *LongOptionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitCommandExpression(ctx *CommandExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -424,10 +432,6 @@ func (v *BasehuloParserVisitor) VisitExtendType(ctx *ExtendTypeContext) interfac
 }
 
 func (v *BasehuloParserVisitor) VisitExtendMod(ctx *ExtendModContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasehuloParserVisitor) VisitPacakgeDeclaration(ctx *PacakgeDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

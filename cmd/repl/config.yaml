@@ -1,0 +1,23 @@
+# Hulo REPL Configuration File
+# This file contains default settings for the Hulo REPL
+
+# General settings
+dry_run: false
+verbose: false
+max_suggestions: 15
+
+# Theme settings
+theme: "default"  # Options: default, dark, light, colorful, custom
+
+# History settings
+history_file: "~/.hulo_repl_history"
+
+# Development settings
+development_mode: false
+debug_level: "info"  # Options: debug, info, warn, error
+
+# Custom keybindings (future feature)
+keybindings:
+  clear_screen: "ctrl+l"
+  exit: "ctrl+d"
+  help: "f1"

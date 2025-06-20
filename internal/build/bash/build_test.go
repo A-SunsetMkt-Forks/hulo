@@ -13,6 +13,7 @@ import (
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuild(t *testing.T) {
@@ -41,23 +42,17 @@ func TestBuild(t *testing.T) {
 				},
 			},
 		}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	bast.Print(node)
 }
 
 func TestSorceScriptBuild(t *testing.T) {
 	log.SetLevel(log.ErrorLevel)
 	script := `echo "Hello, World!" 3.14 true`
-	node, err := parser.ParseSourceScript(script, parser.ParseOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
 	// hast.Print(node)
 	bnode, err := build.Translate(&config.BashOptions{}, node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	bast.Print(bnode)
 }

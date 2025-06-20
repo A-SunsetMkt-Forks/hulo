@@ -5,6 +5,7 @@ package parser
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -24,7 +25,25 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseSourceFile(t *testing.T) {
-	node, err := ParseSourceScript("Write-Host 'Hello World!'", ParseOptions{})
+	node, err := ParseSourceScript("Write-Host 'Hello World!'")
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseIfStmt(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/if.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseFuncDecl(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/func.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseComptime(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/comptime.hl", OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	ast.Print(node)
 }

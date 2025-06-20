@@ -1,12 +1,63 @@
-package comptime
+package interpreter
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
+
+type Interpreter struct {
+	debugger *Debugger
+}
+
+func (interp *Interpreter) shouldBreak(node ast.Node) bool {
+	// pos := node.Pos()
+	if bp, ok := interp.debugger.breakpoints["file"][1]; ok {
+		fmt.Println(bp, "如果是条件断点，评估条件")
+	}
+	return false
+}
+
+func (interp *Interpreter) Eval(node ast.Node) ast.Node {
+	switch node := node.(type) {
+	/// Static World
+
+	case *ast.IfStmt:
+		newCond := interp.Eval(node.Cond)
+		newBody := interp.Eval(node.Body)
+		var newElse ast.Stmt
+		if node.Else != nil {
+			newElse = interp.Eval(node.Else).(ast.Stmt)
+		}
+
+		return &ast.IfStmt{
+			If:   node.If,
+			Cond: newCond.(ast.Expr),
+			Body: newBody.(*ast.BlockStmt),
+			Else: newElse,
+		}
+
+	/// Dynamic World
+
+	case *ast.ComptimeStmt:
+		evaluatedObject := interp.executeComptimeBlock(node.X)
+		return interp.object2Node(evaluatedObject)
+	case *ast.ComptimeExpr:
+
+	}
+	return node
+}
+
+func (interp *Interpreter) executeComptimeBlock(b ast.Node) object.Value {
+	return nil
+}
+
+func (interp *Interpreter) object2Node(v object.Value) ast.Node {
+	return nil
+}
 
 func Evaluate(ctx *Context, node ast.Node) object.Value {
 	switch node := node.(type) {
@@ -58,19 +109,19 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 		return nil
 	}
 	if target := filepath.Join(wd, x.Name()); ctx.os.Exist(target) {
-		ctx.mem.Import(target)
+		// ctx.mem.Import(target)
 	}
 
 	// 不是判断 是第三方还是标准库 要拿到 HULOPATH 这个变量 指出第三方库和标准库存储的父路径
 
-	ctx.mem.Import(filepath.Join("HULOPATH", x.Name()))
+	// ctx.mem.Import(filepath.Join("HULOPATH", x.Name()))
 
 	// 引入后开始访问 y 表达式
 	{
 		// 拿库的上下文去访问？ 这样就能找到 Y 的定义
-		y := Evaluate(ctx, node.Y) // 如果 y 是函数要把自己传入进去吧？？？？
+		// y := Evaluate(ctx, node.Y) // 如果 y 是函数要把自己传入进去吧？？？？
 
-		ctx.mem.Get(y.Name())
+		// ctx.mem.Get(y.Name())
 	}
 
 	// 2. 是变量名
@@ -78,8 +129,8 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 	x.Type()
 
 	{
-		y := Evaluate(ctx, node.Y) // 在去访问 to_Str()
-		ctx.mem.Get(y.Name())
+		// y := Evaluate(ctx, node.Y) // 在去访问 to_Str()
+		// ctx.mem.Get(y.Name())
 	}
 
 	// 3. 是类名
@@ -127,7 +178,7 @@ func evalIdent(ctx *Context, node *ast.Ident) object.Value {
 		return val
 	}
 	// 2. 从 builtin 包找
-	val, ok = ctx.mem.Get(node.Name)
+	// val, ok = ctx.mem.Get(node.Name)
 	if ok {
 		return val
 	}

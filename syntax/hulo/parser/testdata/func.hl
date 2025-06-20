@@ -1,0 +1,3 @@
+pub comptime fn sayHello() {
+    echo "Hello, $name"
+}

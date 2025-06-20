@@ -36,6 +36,7 @@ var tools = []string{
 	"golang.org/x/tools/cmd/goimports@latest",
 	"github.com/goreleaser/goreleaser/v2@v2.10.2",
 	"golang.org/x/tools/cmd/stringer@latest",
+	"github.com/securego/gosec/v2/cmd/gosec@latest",
 }
 
 // installDevDeps installs development tools needed for building and testing.

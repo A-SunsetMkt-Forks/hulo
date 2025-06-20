@@ -4,26 +4,33 @@
 package compiler
 
 import (
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 
 	// "github.com/hulo-lang/hulo/internal/build/bash"
 	build "github.com/hulo-lang/hulo/internal/build/bash"
-	"github.com/hulo-lang/hulo/internal/comptime"
+	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/optimizer"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 )
 
+type Compiler struct {
+	analyzer    *parser.Analyzer
+	optimizer   *optimizer.Optimizer
+	interpreter *interpreter.Interpreter
+	// transpiler
+}
+
+// TODO transpiler 输出未知符号信息，让 ld 链接上
+
 func Compile(cfg *config.Huloc) error {
-	file, err := parser.ParseSourceFile(cfg.Main, parser.ParseOptions{
-		Channel: antlr.TokenDefaultChannel,
-	})
+	file, err := parser.ParseSourceFile(cfg.Main)
 	if err != nil {
 		return err
 	}
-	ctx := comptime.DefaultContext()
+	ctx := interpreter.DefaultContext()
 	for canEval(file) {
-		comptime.Evaluate(ctx, file)
+		interpreter.Evaluate(ctx, file)
 	}
 
 	switch cfg.Language {

@@ -13,7 +13,6 @@ lexer grammar huloLexer;
 
 MOD_LIT : 'mod';
 USE     : 'use';
-PACKAGE : 'package';
 IMPORT  : 'import';
 FROM    : 'from';
 
@@ -50,7 +49,6 @@ STATIC   : 'static';
 FINAL    : 'final';
 PUB      : 'pub';
 REQUIRED : 'required';
-FACTORY  : 'factory';
 
 // -----------------------
 //
@@ -195,6 +193,5 @@ ESC: '\\' ['"\\bfnrt];
 LineComment  : '//' ~[\n]*;
 BlockComment : '/*' .*? '*/';
 
-Identifier: [a-zA-Z_][a-zA-Z0-9_-]*;
-
-WS: [ \t\n\r]+ -> skip;
+Identifier : [a-zA-Z_][a-zA-Z0-9_]* ('-' [a-zA-Z0-9_]+)*;
+WS         : [ \t\n\r]+ -> skip;
