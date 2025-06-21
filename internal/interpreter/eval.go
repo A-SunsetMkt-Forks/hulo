@@ -2,15 +2,21 @@ package interpreter
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"math/big"
 
 	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
 type Interpreter struct {
 	debugger *Debugger
+
+	// 当前作用域
+	env *Environment
+
+	// 模块映射
+	modules map[string]*Environment
 }
 
 func (interp *Interpreter) shouldBreak(node ast.Node) bool {
@@ -42,8 +48,10 @@ func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 
 	/// Dynamic World
 
+	case *ast.Import:
+
 	case *ast.ComptimeStmt:
-		evaluatedObject := interp.executeComptimeBlock(node.X)
+		evaluatedObject := interp.executeComptimeStmt(node.X)
 		return interp.object2Node(evaluatedObject)
 	case *ast.ComptimeExpr:
 
@@ -51,7 +59,142 @@ func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 	return node
 }
 
-func (interp *Interpreter) executeComptimeBlock(b ast.Node) object.Value {
+func (interp *Interpreter) executeComptimeStmt(node ast.Node) object.Value {
+	switch node := node.(type) {
+	case *ast.BlockStmt:
+		for _, stmt := range node.List {
+			interp.Eval(stmt)
+		}
+	case *ast.BasicLit:
+		return interp.executeBasicLit(node)
+	case *ast.BinaryExpr:
+		return interp.executeBinaryExpr(node)
+	case *ast.Import:
+
+	case *ast.SelectExpr:
+		return interp.executeSelectExpr(node)
+	case *ast.Ident:
+	case *ast.ExprStmt:
+		return interp.executeComptimeStmt(node.X)
+	case *ast.AssignStmt:
+		return interp.executeAssignStmt(node)
+	}
+	return nil
+}
+
+func (interp *Interpreter) executeBinaryExpr(node *ast.BinaryExpr) object.Value {
+	lhs := interp.executeComptimeStmt(node.X)
+	rhs := interp.executeComptimeStmt(node.Y)
+
+	switch {
+	case lhs.Type().Kind() == object.O_NUM && rhs.Type().Kind() == object.O_NUM:
+		return interp.executeBinaryExprNumber(lhs, rhs, node.Op)
+	case lhs.Type().Kind() == object.O_STR && rhs.Type().Kind() == object.O_STR:
+		return interp.executeBinaryExprString(lhs, rhs, node.Op)
+	case lhs.Type().Kind() == object.O_BOOL && rhs.Type().Kind() == object.O_BOOL:
+		return interp.executeBinaryExprBool(lhs, rhs, node.Op)
+	case lhs.Type().Kind() != rhs.Type().Kind():
+		return &object.ErrorValue{Value: "type mismatch"}
+	}
+	return &object.ErrorValue{Value: "unknown binary expression"}
+}
+
+func (interp *Interpreter) executeBinaryExprBool(lhs, rhs object.Value, op token.Token) object.Value {
+	lv := lhs.Interface().(bool)
+	rv := rhs.Interface().(bool)
+
+	switch op {
+	case token.AND:
+		return interp.nativeBoolObject(lv && rv)
+	case token.OR:
+		return interp.nativeBoolObject(lv || rv)
+	}
+	return &object.ErrorValue{Value: "unknown binary expression"}
+}
+
+func (interp *Interpreter) executeBinaryExprNumber(lhs, rhs object.Value, op token.Token) object.Value {
+	lv := lhs.Interface().(*big.Float)
+	rv := rhs.Interface().(*big.Float)
+
+	switch op {
+	case token.PLUS:
+		return &object.NumberValue{Value: lv.Add(lv, rv)}
+	case token.MINUS:
+		return &object.NumberValue{Value: lv.Sub(lv, rv)}
+	case token.ASTERISK:
+		return &object.NumberValue{Value: lv.Mul(lv, rv)}
+	case token.SLASH:
+		return &object.NumberValue{Value: lv.Quo(lv, rv)}
+	// case token.MOD:
+	// return &object.NumberValue{Value: lv.Mod(lv, rv)}
+	case token.LT:
+		return interp.nativeBoolObject(lv.Cmp(rv) < 0)
+	case token.GT:
+		return interp.nativeBoolObject(lv.Cmp(rv) > 0)
+	case token.EQ:
+		return interp.nativeBoolObject(lv.Cmp(rv) == 0)
+	case token.NEQ:
+		return interp.nativeBoolObject(lv.Cmp(rv) != 0)
+	case token.LE:
+		return interp.nativeBoolObject(lv.Cmp(rv) <= 0)
+	case token.GE:
+		return interp.nativeBoolObject(lv.Cmp(rv) >= 0)
+	case token.AND:
+	}
+	return &object.ErrorValue{Value: "unknown binary expression"}
+}
+
+func (interp *Interpreter) executeBinaryExprString(lhs, rhs object.Value, op token.Token) object.Value {
+	lv := lhs.Interface().(*object.String)
+	rv := rhs.Interface().(*object.String)
+
+	switch op {
+	case token.PLUS:
+		return &object.String{Value: lv.Value + rv.Value}
+	}
+	return &object.ErrorValue{Value: "unknown binary expression"}
+}
+
+func (interp *Interpreter) nativeBoolObject(v bool) object.Value {
+	if v {
+		return object.TRUE
+	}
+	return object.FALSE
+}
+
+func (interp *Interpreter) executeBasicLit(node *ast.BasicLit) object.Value {
+	switch node.Kind {
+	case token.NUM:
+		o := &object.NumberValue{}
+		o.Value.SetString(node.Value)
+		return o
+	case token.STR:
+		return &object.String{Value: node.Value}
+	case token.TRUE:
+		return object.TRUE
+	case token.FALSE:
+		return object.FALSE
+	case token.NULL:
+		return object.NULL
+	}
+	return &object.ErrorValue{Value: "unknown basic literal"}
+}
+
+func (interp *Interpreter) executeSelectExpr(node *ast.SelectExpr) object.Value {
+	lhs := interp.executeComptimeStmt(node.X)
+
+	switch {
+	case interp.isPackageName(lhs):
+	}
+	return nil
+}
+
+func (interp *Interpreter) isPackageName(v object.Value) bool {
+	return v.Type().Kind() == object.O_STR || v.Type().Kind() == object.O_LITERAL
+}
+
+func (interp *Interpreter) executePackageSelector(pkg object.Value, selector ast.Expr) object.Value {
+	// interp.env.Get(pkgName)
 	return nil
 }
 
@@ -104,13 +247,13 @@ func evalSelectExpr(ctx *Context, node *ast.SelectExpr) object.Value {
 	// 要在这里遍历ast看看真正的文件名
 
 	// 是直接引入
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil
-	}
-	if target := filepath.Join(wd, x.Name()); ctx.os.Exist(target) {
-		// ctx.mem.Import(target)
-	}
+	// wd, err := os.Getwd()
+	// if err != nil {
+	// 	return nil
+	// }
+	// if target := filepath.Join(wd, x.Name()); ctx.os.Exist(target) {
+	// 	// ctx.mem.Import(target)
+	// }
 
 	// 不是判断 是第三方还是标准库 要拿到 HULOPATH 这个变量 指出第三方库和标准库存储的父路径
 
@@ -189,4 +332,52 @@ func evalIdent(ctx *Context, node *ast.Ident) object.Value {
 
 	// 5. 没有找到抛出 unknown 符号 因为可能是没有声明而已？
 	return nil
+}
+
+func (interp *Interpreter) executeAssignStmt(node *ast.AssignStmt) object.Value {
+	// 计算右值
+	rhsValue := interp.executeComptimeStmt(node.Rhs)
+	if rhsValue == nil {
+		return &object.ErrorValue{Value: "failed to evaluate right-hand side expression"}
+	}
+
+	// 根据左值类型处理
+	switch lhs := node.Lhs.(type) {
+	case *ast.Ident:
+		// 简单变量声明/赋值
+		return interp.handleIdentAssignment(lhs, rhsValue, node.Scope, node.Tok)
+	default:
+		return &object.ErrorValue{Value: "unsupported left-hand side expression type"}
+	}
+}
+
+func (interp *Interpreter) handleIdentAssignment(ident *ast.Ident, value object.Value, scope token.Token, assignTok token.Token) object.Value {
+	name := ident.Name
+
+	switch assignTok {
+	case token.ASSIGN:
+		// 简单赋值
+		if scope != token.ILLEGAL {
+			// 这是变量声明
+			if err := interp.env.Declare(name, value, scope); err != nil {
+				return &object.ErrorValue{Value: err.Error()}
+			}
+		} else {
+			// 这是变量重新赋值
+			if err := interp.env.Assign(name, value); err != nil {
+				return &object.ErrorValue{Value: err.Error()}
+			}
+		}
+		return value
+
+	case token.COLON_ASSIGN:
+		// := 声明并赋值（类似 Go）
+		if err := interp.env.Declare(name, value, token.LET); err != nil {
+			return &object.ErrorValue{Value: err.Error()}
+		}
+		return value
+
+	default:
+		return &object.ErrorValue{Value: "unsupported assignment operator"}
+	}
 }

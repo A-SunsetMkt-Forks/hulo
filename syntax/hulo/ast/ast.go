@@ -103,7 +103,7 @@ type (
 		Rbrace token.Pos // position of "}"
 	}
 
-	// An ClassDecl node represents a class declaration.
+	// A ClassDecl node represents a class declaration.
 	ClassDecl struct {
 		Doc         *CommentGroup
 		Annotations []*Annotation
@@ -118,7 +118,7 @@ type (
 		Rbrace      token.Pos // position of "}"
 	}
 
-	// An FuncDecl node represents a function declaration.
+	// A FuncDecl node represents a function declaration.
 	FuncDecl struct {
 		Doc    *CommentGroup
 		Macros []*Annotation
@@ -136,7 +136,7 @@ type (
 		Static token.Pos // position of "static"
 	}
 
-	// An ModDecl node represents a mod declaration.
+	// A ModDecl node represents a mod declaration.
 	ModDecl struct {
 		Doc    *CommentGroup
 		Pub    token.Pos // position of "pub"
@@ -147,7 +147,7 @@ type (
 		Rbrace token.Pos // position of "}"
 	}
 
-	// An TypeDecl node represents a type declaration.
+	// A TypeDecl node represents a type declaration.
 	TypeDecl struct {
 		Doc    *CommentGroup
 		Type   token.Pos // position of "type"

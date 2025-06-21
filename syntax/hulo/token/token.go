@@ -34,6 +34,7 @@ const (
 	STR   // STR
 	TRUE  // true
 	FALSE // false
+	NULL  // null
 
 	// Operators
 	ASSIGN // =
