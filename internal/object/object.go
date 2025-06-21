@@ -66,30 +66,24 @@ type Value interface {
 	Interface() any
 }
 
-type Method interface {
-	Type
-
-	Call(values ...Value) []Value
+type Function interface {
+	Signature() []Type
+	Call(args ...Value) Value
+	Match(args []Value) bool
 
 	// NumIn returns a function type's input parameter count.
 	// It panics if the type's Kind is not Func.
 	NumIn() int
 
-	// NumOut returns a function type's output parameter count.
-	// It panics if the type's Kind is not Func.
-	NumOut() int
-
 	// In returns the type of a function type's i'th input parameter.
 	// It panics if the type's Kind is not Func.
 	// It panics if i is not in the range [0, NumIn()).
 	In(i int) Type
+}
 
-	// Out returns the type of a function type's i'th output parameter.
-	// It panics if the type's Kind is not Func.
-	// It panics if i is not in the range [0, NumOut()).
-	Out(i int) Type
-
-	IsCallable() bool
+type Method interface {
+	Type
+	Function
 }
 
 type ObjectType struct {
@@ -263,3 +257,116 @@ func (e *ErrorValue) Type() Type {
 }
 
 var ErrorType = NewObjectType("error", O_OBJ, "std")
+
+type OverloadedFunction struct {
+	name  string
+	funcs []Function
+}
+
+func (o *OverloadedFunction) Text() string {
+	return "overloaded function"
+}
+
+func (o *OverloadedFunction) Interface() any {
+	return o.funcs
+}
+
+func (o *OverloadedFunction) Type() Type {
+	return FunctionType
+}
+
+var FunctionType = NewObjectType("function", O_FUNC, "std")
+
+type BuiltinFunction func(args ...Value) Value
+
+func (b *BuiltinFunction) Text() string {
+	return "builtin function"
+}
+
+func (b *BuiltinFunction) Interface() any {
+	return b
+}
+
+func (b *BuiltinFunction) Type() Type {
+	return FunctionType
+}
+
+type UserFunction struct {
+}
+
+type OperatorFunction struct{}
+
+type Operator int
+
+const (
+	OpIllegal      Operator = iota
+	OpAdd                   // +
+	OpSub                   // -
+	OpMul                   // *
+	OpDiv                   // /
+	OpMod                   // %
+	OpConcat                // ..
+	OpAnd                   // &&
+	OpOr                    // ||
+	OpEqual                 // ==
+	OpNot                   // !
+	OpLess                  // <
+	OpLessEqual             // <=
+	OpGreater               // >
+	OpGreaterEqual          // >=
+	OpAssign                // =
+	OpIndex                 // []
+	OpCall                  // ()
+
+	Opa // a""
+	Opb // b""
+	Opc // c""
+	Opd // d""
+	Ope // e""
+	Opf // f""
+	Opg // g""
+	Oph // h""
+	Opi // i""
+	Opj // j""
+	Opk // k""
+	Opl // l""
+	Opm // m""
+	Opn // n""
+	Opo // o""
+	Opp // p""
+	Opq // q""
+	Opr // r""
+	Ops // s""
+	Ott // t""
+	Opu // u""
+	Opv // v""
+	Opw // w""
+	Opz // z""
+
+	OpA // A""
+	OpB // B""
+	OpC // C""
+	OpD // D""
+	OpE // E""
+	OpF // F""
+	OpG // G""
+	OpH // H""
+	OpI // I""
+	OpJ // J""
+	OpK // K""
+	OpL // L""
+	OpM // M""
+	OpN // N""
+	OpO // O""
+	OpP // P""
+	OpQ // Q""
+	OpR // R""
+	OpS // S""
+	OpT // T""
+	OpU // U""
+	OpV // V""
+	OpW // W""
+	OpX // X""
+	OpY // Y""
+	OpZ // Z""
+)
