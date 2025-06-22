@@ -1,8 +1,14 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package object
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
+
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
 type ObjKind int
@@ -370,3 +376,73 @@ const (
 	OpY // Y""
 	OpZ // Z""
 )
+
+type GenericType struct {
+	name        string
+	typeParams  []string // e.g. T, U
+	constraints map[string]Type
+	template    ast.Node
+}
+
+func (gt *GenericType) Instantiate(typeArgs []Type) (*InstantiatedType, error) {
+	if len(typeArgs) != len(gt.typeParams) {
+		return nil, fmt.Errorf("type argument count mismatch")
+	}
+
+	typeMap := make(map[string]Type)
+	for i, param := range gt.typeParams {
+		typeMap[param] = typeArgs[i]
+	}
+
+	// 替换模板中的类型参数
+
+	return &InstantiatedType{
+		generic:  gt,
+		typeArgs: typeArgs,
+	}, nil
+}
+
+type InstantiatedType struct {
+	generic  *GenericType
+	typeArgs []Type
+}
+
+type GenericFunction struct {
+	name       string
+	typeParams []string
+	signatures map[string]Function
+}
+
+type Constraint interface {
+	SatisfiedBy(Type) bool
+}
+
+type InterfaceConstraint struct {
+	interfaceType Type
+}
+
+func (ic *InterfaceConstraint) SatisfiedBy(t Type) bool {
+	return t.Implements(ic.interfaceType)
+}
+
+type OperatorConstraint struct {
+	op        Operator
+	rightType Type
+}
+
+func (oc *OperatorConstraint) SatisfiedBy(t Type) bool {
+	return true
+}
+
+type CompositeConstraint struct {
+	constraints []Constraint
+}
+
+func (cc *CompositeConstraint) SatisfiedBy(t Type) bool {
+	for _, constraint := range cc.constraints {
+		if !constraint.SatisfiedBy(t) {
+			return false
+		}
+	}
+	return true
+}
