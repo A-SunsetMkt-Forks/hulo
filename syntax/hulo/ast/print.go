@@ -42,6 +42,7 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		for _, stmt := range n.Stmts {
 			Walk(p, stmt)
 		}
+		return nil
 	case *FuncDecl:
 		if n.Docs != nil {
 			Walk(p, n.Docs)
@@ -85,8 +86,24 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return nil
 	case *BlockStmt:
 		return p
+	case *AssignStmt:
+		if n.Tok == token.COLON_ASSIGN {
+			p.indentWrite("let")
+		} else {
+			p.indentWrite(n.Scope.String())
+		}
+		p.write(" ")
+		Walk(p, n.Lhs)
+		p.write(" = ")
+		Walk(p, n.Rhs)
+		p.write("\n")
+
+		return nil
 	case *Ident:
 		p.write(n.Name)
+		return nil
+	case *NumericLiteral:
+		p.write(n.Value)
 		return nil
 	case *StringLiteral:
 		p.write(fmt.Sprintf(`"%s"`, n.Value))

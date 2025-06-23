@@ -10,19 +10,13 @@ func TestAssignStmt(t *testing.T) {
 	Print(&AssignStmt{
 		Scope: token.LET,
 		Lhs:   &Ident{Name: "x"},
-		Rhs: &BasicLit{
-			Kind:  token.NUM,
-			Value: "123",
-		},
+		Rhs:   &NumericLiteral{Value: "123"},
 	})
 
 	Print(&AssignStmt{
 		Lhs: &Ident{Name: "x"},
 		Tok: token.COLON_ASSIGN,
-		Rhs: &BasicLit{
-			Kind:  token.NUM,
-			Value: "123",
-		},
+		Rhs: &NumericLiteral{Value: "123"},
 	})
 }
 
