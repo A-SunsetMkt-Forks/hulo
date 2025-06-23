@@ -1217,9 +1217,9 @@ func (a *Analyzer) VisitRangeStatement(ctx *generated.RangeStatementContext) any
 			In:     token.Pos(ctx.IN().GetSymbol().GetStart()),
 			Range:  token.Pos(ctx.RangeClause().RANGE().GetSymbol().GetStart()),
 			Lparen: token.Pos(ctx.RangeClause().LPAREN().GetSymbol().GetStart()),
-			RangeClauseExpr: ast.RangeClauseExpr{
+			RangeExpr: ast.RangeExpr{
 				Start: rangeExpr.(*ast.BinaryExpr).X,
-				End:   rangeExpr.(*ast.BinaryExpr).Y,
+				End_:   rangeExpr.(*ast.BinaryExpr).Y,
 			},
 			Rparen: token.Pos(ctx.RangeClause().RPAREN().GetSymbol().GetStart()),
 			Body:   body.(*ast.BlockStmt),

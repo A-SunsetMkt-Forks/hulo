@@ -137,6 +137,7 @@ const (
 	LOOP     // loop
 	DO       // do
 	IN       // in
+	OF       // of
 	CONTINUE // continue
 	BREAK    // break
 
@@ -166,4 +167,63 @@ const (
 	FINALLY // finally
 	THROW   // throw
 	THROWS  // throws
+
+	// a-z A-Z Operators
+
+	Opa // a
+	Opb // b
+	Opc // c
+	Opd // d
+	Ope // e
+	Opf // f
+	Opg // g
+	Oph // h
+	Opi // i
+	Opj // j
+	Opk // k
+	Opl // l
+	Opm // m
+	Opn // n
+	Opo // o
+	Opp // p
+	Opq // q
+	Opr // r
+	Ops // s
+	Opt // t
+	Opu // u
+	Opv // v
+	Opw // w
+	Opz // z
+
+	OpA // A
+	OpB // B
+	OpC // C
+	OpD // D
+	OpE // E
+	OpF // F
+	OpG // G
+	OpH // H
+	OpI // I
+	OpJ // J
+	OpK // K
+	OpL // L
+	OpM // M
+	OpN // N
+	OpO // O
+	OpP // P
+	OpQ // Q
+	OpR // R
+	OpS // S
+	OpT // T
+	OpU // U
+	OpV // V
+	OpW // W
+	OpX // X
+	OpY // Y
+	OpZ // Z
+
+	ASYNC // async
+	AWAIT // await
+
+	EXTERN // extern
 )

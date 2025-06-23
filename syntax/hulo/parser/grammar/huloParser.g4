@@ -596,6 +596,8 @@ typeList: type (COMMA type)*;
 
 typeofExpression: TYPEOF expression;
 
+asExpression: variableExpression AS type;
+
 // ...str
 ellipsisType: ELLIPSIS type;
 

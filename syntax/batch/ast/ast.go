@@ -185,8 +185,8 @@ func (*FuncDecl) stmtNode()    {}
 func (*BlockStmt) stmtNode()   {}
 func (*CallStmt) stmtNode()    {}
 func (*Command) stmtNode()     {}
-func (s *GotoStmt) stmtNode()  {}
-func (s *LabelStmt) stmtNode() {}
+func (*GotoStmt) stmtNode()  {}
+func (*LabelStmt) stmtNode() {}
 
 type (
 	// Word represents a word expression, which is a sequence of expressions.
