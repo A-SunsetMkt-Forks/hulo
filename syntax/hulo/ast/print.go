@@ -10,11 +10,23 @@ import (
 )
 
 // TODO: 只打印类型节点
-type printer struct {}
+type printer struct{}
 
+// prettyPrinter holds the state for printing, primarily the output.
 type prettyPrinter struct {
 	output io.Writer
 	indent int
+}
+
+// write indents and writes a string to the output.
+func (p *prettyPrinter) write(s string) {
+	fmt.Fprint(p.output, s)
+}
+
+// indentWrite writes an indented string.
+func (p *prettyPrinter) indentWrite(s string) {
+	fmt.Fprint(p.output, strings.Repeat("\t", p.indent))
+	fmt.Fprint(p.output, s)
 }
 
 func (p *prettyPrinter) Visit(node Node) Visitor {
@@ -39,29 +51,46 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 			Walk(p, dec)
 		}
 
+		p.indentWrite("fn ")
 		if n.Name != nil {
 			Walk(p, n.Name)
 		}
+		p.write("(")
 
 		for _, tp := range n.TypeParams {
 			Walk(p, tp)
 		}
 
-		for _, param := range n.Recv {
+		for i, param := range n.Recv {
+			if i > 0 {
+				p.write(", ")
+			}
 			Walk(p, param)
 		}
+		p.write(")")
 
 		for n.Type != nil {
+			p.write(" -> ")
 			Walk(p, n.Type)
 		}
 
+		p.write(" {\n")
+		p.indent++
 		if n.Body != nil {
 			Walk(p, n.Body)
 		}
+		p.indent--
+		p.indentWrite("}\n")
 
 		return nil
 	case *BlockStmt:
 		return p
+	case *Ident:
+		p.write(n.Name)
+		return nil
+	case *StringLiteral:
+		p.write(fmt.Sprintf(`"%s"`, n.Value))
+		return nil
 	default:
 		fmt.Fprintf(p.output, "%s%T", indentStr, n)
 	}
