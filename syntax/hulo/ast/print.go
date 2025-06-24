@@ -1,3 +1,6 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package ast
 
 import (
@@ -14,9 +17,12 @@ type printer struct{}
 
 // prettyPrinter holds the state for printing, primarily the output.
 type prettyPrinter struct {
-	output io.Writer
-	indent int
+	output      io.Writer
+	indent      int
+	indentSpace string
 }
+
+var _ Visitor = (*prettyPrinter)(nil)
 
 // write indents and writes a string to the output.
 func (p *prettyPrinter) write(s string) {
@@ -25,80 +31,24 @@ func (p *prettyPrinter) write(s string) {
 
 // indentWrite writes an indented string.
 func (p *prettyPrinter) indentWrite(s string) {
-	fmt.Fprint(p.output, strings.Repeat("\t", p.indent))
+	fmt.Fprint(p.output, strings.Repeat(p.indentSpace, p.indent))
 	fmt.Fprint(p.output, s)
 }
 
 func (p *prettyPrinter) Visit(node Node) Visitor {
-	if node == nil {
-		p.indent--
-		return nil
-	}
-
-	indentStr := strings.Repeat("  ", p.indent)
+	indentStr := strings.Repeat(p.indentSpace, p.indent)
 
 	switch n := node.(type) {
 	case *File:
-		for _, stmt := range n.Stmts {
-			Walk(p, stmt)
-		}
-		return nil
+		return p.visitFile(n)
 	case *FuncDecl:
-		if n.Docs != nil {
-			Walk(p, n.Docs)
-		}
-
-		for _, dec := range n.Decs {
-			Walk(p, dec)
-		}
-
-		p.indentWrite("fn ")
-		if n.Name != nil {
-			Walk(p, n.Name)
-		}
-		p.write("(")
-
-		for _, tp := range n.TypeParams {
-			Walk(p, tp)
-		}
-
-		for i, param := range n.Recv {
-			if i > 0 {
-				p.write(", ")
-			}
-			Walk(p, param)
-		}
-		p.write(")")
-
-		for n.Type != nil {
-			p.write(" -> ")
-			Walk(p, n.Type)
-		}
-
-		p.write(" {\n")
-		p.indent++
-		if n.Body != nil {
-			Walk(p, n.Body)
-		}
-		p.indent--
-		p.indentWrite("}\n")
-
-		return nil
+		return p.visitFuncDecl(n)
+	case *ConstructorDecl:
+		return p.visitConstructorDecl(n)
 	case *BlockStmt:
-		return p
+		return p.visitBlockStmt(n)
 	case *AssignStmt:
-		if n.Tok == token.COLON_ASSIGN {
-			p.indentWrite("let")
-		} else {
-			p.indentWrite(n.Scope.String())
-		}
-		p.write(" ")
-		Walk(p, n.Lhs)
-		p.write(" = ")
-		Walk(p, n.Rhs)
-		p.write("\n")
-
-		return nil
+		return p.visitAssignStmt(n)
 	case *Ident:
 		p.write(n.Name)
 		return nil
@@ -108,304 +58,922 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 	case *StringLiteral:
 		p.write(fmt.Sprintf(`"%s"`, n.Value))
 		return nil
+	case *CmdStmt:
+		return p.visitCmdStmt(n)
+	case *EnumDecl:
+		return p.visitEnumDecl(n)
+	case *ClassDecl:
+		return p.visitClassDecl(n)
+	case *TraitDecl:
+		return p.visitTraitDecl(n)
+	case *NullLiteral:
+		p.write("null")
+		return nil
+	case *AnyLiteral:
+		p.write("any")
+		return nil
+	case *TrueLiteral:
+		p.write("true")
+		return nil
+	case *FalseLiteral:
+		p.write("false")
+		return nil
+	case *UnionType:
+		return p.visitUnionType(n)
+	case *IntersectionType:
+		return p.visitIntersectionType(n)
+	case *TypeParameter:
+		return p.visitTypeParameter(n)
+	case *TypeReference:
+		return p.visitTypeReference(n)
+	case *Parameter:
+		return p.visitParameter(n)
+	case *NamedParameters:
+		return p.visitNamedParameters(n)
+	case *NullableType:
+		Walk(p, n.X)
+		p.write("?")
+		return nil
+	case *ExtensionDecl:
+		return p.visitExtensionDecl(n)
+	case *OperatorDecl:
+		return p.visitOperatorDecl(n)
+	case *CallExpr:
+		return p.visitCallExpr(n)
+	case *RefExpr:
+		return p.visitRefExpr(n)
+	case *ReturnStmt:
+		return p.visitReturnStmt(n)
+	case *ThrowStmt:
+		return p.visitThrowStmt(n)
+	case *TryStmt:
+		return p.visitTryStmt(n)
+	case *CatchClause:
+		return p.visitCatchClause(n)
+	case *FinallyStmt:
+		return p.visitFinallyStmt(n)
+	case *UnaryExpr:
+		return p.visitUnaryExpr(n)
+	case *SelectExpr:
+		return p.visitSelectExpr(n)
+	case *ModAccessExpr:
+		return p.visitModAccessExpr(n)
+	case *NewDelExpr:
+		return p.visitNewDelExpr(n)
+	case *IfStmt:
+		return p.visitIfStmt(n)
+	case *DoWhileStmt:
+		return p.visitDoWhileStmt(n)
+	case *WhileStmt:
+		return p.visitWhileStmt(n)
+	case *ForeachStmt:
+		return p.visitForeachStmt(n)
+	case *ForInStmt:
+		return p.visitForInStmt(n)
+	case *ForStmt:
+		return p.visitForStmt(n)
+	case *Decorator:
+		return p.visitDecorator(n)
+	case *BinaryExpr:
+		return p.visitBinaryExpr(n)
+	case *ModDecl:
+		return p.visitModDecl(n)
+	case *UseDecl:
+		return p.visitUseDecl(n)
+	case *ArrayLiteralExpr:
+		return p.visitArrayLiteralExpr(n)
+	case *ExprStmt:
+		return p.visitExprStmt(n)
+	case *IndexExpr:
+		return p.visitIndexExpr(n)
+	case *SliceExpr:
+		return p.visitSliceExpr(n)
+	case *IncDecExpr:
+		return p.visitIncDecExpr(n)
+	case *CascadeExpr:
+		return p.visitCascadeExpr(n)
+	case *DeclareDecl:
+		return p.visitDeclareDecl(n)
+	case *ComptimeStmt:
+		return p.visitComptimeStmt(n)
+	case *ObjectLiteralExpr:
+		return p.visitObjectLiteralExpr(n)
+	case *KeyValueExpr:
+		return p.visitKeyValueExpr(n)
+	case *NamedObjectLiteralExpr:
+		return p.visitNamedObjectLiteralExpr(n)
 	default:
-		fmt.Fprintf(p.output, "%s%T", indentStr, n)
+		fmt.Fprintf(p.output, "%s%T\n", indentStr, n)
+		panic("unsupport")
 	}
 	fmt.Println()
-
-	p.indent++
 	return p
 }
 
-func Print(node Node) {
-	// print(node, "")
-	printer := prettyPrinter{output: os.Stdout}
-	printer.Visit(node)
-}
-
-func String(node Node) string {
-	buf := &strings.Builder{}
-	printer := prettyPrinter{output: buf}
-	printer.Visit(node)
-	return buf.String()
-}
-
-func Write(reader io.Writer, node Node) {
-	printer := prettyPrinter{output: reader}
-	printer.Visit(node)
-}
-
-func print(node Node, indent string) {
-	// fmt.Printf("%T\n", stmt)
-	switch node := node.(type) {
-	case *File:
-		for _, decl := range node.Decls {
-			print(decl, indent+"  ")
-		}
-		for _, ss := range node.Stmts {
-			print(ss, indent+"  ")
-		}
-	case *Decorator:
-		fmt.Printf("%s%s%s\n", indent, token.AT, node.Name)
-	case *ExprStmt:
-		fmt.Printf("%s%s\n", indent, node.X)
-	case *TryStmt:
-		fmt.Println(indent + "try {")
-		for _, ss := range node.Body.List {
-			print(ss, indent+"  ")
-		}
-		fmt.Print(indent + "}")
-		for _, catch := range node.Catches {
-			print(catch, indent)
-		}
-		if node.Finally != nil {
-			print(node.Finally, indent)
-		}
-	case *CatchClause:
-		fmt.Print("catch ")
-		if node.Cond != nil {
-			fmt.Printf("(%s)", node.Cond)
-		}
-		fmt.Println("{")
-		for _, ss := range node.Body.List {
-			print(ss, indent+"  ")
-		}
-		fmt.Println(indent + "}")
-	case *FinallyStmt:
-		fmt.Print("finally {")
-		for _, ss := range node.Body.List {
-			print(ss, indent+"  ")
-		}
-		fmt.Println(indent + "}")
-	case *IfStmt:
-		fmt.Printf("%sif %s {\n", indent, node.Cond)
-		print(node.Body, indent+"  ")
-		fmt.Println(indent + "}")
-
-		for node.Else != nil {
-			switch el := node.Else.(type) {
-			case *IfStmt:
-				fmt.Printf("%selse if %s {\n", indent, el.Cond)
-				print(el.Body, indent+"  ")
-				fmt.Println(indent + "}")
-				node.Else = el.Else
-			case *BlockStmt:
-				fmt.Printf("%selse {\n", indent)
-				print(el, indent+"  ")
-				fmt.Println(indent + "}")
-				node.Else = nil
-			}
-		}
-
-	case *ThrowStmt:
-		fmt.Printf("%s%s %s\n", indent, token.THROW, node.X)
-	case *ReturnStmt:
-		fmt.Printf("%s%s %s\n", indent, token.RETURN, node.X)
-	case *AssignStmt:
-		if node.Tok == token.COLON_ASSIGN {
-			fmt.Printf("%s$%s := %s\n", indent, node.Lhs, node.Rhs)
-		} else {
-			if node.Type != nil {
-				fmt.Printf("%s%s %s: %s = %s\n", indent, node.Scope, node.Lhs, node.Type, node.Rhs)
-			} else {
-				fmt.Printf("%s%s %s = %s\n", indent, node.Scope, node.Lhs, node.Rhs)
-			}
-		}
-	case *BlockStmt:
-		for _, ss := range node.List {
-			print(ss, indent)
-		}
-	case *WhileStmt:
-		fmt.Printf("%sloop {\n", indent)
-		print(node.Body, indent+"  ")
-		fmt.Println(indent + "}")
-	case *DoWhileStmt:
-		fmt.Printf("%sdo {\n", indent)
-		print(node.Body, indent+"  ")
-		fmt.Printf("%s} loop (%s)\n", indent, node.Cond)
-	case *ForStmt:
-		fmt.Printf("%sloop ", indent)
-		if node.Init != nil {
-			if as, ok := node.Init.(*AssignStmt); ok {
-				fmt.Printf("%s := %s", as.Lhs, as.Rhs)
-			} else {
-				print(node.Init, "")
-			}
-		}
-		fmt.Print("; ")
-		if node.Cond != nil {
-			fmt.Print(node.Cond)
-		}
-		fmt.Print("; ")
-		if node.Post != nil {
-			fmt.Print(node.Post)
-		}
-		fmt.Println(" {")
-		print(node.Body, indent+"  ")
-		fmt.Println(indent + "}")
-	case *RangeStmt:
-		fmt.Printf("%sloop %s in range(", indent, node.Index)
-		if node.RangeExpr.Start != nil {
-			fmt.Print(node.RangeExpr.Start)
-		}
-		fmt.Print(", ")
-		if node.RangeExpr.End_ != nil {
-			fmt.Print(node.RangeExpr.End_)
-		}
-		if node.RangeExpr.Step != nil {
-			fmt.Printf(", %s", node.RangeExpr.Step)
-		}
-		fmt.Println(") {")
-		print(node.Body, indent+"  ")
-		fmt.Println(indent + "}")
-	case *ForeachStmt:
-		fmt.Printf("%sloop (", indent)
-		if node.Index != nil {
-			fmt.Print(node.Index)
-		}
-		if node.Value != nil {
-			fmt.Printf(", %s", node.Value)
-		}
-		fmt.Printf(") in %s {\n", node.Var)
-		print(node.Body, indent+"  ")
-		fmt.Println(indent + "}")
-	case *FuncDecl:
-		fmt.Print(indent)
-		// Print modifiers
-		if node.Mod != nil {
-			if node.Mod.Pub.IsValid() {
-				fmt.Print("pub ")
-			}
-			if node.Mod.Const.IsValid() {
-				fmt.Print("const ")
-			}
-			if node.Mod.Static.IsValid() {
-				fmt.Print("static ")
-			}
-		}
-
-		// Print function name
-		fmt.Printf("fn %s", node.Name)
-
-		if node.TypeParams != nil {
-			expr := []string{}
-			for _, e := range node.TypeParams {
-				expr = append(expr, e.String())
-			}
-			fmt.Printf("<%s>", strings.Join(expr, ", "))
-		}
-
-		// Print parameters
-		if node.Recv != nil && len(node.Recv) > 0 {
-			fmt.Print("(")
-			expr := []string{}
-			for _, field := range node.Recv {
-				expr = append(expr, field.String())
-			}
-			fmt.Print(strings.Join(expr, ", "))
-			fmt.Print(")")
-		} else {
-			fmt.Print("()")
-		}
-
-		if node.Throw {
-			fmt.Print(" throws")
-		}
-
-		if node.Type != nil {
-			fmt.Printf(" -> %s", node.Type)
-		} else {
-			fmt.Print(" -> void")
-		}
-
-		// Print function body
-		if node.Body != nil {
-			fmt.Println(" {")
-			for _, stmt := range node.Body.List {
-				print(stmt, indent+"  ")
-			}
-			fmt.Print(indent + "}")
-		} else {
-			fmt.Print(" {}")
-		}
-		fmt.Println()
-	case *ComptimeStmt:
-		fmt.Println(indent + "comptime {")
-		switch x := node.X.(type) {
-		case *BlockStmt:
-			print(x, indent+"  ")
-		}
-		fmt.Println(indent + "}")
-	case *ModDecl:
-		fmt.Printf("%smod %s {\n", indent, node.Name)
-		for _, decl := range node.Body.List {
-			print(decl, indent+"  ")
-		}
-		fmt.Println(indent + "}")
-	case *UseDecl:
-		if node.Rhs != nil {
-			fmt.Printf("%suse %s = %s\n", indent, node.Lhs, node.Rhs)
-		} else {
-			fmt.Printf("%suse %s\n", indent, node.Lhs)
-		}
-	case *ExtensionDecl:
-		switch {
-		case node.ExtensionClass != nil:
-			fmt.Printf("%sextension class %s {\n", indent, node.Name)
-			if node.ExtensionClass.Body != nil {
-				for _, decl := range node.ExtensionClass.Body.List {
-					print(decl, indent+"  ")
-				}
-			}
-			fmt.Printf("%s}\n", indent)
-		}
-	case *OperatorDecl:
-		for _, dec := range node.Decs {
-			fields := []string{}
-			if dec.Recv != nil {
-				for _, field := range dec.Recv.List {
-					fields = append(fields, field.Name.String())
-				}
-			}
-			fmt.Printf("%s@%s(%s)\n", indent, dec.Name, strings.Join(fields, ", "))
-		}
-		params := []string{}
-		for _, p := range node.Params {
-			params = append(params, p.String())
-		}
-		fmt.Printf("%soperator %s(%s)", indent, node.Name, strings.Join(params, ", "))
-		if node.Type != nil {
-			fmt.Printf(" -> %s", node.Type)
-		}
-		fmt.Printf(" {\n")
-		if node.Body != nil {
-			for _, decl := range node.Body.List {
-				print(decl, indent+"  ")
-			}
-		}
-		fmt.Printf("%s}\n", indent)
-	case *CmdStmt:
-		expr := []string{}
-		for _, e := range node.Recv {
-			expr = append(expr, e.String())
-		}
-		fmt.Printf("%s%s %s\n", indent, node.Name, strings.Join(expr, " "))
-	case *ClassDecl:
-		fmt.Printf("%sclass %s", indent, node.Name)
-		if node.TypeParams != nil {
-			expr := []string{}
-			for _, e := range node.TypeParams {
-				expr = append(expr, e.String())
-			}
-			fmt.Printf("<%s>", strings.Join(expr, ", "))
-		}
-		fmt.Printf(" {\n")
-
-		for _, m := range node.Methods {
-			print(m, indent+"  ")
-		}
-		fmt.Printf("%s}\n", indent)
-	default:
-		fmt.Printf("%T\n", node)
+func (p *prettyPrinter) visitNamedObjectLiteralExpr(n *NamedObjectLiteralExpr) Visitor {
+	Walk(p, n.Name)
+	if len(n.Props) == 0 {
+		p.write("{}")
+	} else {
+		p.write("{ ")
+		p.visitExprList(n.Props)
+		p.write(" }")
 	}
+	return nil
+}
+
+func (p *prettyPrinter) visitKeyValueExpr(n *KeyValueExpr) Visitor {
+	Walk(p, n.Key)
+	p.write(": ")
+	Walk(p, n.Value)
+	return nil
+}
+
+func (p *prettyPrinter) visitObjectLiteralExpr(n *ObjectLiteralExpr) Visitor {
+	if len(n.Props) == 0 {
+		p.write("{}")
+	} else {
+		p.write("{ ")
+		p.visitExprList(n.Props)
+		p.write(" }")
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitComptimeStmt(n *ComptimeStmt) Visitor {
+	Walk(p, n.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitDeclareDecl(n *DeclareDecl) Visitor {
+	p.indentWrite("declare ")
+	Walk(p, n.X)
+	return nil
+}
+
+func (p *prettyPrinter) visitCascadeExpr(n *CascadeExpr) Visitor {
+	Walk(p, n.X)
+	p.write("..")
+	Walk(p, n.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitIncDecExpr(n *IncDecExpr) Visitor {
+	if n.Pre {
+		p.write(n.Tok.String())
+	}
+	Walk(p, n.X)
+	if !n.Pre {
+		p.write(n.Tok.String())
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitSliceExpr(n *SliceExpr) Visitor {
+	Walk(p, n.X)
+	p.write("[")
+	switch {
+	case n.Low != nil && n.High != nil && n.Max != nil:
+		Walk(p, n.Low)
+		p.write("..")
+		Walk(p, n.High)
+		p.write("..")
+		Walk(p, n.Max)
+	case n.Low != nil && n.High != nil:
+		Walk(p, n.Low)
+		p.write("..")
+		Walk(p, n.High)
+	case n.Low != nil:
+		Walk(p, n.Low)
+		p.write("..")
+	case n.High != nil:
+		p.write("..")
+		Walk(p, n.High)
+	}
+	p.write("]")
+	return nil
+}
+
+func (p *prettyPrinter) visitIndexExpr(n *IndexExpr) Visitor {
+	Walk(p, n.X)
+	p.write("[")
+	Walk(p, n.Index)
+	p.write("]")
+	return nil
+}
+
+func (p *prettyPrinter) visitExprStmt(n *ExprStmt) Visitor {
+	Walk(p, n.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitArrayLiteralExpr(n *ArrayLiteralExpr) Visitor {
+	p.write("[")
+	p.visitExprList(n.Elems)
+	p.write("]")
+	return nil
+}
+
+func (p *prettyPrinter) visitUseDecl(n *UseDecl) Visitor {
+	p.indentWrite("use ")
+	Walk(p, n.Lhs)
+
+	if n.Rhs != nil {
+		p.write(" = ")
+		Walk(p, n.Rhs)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitModDecl(n *ModDecl) Visitor {
+	p.indentWrite("mod ")
+	Walk(p, n.Name)
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitBinaryExpr(n *BinaryExpr) Visitor {
+	Walk(p, n.X)
+	p.write(" ")
+	p.write(n.Op.String())
+	p.write(" ")
+	Walk(p, n.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitDecorator(n *Decorator) Visitor {
+	p.indentWrite("@")
+	Walk(p, n.Name)
+	if len(n.Recv) > 0 {
+		p.write("(")
+		p.visitExprList(n.Recv)
+		p.write(")")
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitCmdStmt(n *CmdStmt) Visitor {
+	p.indentWrite("")
+	Walk(p, n.Name)
+	if n.Recv != nil {
+		p.write(" ")
+		p.visitExprList(n.Recv)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitIfStmt(n *IfStmt) Visitor {
+	p.indentWrite("if ")
+	Walk(p, n.Cond)
+
+	Walk(p, n.Body)
+
+	for n.Else != nil {
+		switch el := n.Else.(type) {
+		case *IfStmt:
+			p.indentWrite("else if ")
+			Walk(p, el.Cond)
+
+			Walk(p, el.Body)
+
+			n.Else = el.Else
+		case *BlockStmt:
+			p.indentWrite("else ")
+			Walk(p, el)
+			n.Else = nil
+		}
+	}
+
+	return nil
+}
+
+func (p *prettyPrinter) visitNewDelExpr(n *NewDelExpr) Visitor {
+	p.write(n.Tok.String())
+	p.write(" ")
+	Walk(p, n.X)
+	return nil
+}
+
+func (p *prettyPrinter) visitModAccessExpr(n *ModAccessExpr) Visitor {
+	Walk(p, n.X)
+	p.write("::")
+	Walk(p, n.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitSelectExpr(n *SelectExpr) Visitor {
+	Walk(p, n.X)
+	p.write(".")
+	Walk(p, n.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitUnaryExpr(n *UnaryExpr) Visitor {
+	p.write(n.Op.String())
+	Walk(p, n.X)
+	return nil
+}
+
+func (p *prettyPrinter) visitReturnStmt(n *ReturnStmt) Visitor {
+	p.indentWrite("return")
+	if n.X != nil {
+		p.write(" ")
+		Walk(p, n.X)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitRefExpr(n *RefExpr) Visitor {
+	p.write("$")
+	Walk(p, n.X)
+	return nil
+}
+
+func (p *prettyPrinter) visitCallExpr(n *CallExpr) Visitor {
+	Walk(p, n.Fun)
+	p.write("(")
+	p.visitExprList(n.Recv)
+	p.write(")")
+	return nil
+}
+
+func (p *prettyPrinter) visitDecorators(n []*Decorator) {
+	for _, dec := range n {
+		Walk(p, dec)
+	}
+}
+
+func (p *prettyPrinter) visitOperatorDecl(n *OperatorDecl) Visitor {
+	if n.Decs != nil {
+		p.visitDecorators(n.Decs)
+	}
+
+	p.indentWrite("operator ")
+	p.write(n.Name.String())
+
+	if n.Params != nil {
+		p.write("(")
+		p.visitExprList(n.Params)
+		p.write(")")
+	}
+
+	if n.Type != nil {
+		p.write(" -> ")
+		Walk(p, n.Type)
+	}
+
+	if n.Body != nil {
+		Walk(p, n.Body)
+	}
+
+	return nil
+}
+
+func (p *prettyPrinter) visitBlockStmt(n *BlockStmt) Visitor {
+	p.write(" {\n")
+	p.indent++
+	for _, stmt := range n.List {
+		Walk(p, stmt)
+	}
+	p.indent--
+	p.indentWrite("}\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitExtensionDecl(n *ExtensionDecl) Visitor {
+	p.indentWrite("extension ")
+
+	switch body := n.Body.(type) {
+	case *ExtensionClass:
+		p.write("class ")
+		Walk(p, n.Name)
+		if body.Body != nil {
+			Walk(p, body.Body)
+		}
+	case *ExtensionEnum:
+		p.write("enum ")
+		Walk(p, n.Name)
+		if body.Body != nil {
+			Walk(p, body.Body)
+		}
+	case *ExtensionTrait:
+		p.write("trait ")
+		Walk(p, n.Name)
+		if body.Body != nil {
+			Walk(p, body.Body)
+		}
+	case *ExtensionType:
+		p.write("type ")
+		Walk(p, n.Name)
+		if body.Body != nil {
+			Walk(p, body.Body)
+		}
+	case *ExtensionMod:
+		p.write("mod ")
+		Walk(p, n.Name)
+		if body.Body != nil {
+			Walk(p, body.Body)
+		}
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitNamedParameters(n *NamedParameters) Visitor {
+	p.write("{")
+	p.visitExprList(n.Params)
+	p.write("}")
+	return nil
+}
+
+func (p *prettyPrinter) visitIntersectionType(n *IntersectionType) Visitor {
+	p.visitExprList(n.Types, " & ")
+	return nil
+}
+
+func (p *prettyPrinter) visitUnionType(n *UnionType) Visitor {
+	p.visitExprList(n.Types, " | ")
+	return nil
+}
+
+func (p *prettyPrinter) visitParameter(n *Parameter) Visitor {
+	if n.Modifier != nil {
+		p.visitModifier(n.Modifier)
+	}
+	Walk(p, n.Name)
+
+	if n.Type != nil {
+		p.write(": ")
+		Walk(p, n.Type)
+	}
+
+	if n.Value != nil {
+		p.write(" = ")
+		Walk(p, n.Value)
+	}
+
+	return nil
+}
+
+func (p *prettyPrinter) visitConstructorDecl(n *ConstructorDecl) Visitor {
+	if n.Docs != nil {
+		Walk(p, n.Docs)
+	}
+
+	for _, dec := range n.Decs {
+		Walk(p, dec)
+	}
+
+	p.indentWrite("")
+
+	if n.Modifiers != nil {
+		p.visitModifiers(n.Modifiers)
+	}
+
+	Walk(p, n.ClsName)
+
+	if n.Name != nil {
+		p.write(".")
+		Walk(p, n.Name)
+	}
+
+	p.write("(")
+	p.visitExprList(n.Recv)
+	p.write(")")
+
+	if n.InitFields != nil {
+		p.write(" ")
+		p.visitExprList(n.InitFields)
+	}
+
+	if n.Body != nil {
+		Walk(p, n.Body)
+	} else {
+		p.write(" {}\n")
+	}
+
+	return nil
+}
+
+func (p *prettyPrinter) visitFuncDecl(n *FuncDecl) Visitor {
+	if n.Docs != nil {
+		Walk(p, n.Docs)
+	}
+
+	for _, dec := range n.Decs {
+		Walk(p, dec)
+	}
+
+	p.indentWrite("")
+
+	if n.Modifiers != nil {
+		p.visitModifiers(n.Modifiers)
+	}
+
+	p.write("fn ")
+	if n.Name != nil {
+		Walk(p, n.Name)
+	}
+
+	if n.TypeParams != nil {
+		p.visitTypeParams(n.TypeParams)
+	}
+
+	p.write("(")
+	for i, param := range n.Recv {
+		if i > 0 {
+			p.write(", ")
+		}
+		Walk(p, param)
+	}
+	p.write(")")
+
+	if n.Throw {
+		p.write(" throws")
+	}
+
+	if n.Type != nil {
+		p.write(" -> ")
+		Walk(p, n.Type)
+	}
+
+	p.write(" {\n")
+	p.indent++
+	if n.Body != nil {
+		Walk(p, n.Body)
+	}
+	p.indent--
+	p.indentWrite("}\n")
+
+	return nil
+}
+
+func (p *prettyPrinter) visitTypeReference(n *TypeReference) Visitor {
+	Walk(p, n.Name)
+	if n.TypeParams != nil {
+		p.visitTypeParams(n.TypeParams)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitTypeParameter(n *TypeParameter) Visitor {
+	Walk(p, n.Name)
+	if n.Constraints != nil {
+		p.write(" extends ")
+		p.visitExprList(n.Constraints, " + ")
+	}
+
+	return nil
+}
+
+func (p *prettyPrinter) visitAssignStmt(n *AssignStmt) Visitor {
+	if n.Tok == token.COLON_ASSIGN {
+		p.indentWrite("let")
+	} else {
+		p.indentWrite(n.Scope.String())
+	}
+	p.write(" ")
+	Walk(p, n.Lhs)
+
+	if n.Type != nil {
+		p.write(": ")
+		Walk(p, n.Type)
+	}
+
+	p.write(" = ")
+	Walk(p, n.Rhs)
+	p.write("\n")
+
+	return nil
+}
+
+func (p *prettyPrinter) visitModifiers(ms []Modifier) {
+	for _, m := range ms {
+		p.visitModifier(m)
+	}
+}
+
+func (p *prettyPrinter) visitModifier(m Modifier) {
+	switch m.(type) {
+	case *FinalModifier:
+		p.write("final ")
+	case *ConstModifier:
+		p.write("const ")
+	case *PubModifier:
+		p.write("pub ")
+	case *StaticModifier:
+		p.write("static ")
+	case *RequiredModifier:
+		p.write("required ")
+	case *ReadonlyModifier:
+		p.write("readonly ")
+	case *EllipsisModifier:
+		p.write("...")
+	}
+}
+
+func (p *prettyPrinter) visitTypeParams(typeParams []Expr) {
+	p.write("<")
+	p.visitExprList(typeParams)
+	p.write(">")
+}
+
+func (p *prettyPrinter) visitExprList(exprs []Expr, sep ...string) {
+	defaultSep := ", "
+	if len(sep) > 0 {
+		defaultSep = sep[0]
+	}
+	for i, e := range exprs {
+		if i > 0 {
+			p.write(defaultSep)
+		}
+		Walk(p, e)
+	}
+}
+
+func (p *prettyPrinter) visitTraitDecl(n *TraitDecl) Visitor {
+	p.indentWrite("trait ")
+	return nil
+}
+
+func (p *prettyPrinter) visitField(n *Field) Visitor {
+	p.indentWrite("")
+	if n.Modifiers != nil {
+		p.visitModifiers(n.Modifiers)
+	}
+	Walk(p, n.Name)
+	if n.Type != nil {
+		p.write(": ")
+		Walk(p, n.Type)
+	}
+	if n.Value != nil {
+		p.write(" = ")
+		Walk(p, n.Value)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitFieldList(fields []*Field) {
+	for _, field := range fields {
+		p.visitField(field)
+		p.write("\n")
+	}
+}
+
+func (p *prettyPrinter) visitClassDecl(n *ClassDecl) Visitor {
+	indentStr := strings.Repeat("  ", p.indent)
+
+	fmt.Printf("%sclass %s", indentStr, n.Name)
+	if n.TypeParams != nil {
+		p.visitTypeParams(n.TypeParams)
+	}
+	fmt.Printf(" {\n")
+
+	p.indent++
+
+	if n.Fields != nil {
+		p.visitFieldList(n.Fields.List)
+	}
+
+	for _, ctor := range n.Ctors {
+		Walk(p, ctor)
+	}
+
+	for _, method := range n.Methods {
+		Walk(p, method)
+	}
+	p.indent--
+
+	fmt.Printf("%s}\n", indentStr)
+	return nil
+}
+
+func (p *prettyPrinter) visitEnumDecl(n *EnumDecl) Visitor {
+	indentStr := strings.Repeat("  ", p.indent)
+
+	p.write(indentStr)
+
+	if n.Modifiers != nil {
+		p.visitModifiers(n.Modifiers)
+	}
+	fmt.Printf("enum %s", n.Name)
+
+	// Print type parameters
+	if n.TypeParams != nil {
+		p.visitTypeParams(n.TypeParams)
+	}
+
+	// Print enum body
+	switch body := n.Body.(type) {
+	case *BasicEnumBody:
+		p.write(" {\n")
+		for i, value := range body.Values {
+			fmt.Printf("%s  %s", indentStr, value.Name)
+			if value.Value != nil {
+				fmt.Printf(" = %s", value.Value)
+			}
+			if i < len(body.Values)-1 {
+				fmt.Print(",")
+			}
+			fmt.Println()
+		}
+		fmt.Printf("%s}\n", indentStr)
+	case *AssociatedEnumBody:
+		p.write(" {\n")
+		if body.Fields != nil {
+			for _, field := range body.Fields.List {
+				fmt.Printf("%s  %s: %s\n", indentStr, field.Name, field.Type)
+			}
+		}
+		for i, value := range body.Values {
+			fmt.Printf("%s  %s", indentStr, value.Name)
+			if value.Data != nil {
+				fmt.Print("(")
+				p.visitExprList(value.Data)
+				p.write(")")
+			}
+			if i < len(body.Values)-1 {
+				p.write(",")
+			}
+			fmt.Println()
+		}
+		fmt.Printf("%s}\n", indentStr)
+	case *ADTEnumBody:
+		p.write(" {\n")
+		for i, variant := range body.Variants {
+			fmt.Printf("%s  %s", indentStr, variant.Name)
+			if variant.Fields != nil {
+				p.write(" {")
+				for j, field := range variant.Fields.List {
+					if j > 0 {
+						p.write(", ")
+					}
+					fmt.Printf("%s: %s", field.Name, field.Type)
+				}
+				p.write("}")
+			}
+			if i < len(body.Variants)-1 {
+				p.write(",")
+			}
+			fmt.Println()
+		}
+		if body.Methods != nil {
+			for _, method := range body.Methods {
+				print(method, indentStr+"  ")
+			}
+		}
+		fmt.Printf("%s}\n", indentStr)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitFile(n *File) Visitor {
+	for _, stmt := range n.Stmts {
+		Walk(p, stmt)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitTryStmt(n *TryStmt) Visitor {
+	p.indentWrite("try ")
+	Walk(p, n.Body)
+
+	for _, catch := range n.Catches {
+		Walk(p, catch)
+	}
+
+	if n.Finally != nil {
+		Walk(p, n.Finally)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitCatchClause(n *CatchClause) Visitor {
+	p.indentWrite("catch ")
+	if n.Cond != nil {
+		p.write("(")
+		Walk(p, n.Cond)
+		p.write(")")
+	}
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitFinallyStmt(n *FinallyStmt) Visitor {
+	p.indentWrite("finally ")
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitThrowStmt(n *ThrowStmt) Visitor {
+	p.indentWrite("throw")
+	p.write(" ")
+	Walk(p, n.X)
+	return nil
+}
+
+func (p *prettyPrinter) visitWhileStmt(n *WhileStmt) Visitor {
+	p.indentWrite("loop ")
+	Walk(p, n.Cond)
+
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitDoWhileStmt(n *DoWhileStmt) Visitor {
+	p.indentWrite("do ")
+	Walk(p, n.Body)
+	p.write(" loop ")
+	p.write("(")
+	Walk(p, n.Cond)
+	p.write(")")
+	return nil
+}
+
+func (p *prettyPrinter) visitForStmt(n *ForStmt) Visitor {
+	p.indentWrite("loop ")
+	if n.Init != nil {
+		if as, ok := n.Init.(*AssignStmt); ok {
+			Walk(p, as.Lhs)
+			p.write(" := ")
+			Walk(p, as.Rhs)
+		} else {
+			Walk(p, n.Init)
+		}
+	}
+	p.write("; ")
+	Walk(p, n.Cond)
+	p.write("; ")
+	Walk(p, n.Post)
+
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitForInStmt(n *ForInStmt) Visitor {
+	p.indentWrite("loop ")
+	Walk(p, n.Index)
+	p.write(" in ")
+	if n.RangeExpr.Start != nil {
+		Walk(p, n.RangeExpr.Start)
+	}
+
+	if n.RangeExpr.End_ != nil {
+		p.write("..")
+		Walk(p, n.RangeExpr.End_)
+	}
+	if n.RangeExpr.Step != nil {
+		p.write("..")
+		Walk(p, n.RangeExpr.Step)
+	}
+	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitForeachStmt(n *ForeachStmt) Visitor {
+	p.indentWrite("loop (")
+	if n.Index != nil {
+		Walk(p, n.Index)
+	}
+	if n.Value != nil {
+		p.write(", ")
+		Walk(p, n.Value)
+	}
+	p.write(")")
+	if n.Var != nil {
+		p.write(" ")
+		p.write(n.Tok.String())
+		p.write(" ")
+		Walk(p, n.Var)
+	}
+	Walk(p, n.Body)
+	return nil
+}
+
+type PrettyPrinterOption func(*prettyPrinter) error
+
+func WithIndentSpace(space string) PrettyPrinterOption {
+	return func(p *prettyPrinter) error {
+		p.indentSpace = space
+		return nil
+	}
+}
+
+func Print(node Node, options ...PrettyPrinterOption) error {
+	printer := prettyPrinter{output: os.Stdout, indentSpace: "  "}
+
+	for _, opt := range options {
+		err := opt(&printer)
+		if err != nil {
+			return err
+		}
+	}
+	printer.Visit(node)
+
+	return nil
 }

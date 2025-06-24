@@ -34,13 +34,13 @@ type Expr interface {
 type (
 	// A TraitDecl node represents a trait declaration.
 	TraitDecl struct {
-		Docs   *CommentGroup // associated documentation
-		Pub    token.Pos     // position of "pub" keyword, if any
-		Trait  token.Pos     // position of "trait" keyword
-		Name   *Ident        // trait name
-		Lbrace token.Pos     // position of "{"
-		Fields *FieldList    // list of method signatures
-		Rbrace token.Pos     // position of "}"
+		Docs      *CommentGroup // associated documentation
+		Modifiers []Modifier
+		Trait     token.Pos  // position of "trait" keyword
+		Name      *Ident     // trait name
+		Lbrace    token.Pos  // position of "{"
+		Fields    *FieldList // list of method signatures
+		Rbrace    token.Pos  // position of "}"
 	}
 
 	// An ImplDecl node represents an implementation of a trait for a type.
@@ -66,16 +66,70 @@ type (
 
 	// An EnumDecl node represents an enum declaration.
 	EnumDecl struct {
-		Docs       *CommentGroup   // associated documentation
-		Decs       []*Decorator    // decorators
-		Pub        token.Pos       // position of "pub" keyword, if any
-		Enum       token.Pos       // position of "enum" keyword
-		Name       *Ident          // enum name
-		Lt         token.Pos       // position of "<", if any
-		TypeParams []TypeParameter // type parameters for a generic enum
-		Gt         token.Pos       // position of ">", if any
-		*EnumBody
-		*EnumBodySimple
+		Docs       *CommentGroup // associated documentation
+		Decs       []*Decorator  // decorators
+		Modifiers  []Modifier    // modifiers array (final, const, pub, etc.)
+		Enum       token.Pos     // position of "enum" keyword
+		Name       *Ident        // enum name
+		Lt         token.Pos     // position of "<", if any
+		TypeParams []Expr        // type parameters for a generic enum
+		Gt         token.Pos     // position of ">", if any
+		Body       EnumBody      // enum body
+	}
+
+	// EnumBody represents the body of an enum declaration.
+	EnumBody interface {
+		Node
+		enumBodyNode()
+	}
+
+	// BasicEnumBody represents a simple enum with basic values.
+	// enum Status { Pending, Approved, Rejected }
+	// enum HttpCode { OK = 200, NotFound = 404 }
+	BasicEnumBody struct {
+		Lbrace token.Pos    // position of "{"
+		Values []*EnumValue // enum values
+		Rbrace token.Pos    // position of "}"
+	}
+
+	// AssociatedEnumBody represents an enum with associated values.
+	// enum Protocol { port: num; tcp(6), udp(17) }
+	AssociatedEnumBody struct {
+		Lbrace token.Pos    // position of "{"
+		Fields *FieldList   // associated fields declaration
+		Values []*EnumValue // enum values with data
+		Rbrace token.Pos    // position of "}"
+	}
+
+	// ADTEnumBody represents an algebraic data type enum.
+	// enum NetworkPacket { TCP { src_port: num, dst_port: num }, UDP { port: num } }
+	ADTEnumBody struct {
+		Lbrace   token.Pos      // position of "{"
+		Variants []*EnumVariant // enum variants
+		Methods  []Stmt         // methods
+		Rbrace   token.Pos      // position of "}"
+	}
+
+	// EnumValue represents a single enum value.
+	EnumValue struct {
+		Docs   *CommentGroup // associated documentation
+		Name   *Ident        // value name
+		Assign token.Pos     // position of "=", if any
+		Value  Expr          // value expression, if any
+		Lparen token.Pos     // position of "(", for associated values
+		Data   []Expr        // associated data, if any
+		Rparen token.Pos     // position of ")"
+		Comma  token.Pos     // position of ","
+	}
+
+	// EnumVariant represents a variant in an ADT enum.
+	EnumVariant struct {
+		Docs   *CommentGroup // associated documentation
+		Name   *Ident        // variant name
+		Lbrace token.Pos     // position of "{"
+		Fields *FieldList    // variant fields
+		Rbrace token.Pos     // position of "}"
+		Comma  token.Pos     // position of ","
 	}
 
 	// An EnumMember represents a member of an enum.
@@ -87,62 +141,54 @@ type (
 		Fn  token.Pos // position of "fn"
 	}
 
-	// An EnumBody represents a complex enum body with initializers and methods.
-	EnumBody struct {
-		Lbrace  token.Pos // position of "{"
-		Fields  *FieldList
-		Methods []Node
-		// e.g. blue("blue"), red("red");
-		Gen    []CallExpr
-		Rbrace token.Pos // position of "}"
-	}
-
-	// An EnumBodySimple represents a simple enum with only identifiers as members.
-	EnumBodySimple struct {
-		Lbrace token.Pos // position of "{"
-		Fields []*Ident
-		Rbrace token.Pos // position of "}"
-	}
-
 	// A ClassDecl node represents a class declaration.
 	ClassDecl struct {
-		Docs       *CommentGroup // associated documentation
-		Decs       []*Decorator  // decorators
-		Pub        token.Pos     // position of "pub" keyword, if any
-		Class      token.Pos     // position of "class" keyword
-		Name       *Ident        // class name
-		Lt         token.Pos     // position of "<", if any
-		TypeParams []Expr        // type parameters for a generic class
-		Gt         token.Pos     // position of ">", if any
-		Extends    token.Pos     // position of "extends" keyword, if any
-		Parent     []*Ident      // parent classes
-		Lbrace     token.Pos     // position of "{"
-		Fields     *FieldList    // list of fields
-		Methods    []Stmt        // list of methods
-		Rbrace     token.Pos     // position of "}"
+		Docs       *CommentGroup      // associated documentation
+		Decs       []*Decorator       // decorators
+		Pub        token.Pos          // position of "pub" keyword, if any
+		Class      token.Pos          // position of "class" keyword
+		Name       *Ident             // class name
+		Lt         token.Pos          // position of "<", if any
+		TypeParams []Expr             // type parameters for a generic class
+		Gt         token.Pos          // position of ">", if any
+		Extends    token.Pos          // position of "extends" keyword, if any
+		Parent     *Ident             // parent classes
+		Lbrace     token.Pos          // position of "{"
+		Fields     *FieldList         // list of fields
+		Ctors      []*ConstructorDecl // list of constructors
+		Methods    []*FuncDecl        // list of methods
+		Rbrace     token.Pos          // position of "}"
 	}
 
 	// A FuncDecl node represents a function declaration.
 	FuncDecl struct {
 		Docs       *CommentGroup // associated documentation
 		Decs       []*Decorator  // decorators
-		Mod        *FuncModifier
-		Fn         token.Pos  // position of "fn" keyword
-		Name       *Ident     // function name
-		Lt         token.Pos  // position of "<", if any
-		TypeParams []Expr     // type parameters for a generic function
-		Gt         token.Pos  // position of ">", if any
-		Recv       []Expr     // function parameters
-		Throw      bool       // if the function can throw an exception
-		Type       Expr       // result type
-		Body       *BlockStmt // function body
+		Modifiers  []Modifier    // modifiers array (const, comptime, pub, etc.)
+		Fn         token.Pos     // position of "fn" keyword
+		Name       *Ident        // function name
+		Lt         token.Pos     // position of "<", if any
+		TypeParams []Expr        // type parameters for a generic function
+		Gt         token.Pos     // position of ">", if any
+		Recv       []Expr        // function parameters
+		Throw      bool          // if the function can throw an exception
+		Type       Expr          // result type
+		Body       *BlockStmt    // function body
 	}
 
-	// A FuncModifier node holds modifiers for a function declaration.
-	FuncModifier struct {
-		Pub    token.Pos // position of "pub"
-		Const  token.Pos // position of "const"
-		Static token.Pos // position of "static"
+	// A ConstructorDecl node represents a constructor declaration.
+	// e.g., const Constants(pi: num, e: num) $this.PI = $pi, $this.E = $e {}
+	ConstructorDecl struct {
+		Docs       *CommentGroup // associated documentation
+		Decs       []*Decorator  // decorators
+		Modifiers  []Modifier    // modifiers array (const, pub, etc.)
+		ClsName    *Ident        // class name (same as class name)
+		Name       *Ident        // constructor name
+		Lparen     token.Pos     // position of "("
+		Recv       []Expr        // constructor parameters
+		Rparen     token.Pos     // position of ")"
+		InitFields []Expr        // init fields
+		Body       *BlockStmt    // constructor body
 	}
 
 	// An OperatorDecl node represents an operator declaration.
@@ -182,14 +228,15 @@ type (
 	// An ExtensionDecl node represents an extension declaration.
 	ExtensionDecl struct {
 		Docs      *CommentGroup // associated documentation
-		Pub       token.Pos     // position of "pub" keyword, if any
 		Extension token.Pos     // position of "extension" keyword
 		Name      *Ident
-		*ExtensionEnum
-		*ExtensionClass
-		*ExtensionTrait
-		*ExtensionType
-		*ExtensionMod
+		Body      ExtensionBody // the extension body
+	}
+
+	// ExtensionBody represents the body of an extension declaration.
+	ExtensionBody interface {
+		Node
+		extensionBodyNode()
 	}
 
 	// An ExtensionEnum node represents an enum extension.
@@ -260,15 +307,15 @@ type (
 )
 
 func (d *TraitDecl) Pos() token.Pos {
-	if d.Pub.IsValid() {
-		return d.Pub
+	if len(d.Modifiers) > 0 {
+		return d.Modifiers[0].Pos()
 	}
 	return d.Trait
 }
 func (d *ImplDecl) Pos() token.Pos { return d.Impl }
 func (d *EnumDecl) Pos() token.Pos {
-	if d.Pub.IsValid() {
-		return d.Pub
+	if len(d.Modifiers) > 0 {
+		return d.Modifiers[0].Pos()
 	}
 	return d.Enum
 }
@@ -278,17 +325,15 @@ func (d *ClassDecl) Pos() token.Pos {
 	}
 	return d.Class
 }
+func (d *ConstructorDecl) Pos() token.Pos {
+	if len(d.Modifiers) > 0 {
+		return d.Modifiers[0].Pos()
+	}
+	return d.ClsName.Pos()
+}
 func (d *FuncDecl) Pos() token.Pos {
-	if d.Mod != nil {
-		if d.Mod.Pub.IsValid() {
-			return d.Mod.Pub
-		}
-		if d.Mod.Const.IsValid() {
-			return d.Mod.Const
-		}
-		if d.Mod.Static.IsValid() {
-			return d.Mod.Static
-		}
+	if len(d.Modifiers) > 0 {
+		return d.Modifiers[0].Pos()
 	}
 	return d.Fn
 }
@@ -310,29 +355,23 @@ func (d *SetAccessor) Pos() token.Pos   { return d.Set }
 func (d *TraitDecl) End() token.Pos { return d.Rbrace }
 func (d *ImplDecl) End() token.Pos  { return d.Body.Rbrace }
 func (d *EnumDecl) End() token.Pos {
-	if d.EnumBody != nil {
-		return d.EnumBody.Rbrace
+	if d.Body != nil {
+		return d.Body.End()
 	}
-	return d.EnumBodySimple.Rbrace
+	return d.Enum
 }
 func (d *ClassDecl) End() token.Pos { return d.Rbrace }
 func (d *FuncDecl) End() token.Pos  { return d.Body.Rbrace }
-func (d *ModDecl) End() token.Pos   { return d.Rbrace }
-func (d *TypeDecl) End() token.Pos  { return d.Value.End() }
-func (d *ExtensionDecl) End() token.Pos {
-	switch {
-	case d.ExtensionClass != nil:
-		return d.ExtensionClass.Body.Rbrace
-	case d.ExtensionEnum != nil:
-		return d.ExtensionEnum.Body.Rbrace
-	case d.ExtensionTrait != nil:
-		return d.ExtensionTrait.Body.Rbrace
-	case d.ExtensionType != nil:
-		return d.ExtensionType.Body.Rbrace
-	case d.ExtensionMod != nil:
-		return d.ExtensionMod.Body.Rbrace
+func (d *ConstructorDecl) End() token.Pos {
+	if d.Body != nil {
+		return d.Body.End()
 	}
-	return token.NoPos
+	return d.Rparen
+}
+func (d *ModDecl) End() token.Pos  { return d.Rbrace }
+func (d *TypeDecl) End() token.Pos { return d.Value.End() }
+func (d *ExtensionDecl) End() token.Pos {
+	return d.Body.End()
 }
 func (d *DeclareDecl) End() token.Pos  { return d.X.End() }
 func (d *UseDecl) End() token.Pos      { return d.Rhs.End() }
@@ -341,20 +380,21 @@ func (d *ExternDecl) End() token.Pos   { return d.List[len(d.List)-1].End() }
 func (d *GetAccessor) End() token.Pos  { return d.Body.Rbrace }
 func (d *SetAccessor) End() token.Pos  { return d.Body.Rbrace }
 
-func (*TraitDecl) stmtNode()     {}
-func (*ImplDecl) stmtNode()      {}
-func (*EnumDecl) stmtNode()      {}
-func (*ClassDecl) stmtNode()     {}
-func (*FuncDecl) stmtNode()      {}
-func (*ModDecl) stmtNode()       {}
-func (*TypeDecl) stmtNode()      {}
-func (*ExtensionDecl) stmtNode() {}
-func (*DeclareDecl) stmtNode()   {}
-func (*UseDecl) stmtNode()       {}
-func (*OperatorDecl) stmtNode()  {}
-func (*ExternDecl) stmtNode()    {}
-func (*GetAccessor) stmtNode()   {}
-func (*SetAccessor) stmtNode()   {}
+func (*TraitDecl) stmtNode()       {}
+func (*ImplDecl) stmtNode()        {}
+func (*EnumDecl) stmtNode()        {}
+func (*ClassDecl) stmtNode()       {}
+func (*FuncDecl) stmtNode()        {}
+func (*ConstructorDecl) stmtNode() {}
+func (*ModDecl) stmtNode()         {}
+func (*TypeDecl) stmtNode()        {}
+func (*ExtensionDecl) stmtNode()   {}
+func (*DeclareDecl) stmtNode()     {}
+func (*UseDecl) stmtNode()         {}
+func (*OperatorDecl) stmtNode()    {}
+func (*ExternDecl) stmtNode()      {}
+func (*GetAccessor) stmtNode()     {}
+func (*SetAccessor) stmtNode()     {}
 
 // ----------------------------------------------------------------------------
 // Comments
@@ -465,22 +505,20 @@ type (
 		Lparen token.Pos // position of "("
 		Index  Expr
 		Value  Expr
-		Rparen token.Pos // position of ")"
-		In     token.Pos // position of "in"
+		Rparen token.Pos   // position of ")"
+		Tok    token.Token // Token.IN or Token.OF
+		TokPos token.Pos   // position of "in" or "of"
 		Var    Expr
 		Body   *BlockStmt
 	}
 
-	// A RangeStmt node represents a for-range statement.
-	RangeStmt struct {
-		Loop   token.Pos // position of "loop"
-		Index  *Ident
-		In     token.Pos // position of "in"
-		Range  token.Pos // position of "range"
-		Lparen token.Pos // position of "("
+	// A ForInStmt node represents a for-range statement.
+	ForInStmt struct {
+		Loop  token.Pos // position of "loop"
+		Index *Ident
+		In    token.Pos // position of "in"
 		RangeExpr
-		Rparen token.Pos // position of ")"
-		Body   *BlockStmt
+		Body *BlockStmt
 	}
 
 	// A WhileStmt node represents a while statement.
@@ -591,7 +629,7 @@ type (
 	Decorator struct {
 		At   token.Pos // position of "@"
 		Name *Ident
-		Recv *FieldList
+		Recv []Expr
 	}
 )
 
@@ -612,7 +650,7 @@ func (s *MatchStmt) Pos() token.Pos    { return s.Match }
 func (s *DeferStmt) Pos() token.Pos    { return s.Defer }
 func (s *WhileStmt) Pos() token.Pos    { return s.Loop }
 func (s *ForeachStmt) Pos() token.Pos  { return s.Loop }
-func (s *RangeStmt) Pos() token.Pos    { return s.Loop }
+func (s *ForInStmt) Pos() token.Pos    { return s.Loop }
 func (s *DoWhileStmt) Pos() token.Pos  { return s.Do }
 func (s *ForStmt) Pos() token.Pos      { return s.Loop }
 func (s *BreakStmt) Pos() token.Pos    { return s.Break }
@@ -630,8 +668,8 @@ func (s *ExprStmt) End() token.Pos     { return s.X.End() }
 func (s *BlockStmt) End() token.Pos    { return s.Rbrace }
 func (s *ThrowStmt) End() token.Pos    { return s.X.End() }
 func (s *Decorator) End() token.Pos {
-	if s.Recv != nil {
-		return s.Recv.Closing
+	if len(s.Recv) > 0 {
+		return s.Recv[len(s.Recv)-1].End()
 	}
 	return s.Name.End()
 }
@@ -641,7 +679,7 @@ func (s *MatchStmt) End() token.Pos    { return s.Rbrace }
 func (s *DeferStmt) End() token.Pos    { return s.X.End() }
 func (s *WhileStmt) End() token.Pos    { return s.Body.Rbrace }
 func (s *ForeachStmt) End() token.Pos  { return s.Body.Rbrace }
-func (s *RangeStmt) End() token.Pos    { return s.Body.Rbrace }
+func (s *ForInStmt) End() token.Pos    { return s.Body.Rbrace }
 func (s *DoWhileStmt) End() token.Pos  { return s.Rparen }
 func (s *ForStmt) End() token.Pos      { return s.Body.Rbrace }
 func (s *BreakStmt) End() token.Pos    { return s.Break }
@@ -669,7 +707,7 @@ func (*WhileStmt) stmtNode()    {}
 func (*DoWhileStmt) stmtNode()  {}
 func (*BreakStmt) stmtNode()    {}
 func (*ContinueStmt) stmtNode() {}
-func (*RangeStmt) stmtNode()    {}
+func (*ForInStmt) stmtNode()    {}
 func (*LabelStmt) stmtNode()    {}
 
 type (
@@ -821,7 +859,8 @@ type (
 		Memebers []Expr
 	}
 
-	// A TypeReference node represents a reference to a type. e.g., MyType<T>
+	// A TypeReference node represents a reference to a type.
+	// e.g., MyMap<T, U>
 	TypeReference struct {
 		Name       Expr
 		TypeParams []Expr
@@ -880,6 +919,7 @@ type (
 	}
 
 	// A TypeParameter node represents a type parameter in a generic declaration.
+	// e.g. RW extends Readable + Writable
 	TypeParameter struct {
 		Name        Expr
 		Extends     token.Pos // position of "extends"
@@ -985,12 +1025,14 @@ type (
 	}
 
 	// A TypeofExpr node represents a typeof expression.
+	// e.g. typeof X
 	TypeofExpr struct {
 		Typeof token.Pos // position of "typeof"
 		X      Expr
 	}
 
 	// An AsExpr node represents a type assertion or conversion.
+	// e.g. X as Y
 	AsExpr struct {
 		X  Expr
 		As token.Pos
@@ -998,10 +1040,10 @@ type (
 	}
 
 	// A Parameter node represents a parameter in a function declaration.
+	// e.g. required x: type = value
 	Parameter struct {
-		TokPos   token.Pos // position of "required"
-		Required bool
-		Variadic bool
+		TokPos   token.Pos // position of "required" or "..."
+		Modifier Modifier
 		Name     *Ident
 		Colon    token.Pos // position of ":"
 		Type     Expr
@@ -1381,12 +1423,12 @@ func (x *AsExpr) String() string {
 
 func (x *Parameter) String() string {
 	ret := x.Name.String()
-	if x.Variadic {
-		ret = fmt.Sprintf("...%s", ret)
-	}
-	if x.Required {
-		ret = fmt.Sprintf("required %s", ret)
-	}
+	// if x.Variadic {
+	// 	ret = fmt.Sprintf("...%s", ret)
+	// }
+	// if x.Required {
+	// 	ret = fmt.Sprintf("required %s", ret)
+	// }
 	if x.Type != nil {
 		ret = fmt.Sprintf("%s: %s", ret, x.Type)
 	}
@@ -1490,129 +1532,111 @@ func (*InferType) exprNode()              {}
 
 // TODO add position infromation
 // Modifier represents a set of modifiers that can be applied to declarations
-type Modifier uint
+type Modifier interface {
+	Node
+	Kind() ModifierKind
+}
 
-const (
-	// ModNone represents no modifiers
-	ModNone Modifier = 0
-
-	// ModPub makes a declaration public
-	ModPub Modifier = 1 << iota
-
-	// ModFinal makes a declaration final (cannot be overridden)
-	ModFinal
-
-	// ModConst makes a declaration constant (immutable)
-	ModConst
-
-	// ModStatic makes a declaration static (class-level)
-	ModStatic
-
-	// ModRequired makes a field required (must be provided)
-	ModRequired
-
-	// ModReadonly makes a constant field (immutable)
-	ModReadonly
+var (
+	_ Modifier = (*FinalModifier)(nil)
+	_ Modifier = (*ConstModifier)(nil)
+	_ Modifier = (*PubModifier)(nil)
+	_ Modifier = (*StaticModifier)(nil)
+	_ Modifier = (*RequiredModifier)(nil)
+	_ Modifier = (*ReadonlyModifier)(nil)
+	_ Modifier = (*EllipsisModifier)(nil)
 )
 
-// All modifiers combined
-const ModAll = ModPub | ModFinal | ModConst | ModStatic | ModRequired | ModReadonly
+// ModifierKind represents the type of modifier.
+type ModifierKind uint8
 
-// IsNone returns true if no modifiers are set
-func (m Modifier) IsNone() bool {
-	return m == ModNone
+// Modifier kind constants
+const (
+	ModKindNone ModifierKind = iota
+	ModKindFinal
+	ModKindConst
+	ModKindPub
+	ModKindStatic
+	ModKindRequired
+	ModKindReadonly
+	ModKindEllipsis
+)
+
+// FinalModifier represents a "final" modifier.
+type FinalModifier struct {
+	Final token.Pos // position of "final" keyword
 }
 
-// HasPub returns true if the public modifier is set
-func (m Modifier) HasPub() bool {
-	return m&ModPub != 0
+// ConstModifier represents a "const" modifier.
+type ConstModifier struct {
+	Const token.Pos // position of "const" keyword
 }
 
-// HasFinal returns true if the final modifier is set
-func (m Modifier) HasFinal() bool {
-	return m&ModFinal != 0
+// PubModifier represents a "pub" modifier.
+type PubModifier struct {
+	Pub token.Pos // position of "pub" keyword
 }
 
-// HasConst returns true if the const modifier is set
-func (m Modifier) HasConst() bool {
-	return m&ModConst != 0
+// StaticModifier represents a "static" modifier.
+type StaticModifier struct {
+	Static token.Pos // position of "static" keyword
 }
 
-// HasStatic returns true if the static modifier is set
-func (m Modifier) HasStatic() bool {
-	return m&ModStatic != 0
+// RequiredModifier represents a "required" modifier.
+type RequiredModifier struct {
+	Required token.Pos // position of "required" keyword
 }
 
-// HasRequired returns true if the required modifier is set
-func (m Modifier) HasRequired() bool {
-	return m&ModRequired != 0
+// ReadonlyModifier represents a "readonly" modifier.
+type ReadonlyModifier struct {
+	Readonly token.Pos // position of "readonly" keyword
 }
 
-// HasReadonly returns true if the readonly modifier is set
-func (m Modifier) HasReadonly() bool {
-	return m&ModReadonly != 0
+// EllipsisModifier represents a "..." modifier.
+type EllipsisModifier struct {
+	Ellipsis token.Pos // position of "..."
 }
 
-// IsAll returns true if all modifiers are set
-func (m Modifier) IsAll() bool {
-	return m == ModAll
-}
+// Implementation methods for modifier types
+func (m *FinalModifier) Pos() token.Pos     { return m.Final }
+func (m *FinalModifier) End() token.Pos     { return token.Pos(int(m.Final) + 5) } // "final"
+func (m *FinalModifier) Kind() ModifierKind { return ModKindFinal }
 
-// Add adds a modifier to the set
-func (m Modifier) Add(mod Modifier) Modifier {
-	return m | mod
-}
+func (m *ConstModifier) Pos() token.Pos     { return m.Const }
+func (m *ConstModifier) End() token.Pos     { return token.Pos(int(m.Const) + 5) } // "const"
+func (m *ConstModifier) Kind() ModifierKind { return ModKindConst }
 
-// Remove removes a modifier from the set
-func (m Modifier) Remove(mod Modifier) Modifier {
-	return m &^ mod
-}
+func (m *PubModifier) Pos() token.Pos     { return m.Pub }
+func (m *PubModifier) End() token.Pos     { return token.Pos(int(m.Pub) + 3) } // "pub"
+func (m *PubModifier) Kind() ModifierKind { return ModKindPub }
 
-// Toggle toggles a modifier in the set
-func (m Modifier) Toggle(mod Modifier) Modifier {
-	return m ^ mod
-}
+func (m *StaticModifier) Pos() token.Pos     { return m.Static }
+func (m *StaticModifier) End() token.Pos     { return token.Pos(int(m.Static) + 6) } // "static"
+func (m *StaticModifier) Kind() ModifierKind { return ModKindStatic }
 
-// String returns a string representation of the modifiers
-func (m Modifier) String() string {
-	if m == ModNone {
-		return "none"
-	}
+func (m *RequiredModifier) Pos() token.Pos     { return m.Required }
+func (m *RequiredModifier) End() token.Pos     { return token.Pos(int(m.Required) + 8) } // "required"
+func (m *RequiredModifier) Kind() ModifierKind { return ModKindRequired }
 
-	var parts []string
-	if m.HasPub() {
-		parts = append(parts, "pub")
-	}
-	if m.HasFinal() {
-		parts = append(parts, "final")
-	}
-	if m.HasConst() {
-		parts = append(parts, "const")
-	}
-	if m.HasStatic() {
-		parts = append(parts, "static")
-	}
-	if m.HasRequired() {
-		parts = append(parts, "required")
-	}
-	if m.HasReadonly() {
-		parts = append(parts, "readonly")
-	}
+func (m *ReadonlyModifier) Pos() token.Pos     { return m.Readonly }
+func (m *ReadonlyModifier) End() token.Pos     { return token.Pos(int(m.Readonly) + 8) } // "readonly"
+func (m *ReadonlyModifier) Kind() ModifierKind { return ModKindReadonly }
 
-	return strings.Join(parts, "|")
-}
+func (m *EllipsisModifier) Pos() token.Pos     { return m.Ellipsis }
+func (m *EllipsisModifier) End() token.Pos     { return token.Pos(int(m.Ellipsis) + 3) } // "..."
+func (m *EllipsisModifier) Kind() ModifierKind { return ModKindEllipsis }
 
 // A Field represents a field in a struct or a parameter in a function.
 // e.g., (pub | const | final) x: str | num = defaultValue
 type Field struct {
-	Docs   *CommentGroup
-	Decs   []*Decorator
-	Mod    Modifier
-	Name   *Ident
-	Colon  token.Pos // position of ":"
-	Type   Expr
-	Assign token.Pos // position of '='
-	Value  Expr      // default value
+	Docs      *CommentGroup
+	Decs      []*Decorator
+	Modifiers []Modifier
+	Name      *Ident
+	Colon     token.Pos // position of ":"
+	Type      Expr
+	Assign    token.Pos // position of '='
+	Value     Expr      // default value
 }
 
 type FieldList struct {
@@ -1709,3 +1733,45 @@ type Package struct {
 
 func (p *Package) Pos() token.Pos { return token.NoPos }
 func (p *Package) End() token.Pos { return token.NoPos }
+
+func (e *ExtensionEnum) Pos() token.Pos  { return e.Enum }
+func (e *ExtensionEnum) End() token.Pos  { return e.Body.Rbrace }
+func (e *ExtensionClass) Pos() token.Pos { return e.Class }
+func (e *ExtensionClass) End() token.Pos { return e.Body.Rbrace }
+func (e *ExtensionTrait) Pos() token.Pos { return e.Trait }
+func (e *ExtensionTrait) End() token.Pos { return e.Body.Rbrace }
+func (e *ExtensionType) Pos() token.Pos  { return e.Type }
+func (e *ExtensionType) End() token.Pos  { return e.Body.Rbrace }
+func (e *ExtensionMod) Pos() token.Pos   { return e.Mod }
+func (e *ExtensionMod) End() token.Pos   { return e.Body.Rbrace }
+
+func (*ExtensionEnum) extensionBodyNode()  {}
+func (*ExtensionClass) extensionBodyNode() {}
+func (*ExtensionTrait) extensionBodyNode() {}
+func (*ExtensionType) extensionBodyNode()  {}
+func (*ExtensionMod) extensionBodyNode()   {}
+
+func (b *BasicEnumBody) Pos() token.Pos      { return b.Lbrace }
+func (b *BasicEnumBody) End() token.Pos      { return b.Rbrace }
+func (b *AssociatedEnumBody) Pos() token.Pos { return b.Lbrace }
+func (b *AssociatedEnumBody) End() token.Pos { return b.Rbrace }
+func (b *ADTEnumBody) Pos() token.Pos        { return b.Lbrace }
+func (b *ADTEnumBody) End() token.Pos        { return b.Rbrace }
+
+func (v *EnumValue) Pos() token.Pos { return v.Name.Pos() }
+func (v *EnumValue) End() token.Pos {
+	if v.Rparen.IsValid() {
+		return v.Rparen
+	}
+	if v.Value != nil {
+		return v.Value.End()
+	}
+	return v.Name.End()
+}
+
+func (v *EnumVariant) Pos() token.Pos { return v.Name.Pos() }
+func (v *EnumVariant) End() token.Pos { return v.Rbrace }
+
+func (*BasicEnumBody) enumBodyNode()      {}
+func (*AssociatedEnumBody) enumBodyNode() {}
+func (*ADTEnumBody) enumBodyNode()        {}

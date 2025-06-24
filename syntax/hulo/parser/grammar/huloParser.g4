@@ -590,6 +590,24 @@ type: (
     ) QUEST? compositeType?
 ;
 
+//// TODO
+
+typeLiteral: (STR | NUM | BOOL | ANY | Identifier);
+
+// str?
+nullableType: type QUEST;
+
+// str | num
+unionType: type (BITOR type)*;
+
+// str & num
+intersectionType: type (BITAND type)*;
+
+// str[5]
+arrayType: type LBRACK NumberLiteral RBRACK;
+
+///// ENDING - TODO
+
 typeAccessPoint: LBRACK NumberLiteral RBRACK typeAccessPoint?;
 
 typeList: type (COMMA type)*;
@@ -679,7 +697,7 @@ loopStatement:
 
 loopLabel: Identifier COLON;
 
-foreachStatement: LOOP LPAREN foreachClause RPAREN IN expression block;
+foreachStatement: LOOP LPAREN foreachClause RPAREN (IN | OF) expression block;
 
 foreachClause: variableName (COMMA variableName)?;
 

@@ -34,6 +34,7 @@ MATCH    : 'match';
 DO       : 'do';
 LOOP     : 'loop';
 IN       : 'in';
+OF       : 'of';
 RANGE    : 'range';
 CONTINUE : 'continue';
 BREAK    : 'break';

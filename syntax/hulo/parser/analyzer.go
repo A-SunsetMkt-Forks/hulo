@@ -132,41 +132,43 @@ func (a *Analyzer) VisitLiteral(ctx *generated.LiteralContext) any {
 	return a.visitWrapper("Literal", ctx, func() any {
 
 		var (
-			kind     token.Token
 			value    string
 			valuePos token.Pos
 		)
 
 		switch {
 		case ctx.NumberLiteral() != nil:
-			kind = token.NUM
 			value = ctx.NumberLiteral().GetText()
 			valuePos = a.getTerminalPos(ctx.NumberLiteral())
+			return &ast.NumericLiteral{
+				Value:    value,
+				ValuePos: valuePos,
+			}
 		case ctx.BoolLiteral() != nil:
 			value := ctx.BoolLiteral().GetText()
 			if value == "true" {
-				kind = token.TRUE
+				return &ast.TrueLiteral{
+					ValuePos: a.getTerminalPos(ctx.BoolLiteral()),
+				}
 			} else {
-				kind = token.FALSE
+				return &ast.FalseLiteral{
+					ValuePos: a.getTerminalPos(ctx.BoolLiteral()),
+				}
 			}
-			valuePos = a.getTerminalPos(ctx.BoolLiteral())
 		case ctx.StringLiteral() != nil:
 			raw := ctx.StringLiteral().GetText()
-			kind = token.STR
 			value = raw[1 : len(raw)-1]
 			valuePos = a.getTerminalPos(ctx.StringLiteral())
+			return &ast.StringLiteral{
+				Value:    value,
+				ValuePos: valuePos,
+			}
 		case ctx.NULL() != nil:
-			kind = token.IDENT
-			value = "null"
-			valuePos = a.getTerminalPos(ctx.NULL())
+			return &ast.NullLiteral{
+				ValuePos: a.getTerminalPos(ctx.NULL()),
+			}
 		default:
 			return nil
-		}
-
-		return &ast.BasicLit{
-			Kind:     kind,
-			Value:    value,
-			ValuePos: valuePos,
 		}
 	})
 }
@@ -662,8 +664,7 @@ func (a *Analyzer) VisitCommandExpression(ctx *generated.CommandExpressionContex
 
 		// Handle command string literal or member access
 		if ctx.CommandStringLiteral() != nil {
-			fun = &ast.BasicLit{
-				Kind:     token.STR,
+			fun = &ast.StringLiteral{
 				Value:    ctx.CommandStringLiteral().GetText(),
 				ValuePos: token.Pos(ctx.CommandStringLiteral().GetSymbol().GetStart()),
 			}
@@ -770,38 +771,32 @@ func (a *Analyzer) VisitMemberAccess(ctx *generated.MemberAccessContext) any {
 
 		// Handle STR, NUM, BOOL with member access point
 		if ctx.STR() != nil || ctx.NUM() != nil || ctx.BOOL() != nil {
-			var kind token.Token
-			var value string
-			var pos token.Pos
+			var lhs ast.Expr
 
 			if ctx.STR() != nil {
-				kind = token.STR
-				value = ctx.STR().GetText()
-				pos = token.Pos(ctx.STR().GetSymbol().GetStart())
+				lhs = &ast.StringLiteral{
+					Value:    ctx.STR().GetText(),
+					ValuePos: token.Pos(ctx.STR().GetSymbol().GetStart()),
+				}
 			} else if ctx.NUM() != nil {
-				kind = token.NUM
-				value = ctx.NUM().GetText()
-				pos = token.Pos(ctx.NUM().GetSymbol().GetStart())
+				lhs = &ast.NumericLiteral{
+					Value:    ctx.NUM().GetText(),
+					ValuePos: token.Pos(ctx.NUM().GetSymbol().GetStart()),
+				}
 			} else {
 				// For BOOL, we need to check if it's true or false
 				if ctx.BOOL().GetText() == "true" {
-					kind = token.TRUE
-					value = "true"
-					pos = token.Pos(ctx.BOOL().GetSymbol().GetStart())
+					lhs = &ast.TrueLiteral{
+						ValuePos: token.Pos(ctx.BOOL().GetSymbol().GetStart()),
+					}
 				} else {
-					kind = token.FALSE
-					value = "false"
-					pos = token.Pos(ctx.BOOL().GetSymbol().GetStart())
+					lhs = &ast.FalseLiteral{
+						ValuePos: token.Pos(ctx.BOOL().GetSymbol().GetStart()),
+					}
 				}
 			}
 
-			base := &ast.BasicLit{
-				Kind:     kind,
-				Value:    value,
-				ValuePos: pos,
-			}
-
-			ret := a.visitMemberAccessPoint(base, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
+			ret := a.visitMemberAccessPoint(lhs, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
 			return a.wrapComptimeExprssion(ret, isComptime)
 		}
 
@@ -1211,7 +1206,7 @@ func (a *Analyzer) VisitRangeStatement(ctx *generated.RangeStatementContext) any
 		rangeExpr, _ := accept[ast.Expr](ctx.RangeClause(), a)
 		body, _ := accept[ast.Stmt](ctx.Block(), a)
 
-		return &ast.RangeStmt{
+		return &ast.ForInStmt{
 			Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
 			Index:  index,
 			In:     token.Pos(ctx.IN().GetSymbol().GetStart()),
@@ -1219,7 +1214,7 @@ func (a *Analyzer) VisitRangeStatement(ctx *generated.RangeStatementContext) any
 			Lparen: token.Pos(ctx.RangeClause().LPAREN().GetSymbol().GetStart()),
 			RangeExpr: ast.RangeExpr{
 				Start: rangeExpr.(*ast.BinaryExpr).X,
-				End_:   rangeExpr.(*ast.BinaryExpr).Y,
+				End_:  rangeExpr.(*ast.BinaryExpr).Y,
 			},
 			Rparen: token.Pos(ctx.RangeClause().RPAREN().GetSymbol().GetStart()),
 			Body:   body.(*ast.BlockStmt),
@@ -1299,7 +1294,7 @@ func (a *Analyzer) VisitForeachStatement(ctx *generated.ForeachStatementContext)
 			Index:  index,
 			Value:  value,
 			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
-			In:     token.Pos(ctx.IN().GetSymbol().GetStart()),
+			Tok:    token.Pos(ctx.IN().GetSymbol().GetStart()),
 			Var:    expr,
 			Body:   body.(*ast.BlockStmt),
 		}
@@ -1359,11 +1354,11 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 		}
 
 		decl := &ast.FuncDecl{
-			Mod:  funcMod,
-			Fn:   token.Pos(ctx.FN().GetSymbol().GetStart()),
-			Name: funcName,
-			Recv: params,
-			Body: body,
+			Modifiers: funcMod,
+			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:      funcName,
+			Recv:      params,
+			Body:      body,
 		}
 
 		if isComptime {
@@ -1402,23 +1397,23 @@ func (a *Analyzer) VisitLambdaFunctionDeclaration(ctx *generated.LambdaFunctionD
 		body, _ := accept[ast.Stmt](ctx.LambdaExpression().(*generated.LambdaExpressionContext).LambdaBody(), a)
 
 		// Create function modifier
-		var funcMod *ast.FuncModifier
+		var mods []ast.Modifier
 		for _, modCtx := range ctx.AllFunctionModifier() {
-			if funcMod == nil {
-				funcMod = &ast.FuncModifier{}
+			if mods == nil {
+				mods = []ast.Modifier{}
 			}
 			if modCtx.GetText() == "pub" {
-				funcMod.Pub = token.Pos(modCtx.GetStart().GetStart())
+				mods = append(mods, &ast.PubModifier{Pub: token.Pos(modCtx.GetStart().GetStart())})
 			} else if modCtx.GetText() == "comptime" {
-				funcMod.Static = token.Pos(modCtx.GetStart().GetStart())
+				// funcMod.Static = token.Pos(modCtx.GetStart().GetStart())
 			}
 		}
 
 		return &ast.FuncDecl{
-			Mod:  funcMod,
-			Fn:   token.Pos(ctx.FN().GetSymbol().GetStart()),
-			Name: funcName,
-			Recv: params,
+			Modifiers: mods,
+			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:      funcName,
+			Recv:      params,
 			Body: &ast.BlockStmt{
 				Lbrace: token.Pos(ctx.GetStart().GetStart()),
 				List:   []ast.Stmt{body},
@@ -1517,8 +1512,7 @@ func (a *Analyzer) VisitType(ctx *generated.TypeContext) any {
 			}
 		}
 		if ctx.StringLiteral() != nil {
-			return &ast.BasicLit{
-				Kind:     token.STR,
+			return &ast.StringLiteral{
 				Value:    ctx.StringLiteral().GetText(),
 				ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
 			}

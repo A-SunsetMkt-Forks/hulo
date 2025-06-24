@@ -222,8 +222,10 @@ func Evaluate(ctx *Context, node ast.Node) object.Value {
 }
 
 func evalExtensionDecl(ctx *Context, node *ast.ExtensionDecl) object.Value {
-	if node.ExtensionClass != nil {
+	switch body := node.Body.(type) {
+	case *ast.ExtensionClass:
 		// 将类查出来 插入进去
+		_ = body // TODO: use body.Body to process extension
 		ctx.Get(node.Name.Name)
 	}
 	return nil

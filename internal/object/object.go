@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
@@ -445,4 +446,216 @@ func (cc *CompositeConstraint) SatisfiedBy(t Type) bool {
 		}
 	}
 	return true
+}
+
+type ClassType struct {
+	*ObjectType
+	astDecl     *ast.ClassDecl
+	ctors       []Constructor
+	isGeneric   bool
+	typeParams  []string              // e.g. T, U
+	constraints map[string]Type       // e.g. T extends num | str
+	instances   map[string]*ClassType // 已实例化的类型缓存
+}
+
+func (ct *ClassType) Instantiate(typeArgs []Type) (*ClassType, error) {
+	if !ct.isGeneric {
+		return ct, nil
+	}
+
+	if len(typeArgs) != len(ct.typeParams) {
+		return nil, fmt.Errorf("type argument count mismatch: expected %d, got %d",
+			len(ct.typeParams), len(typeArgs))
+	}
+
+	// 检查类型约束
+	for i, param := range ct.typeParams {
+		if constraint, exists := ct.constraints[param]; exists {
+			if !typeArgs[i].Implements(constraint) {
+				return nil, fmt.Errorf("type %s does not satisfy constraint for %s",
+					typeArgs[i].Name(), param)
+			}
+		}
+	}
+
+	// 生成实例化类型的唯一标识
+	typeKey := ct.generateTypeKey(typeArgs)
+
+	// 检查缓存
+	if instance, exists := ct.instances[typeKey]; exists {
+		return instance, nil
+	}
+
+	// 创建新的实例化类型
+	instance := &ClassType{
+		ObjectType:  NewObjectType(ct.Name()+"<"+typeKey+">", O_CLASS, ct.PkgPath()),
+		astDecl:     ct.astDecl,
+		isGeneric:   false, // 实例化后不再是泛型
+		typeParams:  nil,
+		constraints: nil,
+		instances:   nil,
+	}
+
+	// 替换AST中的类型参数
+	instance.ctors = ct.instantiateConstructors(typeArgs)
+
+	// 缓存实例
+	ct.instances[typeKey] = instance
+
+	return instance, nil
+}
+
+func (ct *ClassType) generateTypeKey(typeArgs []Type) string {
+	keys := make([]string, len(typeArgs))
+	for i, t := range typeArgs {
+		keys[i] = t.Name()
+	}
+	return strings.Join(keys, ",")
+}
+
+func (ct *ClassType) instantiateConstructors(typeArgs []Type) []Constructor {
+	typeMap := make(map[string]Type)
+	for i, param := range ct.typeParams {
+		typeMap[param] = typeArgs[i]
+	}
+
+	ctors := make([]Constructor, len(ct.ctors))
+	for i, ctor := range ct.ctors {
+		ctors[i] = ct.instantiateConstructor(ctor, typeMap)
+	}
+	return ctors
+}
+
+func (ct *ClassType) instantiateConstructor(ctor Constructor, typeMap map[string]Type) Constructor {
+	// 这里需要根据具体的构造函数实现来替换类型参数
+	// 例如，替换参数类型、返回类型等
+	// return &ClassConstructor{
+	// 	name:      ctor.Name(),
+	// 	astDecl:   ctor.(*ClassConstructor).astDecl, // 需要类型断言
+	// 	clsType:   ct,
+	// 	signature: ct.instantiateSignature(ctor.Signature(), typeMap),
+	// }
+	return nil
+}
+
+func (ct *ClassType) instantiateSignature(signature []Type, typeMap map[string]Type) []Type {
+	return nil
+}
+
+func (ct *ClassType) New(values ...Value) Value {
+	inst := &ClassInstance{
+		clsType: ct,
+		fields:  make(map[string]Value),
+	}
+
+	ctor := ct.selectConstructor(values...)
+	if ctor == nil {
+		ctor = ct.getDefaultConstructor()
+	}
+
+	if ctor != nil {
+		result := ctor.Call(values...)
+		if initData, ok := result.(*ClassInstance); ok {
+			inst.fields = initData.fields
+		}
+	}
+
+	return inst
+}
+
+func (ct *ClassType) selectConstructor(values ...Value) Constructor {
+	// 要比较函数签名
+	return nil
+}
+
+func (ct *ClassType) getDefaultConstructor() Constructor {
+	return nil
+}
+
+type Constructor interface {
+	Function
+	Name() string
+	IsNamed() bool // 是否为命名构造函数
+}
+
+type ClassInstance struct {
+	clsType *ClassType
+	fields  map[string]Value
+}
+
+func (ci *ClassInstance) Text() string {
+	return fmt.Sprintf("%s{...}", ci.clsType.Name())
+}
+
+func (ci *ClassInstance) Interface() any {
+	return ci
+}
+
+func (ci *ClassInstance) Type() Type {
+	return ci.clsType
+}
+
+func (ci *ClassInstance) GetField(name string) Value {
+	return ci.fields[name]
+}
+
+func (ci *ClassInstance) SetField(name string, value Value) {
+	ci.fields[name] = value
+}
+
+type ClassConstructor struct {
+	name      string
+	astDecl   *ast.ConstructorDecl
+	clsType   *ClassType
+	signature []Type
+}
+
+func (cc *ClassConstructor) Call(args ...Value) Value {
+	inst := &ClassInstance{
+		clsType: cc.clsType,
+		fields:  make(map[string]Value),
+	}
+
+	for _, initExpr := range cc.astDecl.InitFields {
+		// 核心是executeExpr求值
+		fmt.Println(initExpr)
+	}
+
+	if cc.astDecl.Body != nil {
+		// executeBlockStmt(cc.astDecl.Body, inst)
+	}
+
+	return inst
+}
+
+func ConvertClassDecl(decl *ast.ClassDecl) *ClassType {
+	clsType := &ClassType{
+		ObjectType: NewObjectType(decl.Name.Name, O_CLASS, "std"),
+		astDecl:    decl,
+		ctors:      make([]Constructor, 0),
+	}
+
+	// // 1. 处理字段
+	// for _, field := range classDecl.Fields.List {
+	//     fieldType := convertTypeExpr(field.Type) // 需要实现类型转换
+	//     classType.fields[field.Name.Name] = fieldType
+	// }
+
+	// // 2. 处理构造函数
+	// for _, ctor := range classDecl.Ctors {
+	//     constructor := &ClassConstructor{
+	//         name:      ctor.Name.Name,
+	//         astDecl:   ctor,
+	//         classType: classType,
+	//     }
+	//     classType.constructors = append(classType.constructors, constructor)
+	// }
+
+	// // 3. 处理方法
+	// for _, method := range classDecl.Methods {
+	//     methodType := convertFuncDeclToMethod(method, classType) // 需要实现
+	//     classType.methods[method.Name.Name] = methodType
+	// }
+
+	return clsType
 }
