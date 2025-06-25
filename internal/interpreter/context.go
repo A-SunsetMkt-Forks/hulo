@@ -2,7 +2,7 @@ package interpreter
 
 import (
 	"github.com/hulo-lang/hulo/internal/object"
-	"github.com/hulo-lang/hulo/internal/vfs"
+	// "github.com/hulo-lang/hulo/internal/vfs"
 )
 
 type Context struct {
@@ -10,8 +10,8 @@ type Context struct {
 	local  map[string]object.Value
 	parent *Context
 
-	mem vfs.FileSystem
-	os  vfs.FileSystem
+	// mem vfs.FileSystem
+	// os  vfs.FileSystem
 }
 
 func DefaultContext() *Context {

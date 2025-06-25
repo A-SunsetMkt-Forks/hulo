@@ -19,14 +19,14 @@ func TestEnvironment_DeclareAndGet(t *testing.T) {
 	}
 
 	// 测试 let 变量
-	letValue := &object.String{Value: "hello"}
+	letValue := &object.StringValue{Value: "hello"}
 	err = env.Declare("message", letValue, token.LET)
 	if err != nil {
 		t.Errorf("Failed to declare let variable: %v", err)
 	}
 
 	// 测试 var 变量
-	varValue := &object.Boolean{Value: true}
+	varValue := &object.BoolValue{Value: true}
 	err = env.Declare("flag", varValue, token.VAR)
 	if err != nil {
 		t.Errorf("Failed to declare var variable: %v", err)
@@ -152,7 +152,7 @@ func TestEnvironment_OuterScope(t *testing.T) {
 	inner := outer.Fork()
 
 	// 在外层声明变量
-	outerValue := &object.String{Value: "outer"}
+	outerValue := &object.StringValue{Value: "outer"}
 	err := outer.Declare("x", outerValue, token.VAR)
 	if err != nil {
 		t.Errorf("Failed to declare variable in outer scope: %v", err)
@@ -164,7 +164,7 @@ func TestEnvironment_OuterScope(t *testing.T) {
 	}
 
 	// 在内层重新赋值
-	innerValue := &object.String{Value: "inner"}
+	innerValue := &object.StringValue{Value: "inner"}
 	err = inner.Assign("x", innerValue)
 	if err != nil {
 		t.Errorf("Failed to reassign variable in inner scope: %v", err)

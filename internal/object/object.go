@@ -5,35 +5,11 @@ package object
 
 import (
 	"fmt"
-	"math/big"
-	"strconv"
 	"strings"
 
+	"slices"
+
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
-)
-
-type ObjKind int
-
-func (o ObjKind) Equal(x ObjKind) bool {
-	return o == x
-}
-
-const (
-	O_NUM ObjKind = iota
-	O_STR
-	O_BOOL
-	O_FUNC
-	O_NULL
-	O_BUILTIN
-	O_LITERAL
-	O_ARR
-	O_MAP
-	O_RET
-	O_QUOTE
-	O_TRAIT
-	O_ENUM
-	O_CLASS
-	O_OBJ
 )
 
 type Type interface {
@@ -41,7 +17,9 @@ type Type interface {
 
 	Text() string
 
-	New(values ...Value) Value
+	Kind() ObjKind
+
+	// New(values ...Value) Value
 
 	// Implements reports whether the type implements the interface type u.
 	Implements(u Type) bool
@@ -50,27 +28,53 @@ type Type interface {
 
 	ConvertibleTo(u Type) bool
 
-	Kind() ObjKind
+	// NumMethod() int
 
-	NumMethod() int
+	// Method(i int) Method
 
-	Method(i int) Method
+	// MethodByName(name string) Method
 
-	MethodByName(name string) Method
+	// NumField() int
 
-	NumField() int
+	// Field(i int) Type
 
-	Field(i int) Type
+	// FieldByName(name string) Type
+}
 
-	FieldByName(name string) Type
+// TypeRelation represents the relation between two types.
+type TypeRelation interface {
+	// IsAssignableTo reports whether a type can be assigned to the type u.
+	IsAssignableTo(u Type) bool
+	// IsSubtypeOf reports whether a type is a subtype of the type u.
+	IsSubtypeOf(u Type) bool
+	// IsSupertypeOf reports whether a type is a supertype of the type u.
+	IsSupertypeOf(u Type) bool
+	// IsCompatibleWith reports whether a type is compatible with the type u.
+	IsCompatibleWith(u Type) bool
+}
+
+// TypeOperator represents the operator between two types.
+type TypeOperator interface {
+	// Unify returns the most specific type that is a supertype of both types.
+	Unify(other Type) (Type, error)
+	// Intersect returns the most specific type that is a subtype of both types.
+	Intersect(other Type) (Type, error)
+	// Union returns the most specific type that is a supertype of both types.
+	Union(other Type) Type
 }
 
 type Value interface {
-	Type() Type
+	Type() Type // 获取值的类型
 
-	Text() string
+	Text() string // 值的文本表示
 
-	Interface() any
+	Interface() any // 获取底层 Go 值
+}
+
+type SourceLocation interface {
+	File() string
+	Line() int
+	Col() int
 }
 
 type Function interface {
@@ -90,30 +94,81 @@ type Function interface {
 
 type Method interface {
 	Type
-	Function
+}
+
+// Type variance
+type Variance int
+
+const (
+	Invariant Variance = iota
+	Covariant
+	Contravariant
+	Bivariant
+)
+
+//go:generate stringer -type=FieldModifier -linecomment
+type FieldModifier int
+
+const (
+	FieldModifierNone     FieldModifier = iota // none
+	FieldModifierRequired                      // required
+	FieldModifierOptional                      // ?
+	FieldModifierReadonly                      // readonly
+	FieldModifierStatic                        // static
+	FieldModifierPub                           // pub
+)
+
+type Field struct {
+	ft   Type
+	mods []FieldModifier
+
+	getter Function
+	setter Function
+
+	decorators []*ast.Decorator
+}
+
+func (f *Field) AddModifier(mod FieldModifier) *Field {
+	f.mods = append(f.mods, mod)
+	return f
+}
+
+func (f *Field) HasModifier(mod FieldModifier) bool {
+	return slices.Contains(f.mods, mod)
+}
+
+func (f *Field) IsRequired() bool {
+	return f.HasModifier(FieldModifierRequired)
 }
 
 type ObjectType struct {
-	name    string
-	kind    ObjKind
-	pkgPath string
-	methods map[string]Method
-	fields  map[string]Type
+	name      string
+	kind      ObjKind
+	methods   map[string]Method
+	fields    map[string]*Field
+	operators map[Operator]*FunctionType
+	// e.g. str("Hello World")
+	callSignature *Function
+	// e.g. new str("Hello World")
+	constructSignature *Function
 }
 
-func NewObjectType(name string, kind ObjKind, pkgPath string) *ObjectType {
+func NewObjectType(name string, kind ObjKind) *ObjectType {
 	return &ObjectType{
-		name:    name,
-		kind:    kind,
-		pkgPath: pkgPath,
-		methods: make(map[string]Method),
-		fields:  make(map[string]Type),
+		name:      name,
+		kind:      kind,
+		methods:   make(map[string]Method),
+		fields:    make(map[string]*Field),
+		operators: make(map[Operator]*FunctionType),
 	}
 }
 
-func (t *ObjectType) Name() string    { return t.name }
-func (t *ObjectType) Kind() ObjKind   { return t.kind }
-func (t *ObjectType) PkgPath() string { return t.pkgPath }
+func (o *ObjectType) AddMethod(name string, signature Method) {
+	o.methods[name] = signature
+}
+
+func (t *ObjectType) Name() string  { return t.name }
+func (t *ObjectType) Kind() ObjKind { return t.kind }
 
 func (t *ObjectType) NumMethod() int {
 	return len(t.methods)
@@ -142,15 +197,15 @@ func (t *ObjectType) Field(i int) Type {
 	if i < 0 || i >= len(t.fields) {
 		return nil
 	}
-	fields := make([]Type, 0, len(t.fields))
-	for _, method := range t.fields {
-		fields = append(fields, method)
+	fields := make([]*Field, 0, len(t.fields))
+	for _, field := range t.fields {
+		fields = append(fields, field)
 	}
-	return fields[i]
+	return fields[i].ft
 }
 
 func (t *ObjectType) FieldByName(name string) Type {
-	return t.fields[name]
+	return t.fields[name].ft
 }
 
 func (t *ObjectType) Implements(u Type) bool {
@@ -158,7 +213,7 @@ func (t *ObjectType) Implements(u Type) bool {
 }
 
 func (t *ObjectType) AssignableTo(u Type) bool {
-	return false
+	return t.Kind() == u.Kind()
 }
 
 func (t *ObjectType) ConvertibleTo(u Type) bool {
@@ -173,135 +228,7 @@ func (t *ObjectType) Text() string {
 	return t.name
 }
 
-type NullValue struct{}
-
-func (n *NullValue) Text() string {
-	return "null"
-}
-
-func (n *NullValue) Interface() any {
-	return nil
-}
-
-func (n *NullValue) Type() Type {
-	return nil
-}
-
-var NULL = &NullValue{}
-
-type NumberValue struct {
-	// TODO 根据精度选择存储模型
-	Value *big.Float
-}
-
-func (n *NumberValue) Text() string {
-	return n.Value.String()
-}
-
-func (n *NumberValue) Interface() any {
-	return n.Value
-}
-
-func (n *NumberValue) Type() Type {
-	return NumberType
-}
-
-var NumberType = NewObjectType("number", O_NUM, "std")
-
-type String struct {
-	Value string
-}
-
-func (s *String) Text() string {
-	return s.Value
-}
-
-func (s *String) Interface() any {
-	return s.Value
-}
-
-func (s *String) Type() Type {
-	return StringType
-}
-
-var StringType = NewObjectType("string", O_STR, "std")
-
-type Boolean struct {
-	Value bool
-}
-
-func (b *Boolean) Text() string {
-	return strconv.FormatBool(b.Value)
-}
-
-func (b *Boolean) Interface() any {
-	return b.Value
-}
-
-func (b *Boolean) Type() Type {
-	return BooleanType
-}
-
-var BooleanType = NewObjectType("bool", O_BOOL, "std")
-
-var TRUE = &Boolean{Value: true}
-var FALSE = &Boolean{Value: false}
-
-type ErrorValue struct {
-	Value string
-}
-
-func (e *ErrorValue) Text() string {
-	return e.Value
-}
-
-func (e *ErrorValue) Interface() any {
-	return e.Value
-}
-
-func (e *ErrorValue) Type() Type {
-	return ErrorType
-}
-
-var ErrorType = NewObjectType("error", O_OBJ, "std")
-
-type OverloadedFunction struct {
-	name  string
-	funcs []Function
-}
-
-func (o *OverloadedFunction) Text() string {
-	return "overloaded function"
-}
-
-func (o *OverloadedFunction) Interface() any {
-	return o.funcs
-}
-
-func (o *OverloadedFunction) Type() Type {
-	return FunctionType
-}
-
-var FunctionType = NewObjectType("function", O_FUNC, "std")
-
 type BuiltinFunction func(args ...Value) Value
-
-func (b *BuiltinFunction) Text() string {
-	return "builtin function"
-}
-
-func (b *BuiltinFunction) Interface() any {
-	return b
-}
-
-func (b *BuiltinFunction) Type() Type {
-	return FunctionType
-}
-
-type UserFunction struct {
-}
-
-type OperatorFunction struct{}
 
 type Operator int
 
@@ -382,36 +309,241 @@ type GenericType struct {
 	name        string
 	typeParams  []string // e.g. T, U
 	constraints map[string]Type
-	template    ast.Node
+	template    Type            // 模板类型
+	instances   map[string]Type // 已实例化的类型缓存
 }
 
-func (gt *GenericType) Instantiate(typeArgs []Type) (*InstantiatedType, error) {
+// AssignableTo implements Type.
+func (gt *GenericType) AssignableTo(u Type) bool {
+	panic("unimplemented")
+}
+
+// ConvertibleTo implements Type.
+func (gt *GenericType) ConvertibleTo(u Type) bool {
+	panic("unimplemented")
+}
+
+// Implements implements Type.
+func (gt *GenericType) Implements(u Type) bool {
+	panic("unimplemented")
+}
+
+// Kind implements Type.
+func (gt *GenericType) Kind() ObjKind {
+	panic("unimplemented")
+}
+
+// Name implements Type.
+func (gt *GenericType) Name() string {
+	panic("unimplemented")
+}
+
+// Text implements Type.
+func (gt *GenericType) Text() string {
+	panic("unimplemented")
+}
+
+type TypeParameter struct {
+	name       string
+	constraint Type
+	variance   Variance
+}
+
+func (gt *GenericType) Instantiate(typeArgs []Type) (Type, error) {
+	// 1. 检查类型参数数量
 	if len(typeArgs) != len(gt.typeParams) {
-		return nil, fmt.Errorf("type argument count mismatch")
+		return nil, fmt.Errorf("type argument count mismatch: expected %d, got %d",
+			len(gt.typeParams), len(typeArgs))
 	}
 
+	// 2. 检查类型约束
+	for i, param := range gt.typeParams {
+		if constraint, exists := gt.constraints[param]; exists {
+			if !typeArgs[i].AssignableTo(constraint) {
+				return nil, fmt.Errorf("type %s does not satisfy constraint for %s",
+					typeArgs[i].Name(), param)
+			}
+		}
+	}
+
+	// 3. 生成类型键
+	typeKey := gt.generateTypeKey(typeArgs)
+
+	// 4. 检查缓存
+	if instance, exists := gt.instances[typeKey]; exists {
+		return instance, nil
+	}
+
+	// 5. 创建实例化类型
+	instance := gt.substituteType(gt.template, gt.createTypeMap(typeArgs))
+
+	// 6. 缓存实例
+	gt.instances[typeKey] = instance
+
+	return instance, nil
+}
+
+func (gt *GenericType) createTypeMap(typeArgs []Type) map[string]Type {
 	typeMap := make(map[string]Type)
 	for i, param := range gt.typeParams {
 		typeMap[param] = typeArgs[i]
 	}
+	return typeMap
+}
 
-	// 替换模板中的类型参数
+func (gt *GenericType) generateTypeKey(typeArgs []Type) string {
+	keys := make([]string, len(typeArgs))
+	for i, t := range typeArgs {
+		keys[i] = t.Name()
+	}
+	return strings.Join(keys, ",")
+}
 
-	return &InstantiatedType{
-		generic:  gt,
-		typeArgs: typeArgs,
-	}, nil
+func (gt *GenericType) substituteType(t Type, typeMap map[string]Type) Type {
+	switch v := t.(type) {
+	case *GenericType:
+		// 递归替换泛型类型
+		return gt.substituteGenericType(v, typeMap)
+
+	case *ClassType:
+		// 替换类类型中的泛型参数
+		return gt.substituteClassType(v, typeMap)
+
+	case *FunctionType:
+		// 替换函数类型中的泛型参数
+		return gt.substituteFunctionType(v, typeMap)
+
+	case *UnionType:
+		// 替换联合类型中的泛型参数
+		return gt.substituteUnionType(v, typeMap)
+
+	default:
+		return t
+	}
+}
+
+func (gt *GenericType) substituteGenericType(genType *GenericType, typeMap map[string]Type) Type {
+	// 检查是否是类型参数
+	if replacement, exists := typeMap[genType.name]; exists {
+		return replacement
+	}
+
+	// 递归替换内部类型
+	newTemplate := gt.substituteType(genType.template, typeMap)
+	return &GenericType{
+		name:       genType.name,
+		typeParams: genType.typeParams,
+		template:   newTemplate,
+		instances:  make(map[string]Type),
+	}
+}
+
+func (gt *GenericType) substituteClassType(clsType *ClassType, typeMap map[string]Type) Type {
+	newClass := &ClassType{
+		ObjectType: clsType.ObjectType,
+		// name:       clsType.name,
+		// fields:     make(map[string]*Field),
+		// methods:    make(map[string]*FunctionType),
+		// operators:  make(map[Operator]*FunctionType),
+		isGeneric:  false, // 实例化后不再是泛型
+	}
+
+	// 替换字段类型
+	for name, field := range clsType.fields {
+		newClass.fields[name] = &Field{
+			ft:   gt.substituteType(field.ft, typeMap),
+			mods: field.mods,
+		}
+	}
+
+	// 替换方法类型
+	for name, method := range clsType.methods {
+		newClass.methods[name] = gt.substituteFunctionType(method.(*FunctionType), typeMap)
+	}
+
+	// 替换运算符类型
+	for op, fn := range clsType.operators {
+		newClass.operators[op] = gt.substituteFunctionType(fn, typeMap)
+	}
+
+	return newClass
+}
+
+func (gt *GenericType) substituteFunctionType(fnType *FunctionType, typeMap map[string]Type) *FunctionType {
+	newFn := &FunctionType{
+		name:       fnType.name,
+		signatures: make([]*FunctionSignature, 0),
+		isGeneric:  false,
+	}
+
+	// 替换函数签名
+	for _, sig := range fnType.signatures {
+		newSig := &FunctionSignature{
+			positionalParams: make([]*Parameter, 0),
+			namedParams:      make([]*Parameter, 0),
+			returnType:       gt.substituteType(sig.returnType, typeMap),
+			isOperator:       sig.isOperator,
+			operator:         sig.operator,
+			body:             sig.body,
+			builtin:          sig.builtin,
+		}
+
+		// 替换位置参数
+		for _, param := range sig.positionalParams {
+			newSig.positionalParams = append(newSig.positionalParams, &Parameter{
+				name:         param.name,
+				typ:          gt.substituteType(param.typ, typeMap),
+				optional:     param.optional,
+				defaultValue: param.defaultValue,
+				variadic:     param.variadic,
+				isNamed:      param.isNamed,
+				required:     param.required,
+			})
+		}
+
+		// 替换命名参数
+		for _, param := range sig.namedParams {
+			newSig.namedParams = append(newSig.namedParams, &Parameter{
+				name:         param.name,
+				typ:          gt.substituteType(param.typ, typeMap),
+				optional:     param.optional,
+				defaultValue: param.defaultValue,
+				variadic:     param.variadic,
+				isNamed:      param.isNamed,
+				required:     param.required,
+			})
+		}
+
+		// 替换可变参数
+		if sig.variadicParam != nil {
+			newSig.variadicParam = &Parameter{
+				name:         sig.variadicParam.name,
+				typ:          gt.substituteType(sig.variadicParam.typ, typeMap),
+				optional:     sig.variadicParam.optional,
+				defaultValue: sig.variadicParam.defaultValue,
+				variadic:     sig.variadicParam.variadic,
+				isNamed:      sig.variadicParam.isNamed,
+				required:     sig.variadicParam.required,
+			}
+		}
+
+		newFn.signatures = append(newFn.signatures, newSig)
+	}
+
+	return newFn
+}
+
+func (gt *GenericType) substituteUnionType(unionType *UnionType, typeMap map[string]Type) Type {
+	newTypes := make([]Type, len(unionType.types))
+	for i, t := range unionType.types {
+		newTypes[i] = gt.substituteType(t, typeMap)
+	}
+	return NewUnionType(newTypes...)
 }
 
 type InstantiatedType struct {
 	generic  *GenericType
 	typeArgs []Type
-}
-
-type GenericFunction struct {
-	name       string
-	typeParams []string
-	signatures map[string]Function
 }
 
 type Constraint interface {
@@ -446,130 +578,6 @@ func (cc *CompositeConstraint) SatisfiedBy(t Type) bool {
 		}
 	}
 	return true
-}
-
-type ClassType struct {
-	*ObjectType
-	astDecl     *ast.ClassDecl
-	ctors       []Constructor
-	isGeneric   bool
-	typeParams  []string              // e.g. T, U
-	constraints map[string]Type       // e.g. T extends num | str
-	instances   map[string]*ClassType // 已实例化的类型缓存
-}
-
-func (ct *ClassType) Instantiate(typeArgs []Type) (*ClassType, error) {
-	if !ct.isGeneric {
-		return ct, nil
-	}
-
-	if len(typeArgs) != len(ct.typeParams) {
-		return nil, fmt.Errorf("type argument count mismatch: expected %d, got %d",
-			len(ct.typeParams), len(typeArgs))
-	}
-
-	// 检查类型约束
-	for i, param := range ct.typeParams {
-		if constraint, exists := ct.constraints[param]; exists {
-			if !typeArgs[i].Implements(constraint) {
-				return nil, fmt.Errorf("type %s does not satisfy constraint for %s",
-					typeArgs[i].Name(), param)
-			}
-		}
-	}
-
-	// 生成实例化类型的唯一标识
-	typeKey := ct.generateTypeKey(typeArgs)
-
-	// 检查缓存
-	if instance, exists := ct.instances[typeKey]; exists {
-		return instance, nil
-	}
-
-	// 创建新的实例化类型
-	instance := &ClassType{
-		ObjectType:  NewObjectType(ct.Name()+"<"+typeKey+">", O_CLASS, ct.PkgPath()),
-		astDecl:     ct.astDecl,
-		isGeneric:   false, // 实例化后不再是泛型
-		typeParams:  nil,
-		constraints: nil,
-		instances:   nil,
-	}
-
-	// 替换AST中的类型参数
-	instance.ctors = ct.instantiateConstructors(typeArgs)
-
-	// 缓存实例
-	ct.instances[typeKey] = instance
-
-	return instance, nil
-}
-
-func (ct *ClassType) generateTypeKey(typeArgs []Type) string {
-	keys := make([]string, len(typeArgs))
-	for i, t := range typeArgs {
-		keys[i] = t.Name()
-	}
-	return strings.Join(keys, ",")
-}
-
-func (ct *ClassType) instantiateConstructors(typeArgs []Type) []Constructor {
-	typeMap := make(map[string]Type)
-	for i, param := range ct.typeParams {
-		typeMap[param] = typeArgs[i]
-	}
-
-	ctors := make([]Constructor, len(ct.ctors))
-	for i, ctor := range ct.ctors {
-		ctors[i] = ct.instantiateConstructor(ctor, typeMap)
-	}
-	return ctors
-}
-
-func (ct *ClassType) instantiateConstructor(ctor Constructor, typeMap map[string]Type) Constructor {
-	// 这里需要根据具体的构造函数实现来替换类型参数
-	// 例如，替换参数类型、返回类型等
-	// return &ClassConstructor{
-	// 	name:      ctor.Name(),
-	// 	astDecl:   ctor.(*ClassConstructor).astDecl, // 需要类型断言
-	// 	clsType:   ct,
-	// 	signature: ct.instantiateSignature(ctor.Signature(), typeMap),
-	// }
-	return nil
-}
-
-func (ct *ClassType) instantiateSignature(signature []Type, typeMap map[string]Type) []Type {
-	return nil
-}
-
-func (ct *ClassType) New(values ...Value) Value {
-	inst := &ClassInstance{
-		clsType: ct,
-		fields:  make(map[string]Value),
-	}
-
-	ctor := ct.selectConstructor(values...)
-	if ctor == nil {
-		ctor = ct.getDefaultConstructor()
-	}
-
-	if ctor != nil {
-		result := ctor.Call(values...)
-		if initData, ok := result.(*ClassInstance); ok {
-			inst.fields = initData.fields
-		}
-	}
-
-	return inst
-}
-
-func (ct *ClassType) selectConstructor(values ...Value) Constructor {
-	// 要比较函数签名
-	return nil
-}
-
-func (ct *ClassType) getDefaultConstructor() Constructor {
-	return nil
 }
 
 type Constructor interface {
@@ -630,7 +638,7 @@ func (cc *ClassConstructor) Call(args ...Value) Value {
 
 func ConvertClassDecl(decl *ast.ClassDecl) *ClassType {
 	clsType := &ClassType{
-		ObjectType: NewObjectType(decl.Name.Name, O_CLASS, "std"),
+		ObjectType: NewObjectType(decl.Name.Name, O_CLASS),
 		astDecl:    decl,
 		ctors:      make([]Constructor, 0),
 	}
@@ -659,3 +667,35 @@ func ConvertClassDecl(decl *ast.ClassDecl) *ClassType {
 
 	return clsType
 }
+
+type PrimitiveType struct {
+	name string
+	kind ObjKind
+}
+
+var _ Type = (*PrimitiveType)(nil)
+
+func NewPrimitiveType(name string, kind ObjKind) *PrimitiveType {
+	return &PrimitiveType{
+		name: name,
+		kind: kind,
+	}
+}
+
+func (pt *PrimitiveType) Name() string {
+	return pt.name
+}
+
+func (pt *PrimitiveType) Kind() ObjKind {
+	return pt.kind
+}
+
+func (pt *PrimitiveType) Text() string {
+	return pt.name
+}
+
+func (pt *PrimitiveType) Implements(u Type) bool { return false }
+
+func (pt *PrimitiveType) AssignableTo(u Type) bool { return pt.Kind() == u.Kind() }
+
+func (pt *PrimitiveType) ConvertibleTo(u Type) bool { return pt.kind.Equal(u.Kind()) }

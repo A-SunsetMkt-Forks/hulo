@@ -5,34 +5,10 @@ package build
 
 import (
 	"fmt"
+	"sync"
+
+	"github.com/hulo-lang/hulo/internal/util"
 )
-
-// Locker defines the interface for a virtual lock
-//
-// Example:
-//
-//	var locker Locker = &VirtualLock{}
-//	locker.Lock()
-//	defer locker.Unlock()
-type Locker interface {
-	// Lock acquires the lock
-	Lock()
-	// Unlock releases the lock
-	Unlock()
-}
-
-// VirtualLock is a virtual implementation of Locker
-//
-// This is a no-op implementation that does nothing when Lock() or Unlock() is called.
-// It's useful for testing or when you want to maintain the locking interface
-// without actual synchronization.
-type VirtualLock struct{}
-
-// Lock is a no-op implementation
-func (l *VirtualLock) Lock() {}
-
-// Unlock is a no-op implementation
-func (l *VirtualLock) Unlock() {}
 
 // AllocatorOption defines a function that configures an Allocator
 type AllocatorOption func(*Allocator)
@@ -41,8 +17,8 @@ type AllocatorOption func(*Allocator)
 //
 // Example:
 //
-//	allocator := NewAllocator(WithLock(&VirtualLock{}))
-func WithLock(lock Locker) AllocatorOption {
+//	allocator := NewAllocator(WithLock(&util.NoOpLocker{}))
+func WithLock(lock sync.Locker) AllocatorOption {
 	return func(a *Allocator) {
 		a.lock = lock
 	}
@@ -80,7 +56,7 @@ func WithInitialCounter(counter uint64) AllocatorOption {
 // Example:
 //
 //	allocator := NewAllocator(
-//		WithLock(&VirtualLock{}),
+//		WithLock(&util.NoOpLocker{}),
 //		WithPrefix("_var_"),
 //		WithInitialCounter(100),
 //	)
@@ -89,7 +65,7 @@ type Allocator struct {
 	// counter for generating unique identifiers
 	counter uint64
 	// lock for thread safety
-	lock Locker
+	lock sync.Locker
 	// mapping from original names to generated names
 	nameMap map[string]string
 	// reverse mapping from generated names to original names
@@ -103,14 +79,14 @@ type Allocator struct {
 // Example:
 //
 //	allocator := NewAllocator(
-//		WithLock(&VirtualLock{}),
+//		WithLock(&util.NoOpLocker{}),
 //		WithPrefix("_var_"),
 //		WithInitialCounter(100),
 //	)
 func NewAllocator(opts ...AllocatorOption) *Allocator {
 	// Create allocator with default values
 	allocator := &Allocator{
-		lock:       &VirtualLock{}, // Default lock implementation
+		lock:       &util.NoOpLocker{}, // Default lock implementation
 		nameMap:    make(map[string]string),
 		reverseMap: make(map[string]string),
 		prefix:     "_v", // Default prefix

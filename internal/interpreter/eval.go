@@ -145,12 +145,12 @@ func (interp *Interpreter) executeBinaryExprNumber(lhs, rhs object.Value, op tok
 }
 
 func (interp *Interpreter) executeBinaryExprString(lhs, rhs object.Value, op token.Token) object.Value {
-	lv := lhs.Interface().(*object.String)
-	rv := rhs.Interface().(*object.String)
+	lv := lhs.Interface().(*object.StringValue)
+	rv := rhs.Interface().(*object.StringValue)
 
 	switch op {
 	case token.PLUS:
-		return &object.String{Value: lv.Value + rv.Value}
+		return &object.StringValue{Value: lv.Value + rv.Value}
 	}
 	return &object.ErrorValue{Value: "unknown binary expression"}
 }
@@ -169,7 +169,7 @@ func (interp *Interpreter) executeBasicLit(node *ast.BasicLit) object.Value {
 		o.Value.SetString(node.Value)
 		return o
 	case token.STR:
-		return &object.String{Value: node.Value}
+		return &object.StringValue{Value: node.Value}
 	case token.TRUE:
 		return object.TRUE
 	case token.FALSE:
@@ -298,11 +298,11 @@ func evalFuncDecl(ctx *Context, node *ast.FuncDecl) object.Value {
 func evalCallExpr(ctx *Context, node *ast.CallExpr) object.Value {
 	// 需要先找到函数的定义
 	// 拿到 to_str 的定义
-	function := Evaluate(ctx, node.Fun)
-	args := evalExpressions(ctx, node.Recv)
+	// function := Evaluate(ctx, node.Fun)
+	// args := evalExpressions(ctx, node.Recv)
 	// 要根据 args 类型 拿到method
 	// TODO function.Type().Call(args...) 自动匹配合适的函数
-	function.Type().Method(0).Call(args...)
+	// function.Type().Method(0).Call(args...)
 	// Call 的逻辑中，builtin直接执行，非builtin要执行语法树
 	return nil
 }
