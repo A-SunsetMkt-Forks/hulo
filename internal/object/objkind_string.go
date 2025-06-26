@@ -32,11 +32,14 @@ func _() {
 	_ = x[O_QUOTE-21]
 	_ = x[O_UNION-22]
 	_ = x[O_INTERSECTION-23]
+	_ = x[O_NULLABLE-24]
+	_ = x[O_DECORATOR-25]
+	_ = x[O_TYPE_PARAM-26]
 }
 
-const _ObjKind_name = "numstrboolsymbolarrtuplesetobjectmapfuncnullanyvoidnevererrortraitclassenumO_BUILTINO_LITERALO_RETO_QUOTEunionintersection"
+const _ObjKind_name = "numstrboolsymbolarrtuplesetobjectmapfuncnullanyvoidnevererrortraitclassenumO_BUILTINO_LITERALO_RETO_QUOTEunionintersectionnullabledecoratortype_param"
 
-var _ObjKind_index = [...]uint8{0, 3, 6, 10, 16, 19, 24, 27, 33, 36, 40, 44, 47, 51, 56, 61, 66, 71, 75, 84, 93, 98, 105, 110, 122}
+var _ObjKind_index = [...]uint8{0, 3, 6, 10, 16, 19, 24, 27, 33, 36, 40, 44, 47, 51, 56, 61, 66, 71, 75, 84, 93, 98, 105, 110, 122, 130, 139, 149}
 
 func (i ObjKind) String() string {
 	if i < 0 || i >= ObjKind(len(_ObjKind_index)-1) {

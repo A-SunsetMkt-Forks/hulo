@@ -36,8 +36,3 @@ coverage
 coverage.txt
 
 *.zip
-
-# experimental
-internal/import
-internal/version
-internal/vfs

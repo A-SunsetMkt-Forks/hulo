@@ -5,10 +5,10 @@ package object
 
 import (
 	"fmt"
-	"strings"
 
 	"slices"
 
+	"github.com/hulo-lang/hulo/internal/core"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
@@ -39,6 +39,16 @@ type Type interface {
 	// Field(i int) Type
 
 	// FieldByName(name string) Type
+}
+
+type Object interface {
+	Type
+	NumMethod() int
+	Method(i int) Method
+	MethodByName(name string) Method
+	NumField() int
+	Field(i int) Type
+	FieldByName(name string) Type
 }
 
 // TypeRelation represents the relation between two types.
@@ -94,6 +104,7 @@ type Function interface {
 
 type Method interface {
 	Type
+	Call(args []Value, namedArgs map[string]Value, evaluator ...core.FunctionEvaluator) (Value, error)
 }
 
 // Type variance
@@ -126,6 +137,9 @@ type Field struct {
 	setter Function
 
 	decorators []*ast.Decorator
+
+	// 字段的默认值
+	defaultValue Value
 }
 
 func (f *Field) AddModifier(mod FieldModifier) *Field {
@@ -139,6 +153,21 @@ func (f *Field) HasModifier(mod FieldModifier) bool {
 
 func (f *Field) IsRequired() bool {
 	return f.HasModifier(FieldModifierRequired)
+}
+
+// SetDefaultValue 设置字段的默认值
+func (f *Field) SetDefaultValue(value Value) {
+	f.defaultValue = value
+}
+
+// GetDefaultValue 获取字段的默认值
+func (f *Field) GetDefaultValue() Value {
+	return f.defaultValue
+}
+
+// HasDefaultValue 检查字段是否有默认值
+func (f *Field) HasDefaultValue() bool {
+	return f.defaultValue != nil
 }
 
 type ObjectType struct {
@@ -161,6 +190,10 @@ func NewObjectType(name string, kind ObjKind) *ObjectType {
 		fields:    make(map[string]*Field),
 		operators: make(map[Operator]*FunctionType),
 	}
+}
+
+func (o *ObjectType) AddField(name string, field *Field) {
+	o.fields[name] = field
 }
 
 func (o *ObjectType) AddMethod(name string, signature Method) {
@@ -230,6 +263,7 @@ func (t *ObjectType) Text() string {
 
 type BuiltinFunction func(args ...Value) Value
 
+//go:generate stringer -type=Operator -linecomment
 type Operator int
 
 const (
@@ -305,278 +339,45 @@ const (
 	OpZ // Z""
 )
 
-type GenericType struct {
-	name        string
-	typeParams  []string // e.g. T, U
-	constraints map[string]Type
-	template    Type            // 模板类型
-	instances   map[string]Type // 已实例化的类型缓存
-}
-
-// AssignableTo implements Type.
-func (gt *GenericType) AssignableTo(u Type) bool {
-	panic("unimplemented")
-}
-
-// ConvertibleTo implements Type.
-func (gt *GenericType) ConvertibleTo(u Type) bool {
-	panic("unimplemented")
-}
-
-// Implements implements Type.
-func (gt *GenericType) Implements(u Type) bool {
-	panic("unimplemented")
-}
-
-// Kind implements Type.
-func (gt *GenericType) Kind() ObjKind {
-	panic("unimplemented")
-}
-
-// Name implements Type.
-func (gt *GenericType) Name() string {
-	panic("unimplemented")
-}
-
-// Text implements Type.
-func (gt *GenericType) Text() string {
-	panic("unimplemented")
-}
-
 type TypeParameter struct {
-	name       string
-	constraint Type
-	variance   Variance
+	name        string
+	constraints map[string]Constraint // 类型参数约束
 }
 
-func (gt *GenericType) Instantiate(typeArgs []Type) (Type, error) {
-	// 1. 检查类型参数数量
-	if len(typeArgs) != len(gt.typeParams) {
-		return nil, fmt.Errorf("type argument count mismatch: expected %d, got %d",
-			len(gt.typeParams), len(typeArgs))
-	}
-
-	// 2. 检查类型约束
-	for i, param := range gt.typeParams {
-		if constraint, exists := gt.constraints[param]; exists {
-			if !typeArgs[i].AssignableTo(constraint) {
-				return nil, fmt.Errorf("type %s does not satisfy constraint for %s",
-					typeArgs[i].Name(), param)
-			}
-		}
-	}
-
-	// 3. 生成类型键
-	typeKey := gt.generateTypeKey(typeArgs)
-
-	// 4. 检查缓存
-	if instance, exists := gt.instances[typeKey]; exists {
-		return instance, nil
-	}
-
-	// 5. 创建实例化类型
-	instance := gt.substituteType(gt.template, gt.createTypeMap(typeArgs))
-
-	// 6. 缓存实例
-	gt.instances[typeKey] = instance
-
-	return instance, nil
-}
-
-func (gt *GenericType) createTypeMap(typeArgs []Type) map[string]Type {
-	typeMap := make(map[string]Type)
-	for i, param := range gt.typeParams {
-		typeMap[param] = typeArgs[i]
-	}
-	return typeMap
-}
-
-func (gt *GenericType) generateTypeKey(typeArgs []Type) string {
-	keys := make([]string, len(typeArgs))
-	for i, t := range typeArgs {
-		keys[i] = t.Name()
-	}
-	return strings.Join(keys, ",")
-}
-
-func (gt *GenericType) substituteType(t Type, typeMap map[string]Type) Type {
-	switch v := t.(type) {
-	case *GenericType:
-		// 递归替换泛型类型
-		return gt.substituteGenericType(v, typeMap)
-
-	case *ClassType:
-		// 替换类类型中的泛型参数
-		return gt.substituteClassType(v, typeMap)
-
-	case *FunctionType:
-		// 替换函数类型中的泛型参数
-		return gt.substituteFunctionType(v, typeMap)
-
-	case *UnionType:
-		// 替换联合类型中的泛型参数
-		return gt.substituteUnionType(v, typeMap)
-
-	default:
-		return t
+func NewTypeParameter(name string, constraints map[string]Constraint) *TypeParameter {
+	return &TypeParameter{
+		name:        name,
+		constraints: constraints,
 	}
 }
 
-func (gt *GenericType) substituteGenericType(genType *GenericType, typeMap map[string]Type) Type {
-	// 检查是否是类型参数
-	if replacement, exists := typeMap[genType.name]; exists {
-		return replacement
-	}
-
-	// 递归替换内部类型
-	newTemplate := gt.substituteType(genType.template, typeMap)
-	return &GenericType{
-		name:       genType.name,
-		typeParams: genType.typeParams,
-		template:   newTemplate,
-		instances:  make(map[string]Type),
-	}
+func (tp *TypeParameter) Name() string {
+	return tp.name
 }
 
-func (gt *GenericType) substituteClassType(clsType *ClassType, typeMap map[string]Type) Type {
-	newClass := &ClassType{
-		ObjectType: clsType.ObjectType,
-		// name:       clsType.name,
-		// fields:     make(map[string]*Field),
-		// methods:    make(map[string]*FunctionType),
-		// operators:  make(map[Operator]*FunctionType),
-		isGeneric:  false, // 实例化后不再是泛型
-	}
-
-	// 替换字段类型
-	for name, field := range clsType.fields {
-		newClass.fields[name] = &Field{
-			ft:   gt.substituteType(field.ft, typeMap),
-			mods: field.mods,
-		}
-	}
-
-	// 替换方法类型
-	for name, method := range clsType.methods {
-		newClass.methods[name] = gt.substituteFunctionType(method.(*FunctionType), typeMap)
-	}
-
-	// 替换运算符类型
-	for op, fn := range clsType.operators {
-		newClass.operators[op] = gt.substituteFunctionType(fn, typeMap)
-	}
-
-	return newClass
+func (tp *TypeParameter) Kind() ObjKind {
+	return O_TYPE_PARAM
 }
 
-func (gt *GenericType) substituteFunctionType(fnType *FunctionType, typeMap map[string]Type) *FunctionType {
-	newFn := &FunctionType{
-		name:       fnType.name,
-		signatures: make([]*FunctionSignature, 0),
-		isGeneric:  false,
-	}
-
-	// 替换函数签名
-	for _, sig := range fnType.signatures {
-		newSig := &FunctionSignature{
-			positionalParams: make([]*Parameter, 0),
-			namedParams:      make([]*Parameter, 0),
-			returnType:       gt.substituteType(sig.returnType, typeMap),
-			isOperator:       sig.isOperator,
-			operator:         sig.operator,
-			body:             sig.body,
-			builtin:          sig.builtin,
-		}
-
-		// 替换位置参数
-		for _, param := range sig.positionalParams {
-			newSig.positionalParams = append(newSig.positionalParams, &Parameter{
-				name:         param.name,
-				typ:          gt.substituteType(param.typ, typeMap),
-				optional:     param.optional,
-				defaultValue: param.defaultValue,
-				variadic:     param.variadic,
-				isNamed:      param.isNamed,
-				required:     param.required,
-			})
-		}
-
-		// 替换命名参数
-		for _, param := range sig.namedParams {
-			newSig.namedParams = append(newSig.namedParams, &Parameter{
-				name:         param.name,
-				typ:          gt.substituteType(param.typ, typeMap),
-				optional:     param.optional,
-				defaultValue: param.defaultValue,
-				variadic:     param.variadic,
-				isNamed:      param.isNamed,
-				required:     param.required,
-			})
-		}
-
-		// 替换可变参数
-		if sig.variadicParam != nil {
-			newSig.variadicParam = &Parameter{
-				name:         sig.variadicParam.name,
-				typ:          gt.substituteType(sig.variadicParam.typ, typeMap),
-				optional:     sig.variadicParam.optional,
-				defaultValue: sig.variadicParam.defaultValue,
-				variadic:     sig.variadicParam.variadic,
-				isNamed:      sig.variadicParam.isNamed,
-				required:     sig.variadicParam.required,
-			}
-		}
-
-		newFn.signatures = append(newFn.signatures, newSig)
-	}
-
-	return newFn
+func (tp *TypeParameter) Text() string {
+	return tp.name
 }
 
-func (gt *GenericType) substituteUnionType(unionType *UnionType, typeMap map[string]Type) Type {
-	newTypes := make([]Type, len(unionType.types))
-	for i, t := range unionType.types {
-		newTypes[i] = gt.substituteType(t, typeMap)
-	}
-	return NewUnionType(newTypes...)
+func (tp *TypeParameter) AssignableTo(u Type) bool {
+	return false // 类型参数不能直接赋值
 }
 
-type InstantiatedType struct {
-	generic  *GenericType
-	typeArgs []Type
+func (tp *TypeParameter) ConvertibleTo(u Type) bool {
+	return false
 }
 
-type Constraint interface {
-	SatisfiedBy(Type) bool
+func (tp *TypeParameter) Implements(u Type) bool {
+	return false
 }
 
-type InterfaceConstraint struct {
-	interfaceType Type
-}
-
-func (ic *InterfaceConstraint) SatisfiedBy(t Type) bool {
-	return t.Implements(ic.interfaceType)
-}
-
-type OperatorConstraint struct {
-	op        Operator
-	rightType Type
-}
-
-func (oc *OperatorConstraint) SatisfiedBy(t Type) bool {
-	return true
-}
-
-type CompositeConstraint struct {
-	constraints []Constraint
-}
-
-func (cc *CompositeConstraint) SatisfiedBy(t Type) bool {
-	for _, constraint := range cc.constraints {
-		if !constraint.SatisfiedBy(t) {
-			return false
-		}
-	}
+// SatisfiesConstraint 检查类型参数是否满足约束
+func (tp *TypeParameter) SatisfiesConstraint(constraint Constraint) bool {
+	// 类型参数本身不检查约束，在实例化时检查
 	return true
 }
 
@@ -604,11 +405,52 @@ func (ci *ClassInstance) Type() Type {
 }
 
 func (ci *ClassInstance) GetField(name string) Value {
-	return ci.fields[name]
+	// 首先检查实例字段
+	if value, exists := ci.fields[name]; exists {
+		return value
+	}
+
+	// 检查静态字段
+	if staticValue := ci.clsType.GetStaticValue(name); staticValue != NULL {
+		return staticValue
+	}
+
+	// 检查父类的字段（递归）
+	if ci.clsType.GetParent() != nil {
+		// 这里需要创建一个父类的实例来访问字段
+		// 简化处理，直接返回NULL
+		return NULL
+	}
+
+	return NULL
 }
 
 func (ci *ClassInstance) SetField(name string, value Value) {
+	// 检查是否为静态字段
+	if ci.clsType.GetStaticField(name) != nil {
+		ci.clsType.SetStaticValue(name, value)
+		return
+	}
+
+	// 设置实例字段
 	ci.fields[name] = value
+}
+
+// GetMethod 获取方法，支持继承和方法重写
+func (ci *ClassInstance) GetMethod(name string) Method {
+	return ci.clsType.MethodByName(name)
+}
+
+// CallMethod 调用方法
+func (ci *ClassInstance) CallMethod(name string, args []Value, namedArgs map[string]Value) (Value, error) {
+	method := ci.GetMethod(name)
+	if method == nil {
+		return NULL, fmt.Errorf("method %s not found", name)
+	}
+
+	// 将实例作为第一个参数传递
+	allArgs := append([]Value{ci}, args...)
+	return method.Call(allArgs, namedArgs)
 }
 
 type ClassConstructor struct {
@@ -616,6 +458,19 @@ type ClassConstructor struct {
 	astDecl   *ast.ConstructorDecl
 	clsType   *ClassType
 	signature []Type
+	isNamed   bool
+}
+
+func (cc *ClassConstructor) Name() string {
+	return cc.name
+}
+
+func (cc *ClassConstructor) IsNamed() bool {
+	return cc.isNamed
+}
+
+func (cc *ClassConstructor) Signature() []Type {
+	return cc.signature
 }
 
 func (cc *ClassConstructor) Call(args ...Value) Value {
@@ -624,48 +479,259 @@ func (cc *ClassConstructor) Call(args ...Value) Value {
 		fields:  make(map[string]Value),
 	}
 
-	for _, initExpr := range cc.astDecl.InitFields {
-		// 核心是executeExpr求值
-		fmt.Println(initExpr)
-	}
+	// 执行字段初始化
+	if cc.astDecl != nil {
+		for _, initExpr := range cc.astDecl.InitFields {
+			// TODO: 执行字段初始化表达式
+			// 这里需要实现表达式求值
+			_ = initExpr
+		}
 
-	if cc.astDecl.Body != nil {
-		// executeBlockStmt(cc.astDecl.Body, inst)
+		if cc.astDecl.Body != nil {
+			// TODO: 执行构造函数体
+			// 这里需要实现语句块执行
+		}
 	}
 
 	return inst
 }
 
-func ConvertClassDecl(decl *ast.ClassDecl) *ClassType {
-	clsType := &ClassType{
-		ObjectType: NewObjectType(decl.Name.Name, O_CLASS),
-		astDecl:    decl,
-		ctors:      make([]Constructor, 0),
+func (cc *ClassConstructor) Match(args []Value) bool {
+	if len(args) != len(cc.signature) {
+		return false
 	}
 
-	// // 1. 处理字段
-	// for _, field := range classDecl.Fields.List {
-	//     fieldType := convertTypeExpr(field.Type) // 需要实现类型转换
-	//     classType.fields[field.Name.Name] = fieldType
-	// }
+	for i, arg := range args {
+		if !arg.Type().AssignableTo(cc.signature[i]) {
+			return false
+		}
+	}
 
-	// // 2. 处理构造函数
-	// for _, ctor := range classDecl.Ctors {
-	//     constructor := &ClassConstructor{
-	//         name:      ctor.Name.Name,
-	//         astDecl:   ctor,
-	//         classType: classType,
-	//     }
-	//     classType.constructors = append(classType.constructors, constructor)
-	// }
+	return true
+}
 
-	// // 3. 处理方法
-	// for _, method := range classDecl.Methods {
-	//     methodType := convertFuncDeclToMethod(method, classType) // 需要实现
-	//     classType.methods[method.Name.Name] = methodType
-	// }
+func (cc *ClassConstructor) NumIn() int {
+	return len(cc.signature)
+}
+
+func (cc *ClassConstructor) In(i int) Type {
+	if i < 0 || i >= len(cc.signature) {
+		return nil
+	}
+	return cc.signature[i]
+}
+
+// NewClassConstructor 创建新的构造函数
+func NewClassConstructor(name string, clsType *ClassType, signature []Type, isNamed bool) *ClassConstructor {
+	return &ClassConstructor{
+		name:      name,
+		clsType:   clsType,
+		signature: signature,
+		isNamed:   isNamed,
+	}
+}
+
+// NewDefaultConstructor 创建默认构造函数
+func NewDefaultConstructor(clsType *ClassType) *ClassConstructor {
+	return &ClassConstructor{
+		name:      "default",
+		clsType:   clsType,
+		signature: []Type{},
+		isNamed:   false,
+	}
+}
+
+func ConvertClassDecl(decl *ast.ClassDecl) *ClassType {
+	// 检查是否为泛型类
+	var isGeneric bool
+	var typeParams []string
+	var constraints map[string]Constraint
+
+	if decl.TypeParams != nil {
+		isGeneric = true
+		typeParams = make([]string, len(decl.TypeParams))
+		constraints = make(map[string]Constraint)
+
+		for i, param := range decl.TypeParams {
+			if typeParam, ok := param.(*ast.TypeParameter); ok {
+				if ident, ok := typeParam.Name.(*ast.Ident); ok {
+					typeParams[i] = ident.Name
+					if typeParam.Constraints != nil {
+						// 转换约束类型为Constraint接口
+						var constraintList []Constraint
+						for _, constraintExpr := range typeParam.Constraints {
+							constraintType := convertTypeExpr(constraintExpr)
+							// 将Type转换为Constraint
+							constraint := NewInterfaceConstraint(constraintType)
+							constraintList = append(constraintList, constraint)
+						}
+
+						// 如果有多个约束，创建复合约束
+						if len(constraintList) == 1 {
+							constraints[ident.Name] = constraintList[0]
+						} else if len(constraintList) > 1 {
+							constraints[ident.Name] = NewCompositeConstraint(constraintList...)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	var clsType *ClassType
+	if isGeneric {
+		clsType = NewGenericClass(decl.Name.Name, typeParams, constraints)
+	} else {
+		clsType = NewClassType(decl.Name.Name)
+	}
+
+	clsType.astDecl = decl
+
+	// 处理继承
+	if decl.Parent != nil {
+		// TODO: 解析父类并设置继承关系
+		// parentType := resolveType(decl.Parent.Name)
+		// clsType.SetParent(parentType)
+	}
+
+	// 处理字段
+	if decl.Fields != nil {
+		for _, field := range decl.Fields.List {
+			fieldType := convertTypeExpr(field.Type)
+			fieldMods := convertFieldModifiers(field.Modifiers)
+
+			// 检查是否为静态字段
+			isStatic := false
+			for _, mod := range fieldMods {
+				if mod == FieldModifierStatic {
+					isStatic = true
+					break
+				}
+			}
+
+			if isStatic {
+				clsType.AddStaticField(field.Name.Name, &Field{
+					ft:   fieldType,
+					mods: fieldMods,
+				})
+			} else {
+				clsType.AddField(field.Name.Name, &Field{
+					ft:   fieldType,
+					mods: fieldMods,
+				})
+			}
+		}
+	}
+
+	// 处理构造函数
+	if decl.Ctors != nil {
+		for _, ctor := range decl.Ctors {
+			signature := convertConstructorSignature(ctor)
+			isNamed := ctor.Name.Name != decl.Name.Name
+
+			constructor := &ClassConstructor{
+				name:      ctor.Name.Name,
+				astDecl:   ctor,
+				clsType:   clsType,
+				signature: signature,
+				isNamed:   isNamed,
+			}
+
+			clsType.AddConstructor(constructor)
+		}
+	}
+
+	// 如果没有构造函数，添加默认构造函数
+	if len(clsType.ctors) == 0 {
+		defaultCtor := NewDefaultConstructor(clsType)
+		clsType.AddConstructor(defaultCtor)
+	}
+
+	// 处理方法
+	if decl.Methods != nil {
+		for _, method := range decl.Methods {
+			methodType := convertMethodDecl(method, clsType)
+
+			// 检查是否为静态方法
+			isStatic := false
+			for _, mod := range method.Modifiers {
+				if mod.Kind() == ast.ModKindStatic {
+					isStatic = true
+					break
+				}
+			}
+
+			if isStatic {
+				clsType.AddStaticMethod(method.Name.Name, methodType.(*FunctionType))
+			} else {
+				// 检查是否为重写方法
+				isOverride := false
+				for _, dec := range method.Decs {
+					if dec.Name.Name == "override" {
+						isOverride = true
+						break
+					}
+				}
+
+				if isOverride {
+					clsType.OverrideMethod(method.Name.Name, methodType.(*FunctionType))
+				} else {
+					clsType.AddMethod(method.Name.Name, methodType)
+				}
+			}
+		}
+	}
 
 	return clsType
+}
+
+// convertTypeExpr 转换类型表达式
+func convertTypeExpr(expr ast.Expr) Type {
+	// TODO: 实现类型表达式转换
+	// 这里需要根据AST节点类型进行转换
+	return anyType
+}
+
+// convertFieldModifiers 转换字段修饰符
+func convertFieldModifiers(modifiers []ast.Modifier) []FieldModifier {
+	var mods []FieldModifier
+	for _, mod := range modifiers {
+		switch mod.Kind() {
+		case ast.ModKindRequired:
+			mods = append(mods, FieldModifierRequired)
+		case ast.ModKindReadonly:
+			mods = append(mods, FieldModifierReadonly)
+		case ast.ModKindStatic:
+			mods = append(mods, FieldModifierStatic)
+		case ast.ModKindPub:
+			mods = append(mods, FieldModifierPub)
+		}
+	}
+	return mods
+}
+
+// convertConstructorSignature 转换构造函数签名
+func convertConstructorSignature(ctor *ast.ConstructorDecl) []Type {
+	var signature []Type
+	if ctor.Recv != nil {
+		for _, param := range ctor.Recv {
+			if param, ok := param.(*ast.Parameter); ok {
+				paramType := convertTypeExpr(param.Type)
+				signature = append(signature, paramType)
+			}
+		}
+	}
+	return signature
+}
+
+// convertMethodDecl 转换方法声明
+func convertMethodDecl(method *ast.FuncDecl, clsType *ClassType) Method {
+	// TODO: 实现方法声明转换
+	// 这里需要创建FunctionType
+	return &FunctionType{
+		name:       method.Name.Name,
+		signatures: []*FunctionSignature{},
+	}
 }
 
 type PrimitiveType struct {

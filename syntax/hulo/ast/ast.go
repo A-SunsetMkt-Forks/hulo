@@ -856,7 +856,7 @@ type (
 
 	// A TypeLiteral node represents a type literal. e.g., { a: int, b: string }
 	TypeLiteral struct {
-		Memebers []Expr
+		Members []Expr
 	}
 
 	// A TypeReference node represents a reference to a type.
@@ -1086,7 +1086,7 @@ func (x *ComptimeExpr) Pos() token.Pos          { return x.Comptime }
 func (x *TypeParameter) Pos() token.Pos         { return x.Name.Pos() }
 func (x *UnionType) Pos() token.Pos             { return x.Types[0].Pos() }
 func (x *IntersectionType) Pos() token.Pos      { return x.Types[0].Pos() }
-func (x *TypeLiteral) Pos() token.Pos           { return x.Memebers[0].Pos() }
+func (x *TypeLiteral) Pos() token.Pos           { return x.Members[0].Pos() }
 func (x *TypeReference) Pos() token.Pos         { return x.Name.Pos() }
 func (x *ArrayType) Pos() token.Pos             { return x.Name.Pos() }
 func (x *FunctionType) Pos() token.Pos          { return x.Lparen }
@@ -1159,7 +1159,7 @@ func (x *TypeParameter) End() token.Pos {
 }
 func (x *UnionType) End() token.Pos             { return x.Types[0].End() }
 func (x *IntersectionType) End() token.Pos      { return x.Types[0].End() }
-func (x *TypeLiteral) End() token.Pos           { return x.Memebers[0].End() }
+func (x *TypeLiteral) End() token.Pos           { return x.Members[0].End() }
 func (x *TypeReference) End() token.Pos         { return x.Name.End() }
 func (x *ArrayType) End() token.Pos             { return x.Name.End() }
 func (x *FunctionType) End() token.Pos          { return x.Lparen }
@@ -1315,7 +1315,7 @@ func (x *IntersectionType) String() string {
 
 func (x *TypeLiteral) String() string {
 	mems := []string{}
-	for _, t := range x.Memebers {
+	for _, t := range x.Members {
 		mems = append(mems, t.String())
 	}
 	return strings.Join(mems, "\n")
@@ -1709,6 +1709,7 @@ func (s *Import) End() token.Pos {
 	}
 	return token.Pos(int(s.ImportMulti.From) + len(s.ImportMulti.Path))
 }
+func (*Import) stmtNode() {}
 
 // A File node represents a Hulo source file.
 type File struct {

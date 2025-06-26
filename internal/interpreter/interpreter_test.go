@@ -3,6 +3,8 @@ package interpreter
 import (
 	"testing"
 
+	"github.com/hulo-lang/hulo/internal/vfs"
+	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	"github.com/stretchr/testify/assert"
@@ -32,4 +34,45 @@ func TestEval(t *testing.T) {
 	interp := &Interpreter{}
 	node = interp.Eval(node)
 	hast.Print(node)
+}
+
+func TestEvalWithVFS(t *testing.T) {
+	var memFS vfs.VFS = memvfs.New()
+	files := map[string]string{
+		"main.hl": `import { PI } from "math"
+
+fn main() {
+    echo "PI = " + $PI.to_str()
+}`,
+		"math.hl": `pub const PI = 3.14159
+
+pub fn add(a: num, b: num) -> num {
+    return $a + $b
+}
+
+pub fn multiply(a: num, b: num) -> num {
+    return $a * $b
+}`,
+		"utils.hl": `pub fn format_string(str: str) -> str {
+    return $str.to_upper()
+}
+
+pub fn reverse_string(str: str) -> str {
+    // 简单的字符串反转
+    $result = ""
+    loop $i in $str.length() - 1 .. -1 .. -1 {
+        $result += ${str[i]}
+    }
+    return $result
+}`,
+	}
+	for filename, content := range files {
+		err := memFS.WriteFile(filename, []byte(content), 0644)
+		assert.NoError(t, err)
+	}
+	interp := &Interpreter{
+		fs: memFS,
+	}
+	err := interp.ExecuteMain("main.hl")
+	assert.NoError(t, err)
 }

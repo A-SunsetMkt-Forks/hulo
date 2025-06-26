@@ -66,6 +66,8 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitClassDecl(n)
 	case *TraitDecl:
 		return p.visitTraitDecl(n)
+	case *TypeDecl:
+		return p.visitTypeDecl(n)
 	case *NullLiteral:
 		p.write("null")
 		return nil
@@ -162,6 +164,8 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitKeyValueExpr(n)
 	case *NamedObjectLiteralExpr:
 		return p.visitNamedObjectLiteralExpr(n)
+	case *TypeLiteral:
+		return p.visitTypeLiteral(n)
 	default:
 		fmt.Fprintf(p.output, "%s%T\n", indentStr, n)
 		panic("unsupport")
@@ -696,6 +700,14 @@ func (p *prettyPrinter) visitExprList(exprs []Expr, sep ...string) {
 	}
 }
 
+func (p *prettyPrinter) visitTypeDecl(n *TypeDecl) Visitor {
+	p.indentWrite("type ")
+	Walk(p, n.Name)
+	p.write(" = ")
+	Walk(p, n.Value)
+	return nil
+}
+
 func (p *prettyPrinter) visitTraitDecl(n *TraitDecl) Visitor {
 	p.indentWrite("trait ")
 	return nil
@@ -952,6 +964,13 @@ func (p *prettyPrinter) visitForeachStmt(n *ForeachStmt) Visitor {
 		Walk(p, n.Var)
 	}
 	Walk(p, n.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitTypeLiteral(n *TypeLiteral) Visitor {
+	p.write("{ ")
+	p.visitExprList(n.Members)
+	p.write(" }")
 	return nil
 }
 

@@ -51,4 +51,12 @@ const (
 	O_UNION // union
 	// A & B
 	O_INTERSECTION // intersection
+	// T?
+	O_NULLABLE // nullable
+
+	// Decorators
+	O_DECORATOR // decorator
+
+	// Generic types
+	O_TYPE_PARAM // type_param
 )

@@ -8,8 +8,8 @@ import (
 
 	// "github.com/hulo-lang/hulo/internal/build/bash"
 	build "github.com/hulo-lang/hulo/internal/build/bash"
-	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/optimizer"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 )

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/util"
 )
 
 func TestNewAllocator(t *testing.T) {
@@ -52,7 +53,7 @@ func TestNewAllocator(t *testing.T) {
 		},
 		{
 			name: "custom lock",
-			opts: []AllocatorOption{WithLock(&VirtualLock{})},
+			opts: []AllocatorOption{WithLock(&util.NoOpLocker{})},
 			check: func(t *testing.T, a *Allocator) {
 				if a.lock == nil {
 					t.Error("expected non-nil lock")

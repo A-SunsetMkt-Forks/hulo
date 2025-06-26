@@ -68,6 +68,28 @@ func TestIfStmt(t *testing.T) {
 	})
 }
 
+func TestTypeDecl(t *testing.T) {
+	Print(&File{
+		Stmts: []Stmt{
+			&TypeDecl{
+				Name: &Ident{Name: "User"},
+				Value: &TypeLiteral{
+					Members: []Expr{
+						&KeyValueExpr{
+							Key:   &Ident{Name: "name"},
+							Value: &TypeReference{Name: &Ident{Name: "str"}},
+						},
+						&KeyValueExpr{
+							Key:   &Ident{Name: "age"},
+							Value: &TypeReference{Name: &Ident{Name: "num"}},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
 func TestDeclareDecl(t *testing.T) {
 	Print(&File{
 		Stmts: []Stmt{
