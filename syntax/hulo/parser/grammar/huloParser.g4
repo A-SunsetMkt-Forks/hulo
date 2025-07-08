@@ -324,7 +324,7 @@ operatorIdentifier:
 
 standardFunctionDeclaration:
     functionModifier* FN (Identifier | operatorIdentifier) genericParameters? receiverParameters THROWS? (
-        COLON functionReturnValue
+        ARROW functionReturnValue
     )? block
 ;
 

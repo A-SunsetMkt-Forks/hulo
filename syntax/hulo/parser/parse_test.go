@@ -42,8 +42,20 @@ func TestParseFuncDecl(t *testing.T) {
 	ast.Print(node)
 }
 
+func TestParseClassDecl(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/class.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
 func TestParseComptime(t *testing.T) {
 	node, err := ParseSourceFile("./testdata/comptime.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseImport(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/import.hl", OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	ast.Print(node)
 }

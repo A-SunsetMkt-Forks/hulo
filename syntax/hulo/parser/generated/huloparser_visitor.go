@@ -385,6 +385,21 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#type.
 	VisitType(ctx *TypeContext) interface{}
 
+	// Visit a parse tree produced by huloParser#typeLiteral.
+	VisitTypeLiteral(ctx *TypeLiteralContext) interface{}
+
+	// Visit a parse tree produced by huloParser#nullableType.
+	VisitNullableType(ctx *NullableTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#unionType.
+	VisitUnionType(ctx *UnionTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#intersectionType.
+	VisitIntersectionType(ctx *IntersectionTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#arrayType.
+	VisitArrayType(ctx *ArrayTypeContext) interface{}
+
 	// Visit a parse tree produced by huloParser#typeAccessPoint.
 	VisitTypeAccessPoint(ctx *TypeAccessPointContext) interface{}
 
@@ -393,6 +408,9 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#typeofExpression.
 	VisitTypeofExpression(ctx *TypeofExpressionContext) interface{}
+
+	// Visit a parse tree produced by huloParser#asExpression.
+	VisitAsExpression(ctx *AsExpressionContext) interface{}
 
 	// Visit a parse tree produced by huloParser#ellipsisType.
 	VisitEllipsisType(ctx *EllipsisTypeContext) interface{}

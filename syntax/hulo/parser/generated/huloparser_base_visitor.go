@@ -511,6 +511,26 @@ func (v *BasehuloParserVisitor) VisitType(ctx *TypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitTypeLiteral(ctx *TypeLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitNullableType(ctx *NullableTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitUnionType(ctx *UnionTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitIntersectionType(ctx *IntersectionTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitArrayType(ctx *ArrayTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitTypeAccessPoint(ctx *TypeAccessPointContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -520,6 +540,10 @@ func (v *BasehuloParserVisitor) VisitTypeList(ctx *TypeListContext) interface{} 
 }
 
 func (v *BasehuloParserVisitor) VisitTypeofExpression(ctx *TypeofExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitAsExpression(ctx *AsExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

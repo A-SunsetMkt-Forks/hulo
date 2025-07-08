@@ -1,0 +1,31 @@
+// 测试复杂的import语句
+
+// 1. 单个导入
+import "time"
+
+// 2. 带别名的单个导入
+import "math" as m
+
+// 3. 导入所有内容
+import * from "std::collections"
+
+// 4. 导入所有内容并重命名
+import * as utils from "std::utils"
+
+// 5. 多项目导入
+import { now, date, time } from "time"
+
+// 6. 多项目导入带别名
+import { now as current_time, date as current_date, time as time_module } from "time"
+
+// 7. 混合导入（多项目 + 别名）
+import { now, date as current_date, time } from "time"
+
+// 8. 复杂路径导入
+import { Vector, HashMap, HashSet } from "std::collections"
+
+// 9. 多个import语句
+import "os"
+import "net" as network
+import { read, write } from "fs"
+import * as http from "net::http"

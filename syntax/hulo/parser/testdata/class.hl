@@ -1,0 +1,12 @@
+pub class Person {
+    name: str
+    age: num = 0
+    pub className: str = "Person"
+
+    pub fn get_name() => $name
+    pub fn get_age() => $age
+
+    pub fn to_str() -> str {
+        return "Person(name: $name, age: $age)"
+    }
+}

@@ -232,6 +232,16 @@ type Field struct {
 	Name   *Ident
 }
 
+func (f *Field) Pos() token.Pos { return f.TokPos }
+func (f *Field) End() token.Pos { return f.Name.End() }
+func (*Field) exprNode() {}
+func (f *Field) String() string {
+	if f.Tok.IsValid() {
+		return fmt.Sprintf("%s %s", f.Tok.String(), f.Name.Name)
+	}
+	return f.Name.Name
+}
+
 // ----------------------------------------------------------------------------
 // Statement
 
@@ -595,8 +605,8 @@ type (
 
 	// A SelectorExpr node represents an expression followed by a selector.
 	SelectorExpr struct {
-		X   Expr   // expression
-		Sel *Ident // field selector
+		X   Expr // expression
+		Sel Expr // field selector
 	}
 
 	// A BinaryExpr node represents a binary expression.

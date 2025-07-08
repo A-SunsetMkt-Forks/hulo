@@ -166,6 +166,8 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitNamedObjectLiteralExpr(n)
 	case *TypeLiteral:
 		return p.visitTypeLiteral(n)
+	case *Import:
+		return p.visitImport(n)
 	default:
 		fmt.Fprintf(p.output, "%s%T\n", indentStr, n)
 		panic("unsupport")
@@ -268,6 +270,7 @@ func (p *prettyPrinter) visitIndexExpr(n *IndexExpr) Visitor {
 }
 
 func (p *prettyPrinter) visitExprStmt(n *ExprStmt) Visitor {
+	p.indentWrite("")
 	Walk(p, n.X)
 	p.write("\n")
 	return nil
@@ -347,7 +350,7 @@ func (p *prettyPrinter) visitIfStmt(n *IfStmt) Visitor {
 
 			n.Else = el.Else
 		case *BlockStmt:
-			p.indentWrite("else ")
+			p.indentWrite("else")
 			Walk(p, el)
 			n.Else = nil
 		}
@@ -606,13 +609,9 @@ func (p *prettyPrinter) visitFuncDecl(n *FuncDecl) Visitor {
 		Walk(p, n.Type)
 	}
 
-	p.write(" {\n")
-	p.indent++
 	if n.Body != nil {
 		Walk(p, n.Body)
 	}
-	p.indent--
-	p.indentWrite("}\n")
 
 	return nil
 }
@@ -740,11 +739,19 @@ func (p *prettyPrinter) visitFieldList(fields []*Field) {
 func (p *prettyPrinter) visitClassDecl(n *ClassDecl) Visitor {
 	indentStr := strings.Repeat("  ", p.indent)
 
-	fmt.Printf("%sclass %s", indentStr, n.Name)
+	p.write(indentStr)
+
+	// 打印修饰符
+	if n.Modifiers != nil {
+		p.visitModifiers(n.Modifiers)
+	}
+
+	p.write("class ")
+	Walk(p, n.Name)
 	if n.TypeParams != nil {
 		p.visitTypeParams(n.TypeParams)
 	}
-	fmt.Printf(" {\n")
+	p.write(" {\n")
 
 	p.indent++
 
@@ -761,7 +768,8 @@ func (p *prettyPrinter) visitClassDecl(n *ClassDecl) Visitor {
 	}
 	p.indent--
 
-	fmt.Printf("%s}\n", indentStr)
+	p.write(indentStr)
+	p.write("}\n")
 	return nil
 }
 
@@ -971,6 +979,44 @@ func (p *prettyPrinter) visitTypeLiteral(n *TypeLiteral) Visitor {
 	p.write("{ ")
 	p.visitExprList(n.Members)
 	p.write(" }")
+	return nil
+}
+
+func (p *prettyPrinter) visitImport(n *Import) Visitor {
+	p.indentWrite("import ")
+
+	// Handle different types of imports
+	if n.ImportSingle != nil {
+		p.write(fmt.Sprintf(`"%s"`, n.ImportSingle.Path))
+		if n.ImportSingle.Alias != "" {
+			p.write(" as ")
+			p.write(n.ImportSingle.Alias)
+		}
+	} else if n.ImportAll != nil {
+		p.write("*")
+		if n.ImportAll.Alias != "" {
+			p.write(" as ")
+			p.write(n.ImportAll.Alias)
+		}
+		p.write(" from ")
+		p.write(fmt.Sprintf(`"%s"`, n.ImportAll.Path))
+	} else if n.ImportMulti != nil {
+		p.write("{ ")
+		for i, field := range n.ImportMulti.List {
+			if i > 0 {
+				p.write(", ")
+			}
+			p.write(field.Field)
+			if field.Alias != "" {
+				p.write(" as ")
+				p.write(field.Alias)
+			}
+		}
+		p.write(" } from ")
+		p.write(fmt.Sprintf(`"%s"`, n.ImportMulti.Path))
+	}
+
+	p.write("\n")
 	return nil
 }
 

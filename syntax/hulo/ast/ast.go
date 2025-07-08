@@ -145,6 +145,7 @@ type (
 	ClassDecl struct {
 		Docs       *CommentGroup      // associated documentation
 		Decs       []*Decorator       // decorators
+		Modifiers  []Modifier         // modifiers array (pub, etc.)
 		Pub        token.Pos          // position of "pub" keyword, if any
 		Class      token.Pos          // position of "class" keyword
 		Name       *Ident             // class name
