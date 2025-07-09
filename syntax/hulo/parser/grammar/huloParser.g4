@@ -29,6 +29,7 @@ statement:
     | implDeclaration
     | typeDeclaration
     | extendDeclaration
+    | externDeclaration
     | macroStatement
     | assignStatement
     | lambdaAssignStatement
@@ -204,6 +205,7 @@ memberAccessPoint:
     DOT Identifier memberAccessPoint?
     | DOT Identifier genericArguments memberAccessPoint?
     | DOUBLE_COLON Identifier memberAccessPoint?
+    | DOUBLE_COLON variableExpression memberAccessPoint?
     | LBRACK expression RBRACK memberAccessPoint?
 ;
 
@@ -245,9 +247,10 @@ longOption: DEC Identifier;
  * my_cmd.std::grep -o "abc" "a.txt" "b.txt" -- -os platform::win32
  */
 commandExpression:
-    (memberAccess | CommandStringLiteral) (option conditionalExpression?)* conditionalExpression* (
-        BITAND DEC (option conditionalExpression?)*
-    )? (commandJoin | commandStream)?
+    (memberAccess | CommandStringLiteral) (option conditionalExpression?)* (
+        conditionalExpression
+        | memberAccess
+    )* (BITAND DEC (option conditionalExpression?)*)? (commandJoin | commandStream)?
 ;
 
 commandJoin: (AND | OR) commandExpression;
@@ -286,8 +289,10 @@ receiverParameterList: receiverParameter (COMMA receiverParameter)*;
 /* receiverParameter:
  * s: str -> IDENT (COLON type)
  * s: str = "hello world" -> IDENT (COLON type) (ASSIGN expression)
+ * title?: str -> IDENT QUEST (COLON type)
+ * title?: str = "default" -> IDENT QUEST (COLON type) (ASSIGN expression)
  */
-receiverParameter: Identifier (COLON type)? (ASSIGN expression)?;
+receiverParameter: Identifier QUEST? (COLON type)? (ASSIGN expression)?;
 
 namedParameters: LBRACE namedParameterList? RBRACE;
 
@@ -302,7 +307,7 @@ namedParameter: REQUIRED? receiverParameter;
 
 returnStatement: RETURN expressionList?;
 
-functionDeclaration: standardFunctionDeclaration | lambdaFunctionDeclaration;
+functionDeclaration: standardFunctionDeclaration | lambdaFunctionDeclaration | functionSignature;
 
 operatorIdentifier:
     OPERATOR (
@@ -346,6 +351,15 @@ lambdaFunctionDeclaration:
 lambdaExpression: receiverParameters DOUBLE_ARROW lambdaBody;
 
 lambdaBody: expression | LBRACE expressionList RBRACE | block;
+
+/* functionSignature:
+ * fn InputBox(prompt: str, title?: str, default?: str, xpos?: num, ypos?: num, helpfile?: str, context?: num) -> any;
+ */
+functionSignature:
+    functionModifier* FN (Identifier | operatorIdentifier) genericParameters? receiverParameters THROWS? (
+        ARROW functionReturnValue
+    )?
+;
 
 functionModifier: PUB | COMPTIME;
 
@@ -427,13 +441,88 @@ classNamedParameterAccessPoint: DOT Identifier classNamedParameterAccessPoint?;
 classInitializeExpression: Identifier LBRACE namedArgumentList RBRACE;
 
 // ? enum -------------
-enumDeclaration: macroStatement* enumModifier? ENUM Identifier (enumBodySimple | enumBody);
-
-enumModifier: PUB;
-
-enumBody:
-    LBRACE ((comment | enumMember | enumBuiltinMethod | enumMethod) SEMI*)* enumInitialize? RBRACE
+enumDeclaration:
+    macroStatement* enumModifier? ENUM Identifier genericParameters? (
+        enumBodySimple
+        | enumBodyAssociated
+        | enumBodyADT
+    )
 ;
+
+enumModifier: PUB | FINAL;
+
+// Basic enum: enum Status { Pending, Approved, Rejected }
+enumBodySimple: LBRACE enumValue (COMMA comment* enumValue)* RBRACE;
+
+// Associated value enum: enum Protocol { port: num; tcp(6), udp(17) }
+// Complex associated enum: enum Protocol { final port: num; const Protocol(...); tcp(6), udp(17); fn get_port() -> num { ... } }
+enumBodyAssociated:
+    LBRACE enumAssociatedFields? enumAssociatedConstructor? enumAssociatedValues SEMI? enumAssociatedMethods? RBRACE
+;
+
+// ADT enum: enum NetworkPacket { TCP { src_port: num, dst_port: num }, UDP { port: num } }
+enumBodyADT: LBRACE enumVariant (COMMA comment* enumVariant)* enumMethods? RBRACE;
+
+// Enum value with optional assignment: Pending or Pending = 0
+enumValue: Identifier (ASSIGN expression)? comment?;
+
+// Associated fields declaration: port: num or final port: num
+enumAssociatedFields: enumAssociatedField (COMMA enumAssociatedField)* SEMI;
+
+enumAssociatedField: enumFieldModifier* Identifier COLON type;
+
+enumFieldModifier: FINAL | CONST;
+
+enumField: Identifier COLON type;
+
+// Associated values: tcp(6), udp(17)
+enumAssociatedValues: enumAssociatedValue (COMMA comment* enumAssociatedValue)*;
+
+enumAssociatedValue: Identifier LPAREN expressionList? RPAREN;
+
+// Associated enum constructor: const Protocol($this.port = -1) or const Protocol.One(): $this.port = 1 {}
+enumAssociatedConstructor: enumConstructor+;
+
+// Enum constructor: const Protocol(...) or const Protocol.One(...)
+// Examples:
+// const Protocol($this.port = -1);
+// const Protocol.One(): $this.port = 1 {}
+// const Protocol.Port(v: num): $this.port = v {}
+// const Protocol(zero: bool, ...v: num) { ... }
+enumConstructor:
+    macroStatement* enumBuiltinMethodModifier? enumConstructorName enumConstructorParameters (
+        enumConstructorInit? THROWS? block
+        | enumConstructorInit? DOUBLE_ARROW block
+        | enumConstructorInit? SEMI
+    )?
+;
+
+// Protocol or Protocol.One
+enumConstructorName: Identifier (DOT Identifier)?;
+
+// Enum constructor parameters: ($this.port = -1) or (v: num) or (zero: bool, ...v: num)
+enumConstructorParameters:
+    LPAREN (
+        enumConstructorDirectInit
+        | receiverParameterList (COMMA enumConstructorDirectInit)*
+        | receiverParameterList
+    )? RPAREN
+;
+
+// $this.port = -1 (直接赋值，不需要冒号)
+enumConstructorDirectInit: variableExpression ASSIGN expression;
+
+// : $this.port = 1 (冒号后直接赋值)
+enumConstructorInit: COLON enumConstructorDirectInit;
+
+// Associated enum methods
+enumAssociatedMethods: enumMethod+;
+
+// ADT variant: TCP { src_port: num, dst_port: num }
+enumVariant: Identifier LBRACE enumField (COMMA enumField)* RBRACE;
+
+// Enum methods (for ADT and associated enums)
+enumMethods: enumMethod+;
 
 enumMethod:
     macroStatement* enumMethodModifier* (standardFunctionDeclaration | lambdaFunctionDeclaration)
@@ -441,21 +530,12 @@ enumMethod:
 
 enumMethodModifier: PUB | STATIC;
 
+// Legacy support
 enumMember: macroStatement* enumMemberModifier* Identifier COLON type;
 
 enumMemberModifier: PUB | FINAL;
 
-enumBuiltinMethod:
-    macroStatement* enumBuiltinMethodModifier? Identifier classBuiltinParameters (
-        THROWS? block
-        | DOUBLE_ARROW block
-    )?
-;
-
 enumBuiltinMethodModifier: CONST;
-
-// { blue, red, yellow }
-enumBodySimple: LBRACE Identifier (COMMA Identifier)* RBRACE;
 
 enumInitialize: (enumInitializeMember COMMA)* enumInitializeMember SEMI;
 
@@ -485,7 +565,7 @@ implDeclarationBody: memberAccess classBody;
 
 extendDeclaration: EXTEND (extendEnum | extendClass | extendTrait | extendType | extendMod);
 
-extendEnum: ENUM Identifier (enumBody | enumBodySimple);
+extendEnum: ENUM Identifier (enumBodySimple | enumBodyAssociated | enumBodyADT);
 
 extendClass: CLASS Identifier classBody;
 
@@ -557,7 +637,7 @@ useAll: MUL asIdentifier? FROM StringLiteral;
 //
 // type system
 
-typeDeclaration: TYPE Identifier ASSIGN type;
+typeDeclaration: TYPE Identifier genericParameters? ASSIGN type;
 
 // <type (, type)*>
 genericArguments: LT typeList? GT;
@@ -580,13 +660,16 @@ compositeType: (BITOR type | BITAND type) compositeType?;
  * error::runtime | chan<str> | std::time.date
  * user[5][3]
  * ...user
+ * { name: str, age: num }
+ * [str, num, bool]
  */
 type: (
         (STR | NUM | BOOL | ANY | Identifier) typeAccessPoint?
         | memberAccess
         | StringLiteral
-        | ellipsisType
         | functionType
+        | objectType
+        | tupleType
     ) QUEST? compositeType?
 ;
 
@@ -616,8 +699,14 @@ typeofExpression: TYPEOF expression;
 
 asExpression: variableExpression AS type;
 
-// ...str
-ellipsisType: ELLIPSIS type;
+// { name: str, age: num }
+objectType: LBRACE objectTypeMember (COMMA objectTypeMember)* RBRACE;
+
+// name: str
+objectTypeMember: Identifier COLON type;
+
+// [str, num, bool]
+tupleType: LBRACK typeList RBRACK;
 
 /* functionType:
  * (x: str)
@@ -665,7 +754,7 @@ ifStatement: IF conditionalExpression block (ELSE (ifStatement | block))?;
 // match statement -----------------------
 
 matchStatement:
-    MATCH expression LBRACE (matchCaseClause COMMA comment*)* (matchDefaultClause COMMA comment*)? RBRACE
+    MATCH expression LBRACE (matchCaseClause COMMA comment*)* (matchDefaultClause COMMA? comment*)? RBRACE
 ;
 
 matchCaseClause: (type | matchEnum | memberAccess | matchTriple | expression | rangeExpression) DOUBLE_ARROW matchCaseBody
@@ -750,6 +839,16 @@ channelInputStatement:
 ;
 channelOutputExpression: BACKARROW variableExpression;
 
-unsafeExpression: UnsafeLiteral;
+unsafeExpression: UNSAFE UnsafeBlock | UnsafeLiteral;
 
 comptimeExpression: COMPTIME block;
+
+// -----------------------
+//
+// extern declaration
+
+externDeclaration: EXTERN externList;
+
+externList: externItem (COMMA externItem)*;
+
+externItem: Identifier (COLON type)?;

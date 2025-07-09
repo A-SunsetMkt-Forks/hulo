@@ -215,7 +215,7 @@ func BenchmarkHeap_StructType(b *testing.B) {
 		Age  int
 	}
 
-	heap := NewHeap[Person](func(a, b Person) bool {
+	heap := NewHeap(func(a, b Person) bool {
 		return a.Age < b.Age
 	}, MinHeap)
 	person := Person{Name: "Alice", Age: 30}

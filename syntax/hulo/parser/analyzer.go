@@ -176,7 +176,6 @@ func (a *Analyzer) VisitLiteral(ctx *generated.LiteralContext) any {
 // VisitConditionalExpression implements the Visitor interface for ConditionalExpression
 func (a *Analyzer) VisitConditionalExpression(ctx *generated.ConditionalExpressionContext) any {
 	return a.visitWrapper("ConditionalExpression", ctx, func() any {
-
 		// Get the condition expression
 		cond, _ := accept[ast.Expr](ctx.ConditionalBoolExpression(), a)
 
@@ -189,16 +188,12 @@ func (a *Analyzer) VisitConditionalExpression(ctx *generated.ConditionalExpressi
 		then, _ := accept[ast.Expr](ctx.ConditionalExpression(0), a)
 		els, _ := accept[ast.Expr](ctx.ConditionalExpression(1), a)
 
-		return &ast.BinaryExpr{
-			X:     cond,
-			OpPos: token.Pos(ctx.QUEST().GetSymbol().GetStart()),
-			Op:    token.QUEST,
-			Y: &ast.BinaryExpr{
-				X:     then,
-				OpPos: token.Pos(ctx.COLON().GetSymbol().GetStart()),
-				Op:    token.COLON,
-				Y:     els,
-			},
+		return &ast.ConditionalExpr{
+			Cond:      cond,
+			Quest:     token.Pos(ctx.QUEST().GetSymbol().GetStart()),
+			WhenTrue:  then,
+			Colon:     token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			WhneFalse: els,
 		}
 	})
 }
@@ -479,6 +474,21 @@ func (a *Analyzer) VisitStatement(ctx *generated.StatementContext) any {
 		if ctx.ImportDeclaration() != nil {
 			return a.VisitImportDeclaration(ctx.ImportDeclaration().(*generated.ImportDeclarationContext))
 		}
+		if ctx.DeclareStatement() != nil {
+			return a.VisitDeclareStatement(ctx.DeclareStatement().(*generated.DeclareStatementContext))
+		}
+		if ctx.TypeDeclaration() != nil {
+			return a.VisitTypeDeclaration(ctx.TypeDeclaration().(*generated.TypeDeclarationContext))
+		}
+		if ctx.EnumDeclaration() != nil {
+			return a.VisitEnumDeclaration(ctx.EnumDeclaration().(*generated.EnumDeclarationContext))
+		}
+		if ctx.MatchStatement() != nil {
+			return a.VisitMatchStatement(ctx.MatchStatement().(*generated.MatchStatementContext))
+		}
+		if ctx.ExternDeclaration() != nil {
+			return a.VisitExternDeclaration(ctx.ExternDeclaration().(*generated.ExternDeclarationContext))
+		}
 		// TODO: Add more statement types
 
 		return nil
@@ -613,7 +623,7 @@ func (a *Analyzer) VisitExpression(ctx *generated.ExpressionContext) any {
 			return a.VisitCommandExpression(ctx.CommandExpression().(*generated.CommandExpressionContext))
 		}
 		if ctx.UnsafeExpression() != nil {
-			// return v.VisitUnsafeExpression(ctx.UnsafeExpression().(*generated.UnsafeExpressionContext))
+			return a.VisitUnsafeExpression(ctx.UnsafeExpression().(*generated.UnsafeExpressionContext))
 		}
 		if ctx.ComptimeExpression() != nil {
 			return a.VisitComptimeExpression(ctx.ComptimeExpression().(*generated.ComptimeExpressionContext))
@@ -720,8 +730,8 @@ func (a *Analyzer) VisitCommandExpression(ctx *generated.CommandExpressionContex
 				Value:    ctx.CommandStringLiteral().GetText(),
 				ValuePos: token.Pos(ctx.CommandStringLiteral().GetSymbol().GetStart()),
 			}
-		} else if ctx.MemberAccess() != nil {
-			fun, _ = accept[ast.Expr](ctx.MemberAccess(), a)
+		} else if len(ctx.AllMemberAccess()) > 0 {
+			fun, _ = accept[ast.Expr](ctx.MemberAccess(0), a)
 		}
 
 		ce, isComptime := fun.(*ast.ComptimeExpr)
@@ -739,6 +749,14 @@ func (a *Analyzer) VisitCommandExpression(ctx *generated.CommandExpressionContex
 
 		for _, expr := range ctx.AllConditionalExpression() {
 			arg, _ := accept[ast.Expr](expr, a)
+			if arg != nil {
+				recv = append(recv, arg)
+			}
+		}
+
+		// Handle additional member access arguments (skip the first one which is the command name)
+		for i := 1; i < len(ctx.AllMemberAccess()); i++ {
+			arg, _ := accept[ast.Expr](ctx.MemberAccess(i), a)
 			if arg != nil {
 				recv = append(recv, arg)
 			}
@@ -926,12 +944,12 @@ func (a *Analyzer) visitMemberAccessPoint(base ast.Expr, ctx *generated.MemberAc
 		return selectExpr
 	}
 
-	// Handle double colon access
+	// Handle double colon access with identifier
 	if ctx.DOUBLE_COLON() != nil && ctx.Identifier() != nil {
 		ident := ctx.Identifier().GetText()
-		selectExpr := &ast.SelectExpr{
-			X:   base,
-			Dot: token.Pos(ctx.DOUBLE_COLON().GetSymbol().GetStart()),
+		modExpr := &ast.ModAccessExpr{
+			X:        base,
+			DblColon: token.Pos(ctx.DOUBLE_COLON().GetSymbol().GetStart()),
 			Y: &ast.Ident{
 				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
 				Name:    ident,
@@ -940,9 +958,25 @@ func (a *Analyzer) visitMemberAccessPoint(base ast.Expr, ctx *generated.MemberAc
 
 		// Handle recursive member access point
 		if ctx.MemberAccessPoint() != nil {
-			return a.visitMemberAccessPoint(selectExpr, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
+			return a.visitMemberAccessPoint(modExpr, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
 		}
-		return selectExpr
+		return modExpr
+	}
+
+	// Handle double colon access with variable expression
+	if ctx.DOUBLE_COLON() != nil && ctx.VariableExpression() != nil {
+		varExpr := a.Visit(ctx.VariableExpression()).(ast.Expr)
+		modExpr := &ast.ModAccessExpr{
+			X:        base,
+			DblColon: token.Pos(ctx.DOUBLE_COLON().GetSymbol().GetStart()),
+			Y:        varExpr,
+		}
+
+		// Handle recursive member access point
+		if ctx.MemberAccessPoint() != nil {
+			return a.visitMemberAccessPoint(modExpr, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
+		}
+		return modExpr
 	}
 
 	// Handle index access
@@ -970,20 +1004,47 @@ func (a *Analyzer) VisitConditionalBoolExpression(ctx *generated.ConditionalBool
 
 		// Get the first logical expression
 		x, _ := accept[ast.Expr](ctx.LogicalExpression(0), a)
+		if x == nil {
+			return nil
+		}
 
-		if len(ctx.AllLogicalExpression()) > 1 {
-			// Handle multiple logical expressions with operators
-			for i := 1; i < len(ctx.AllLogicalExpression()); i++ {
-				y, _ := accept[ast.Expr](ctx.LogicalExpression(i), a)
-				op := token.Token(ctx.GetConditionalOp().GetTokenType())
-				opPos := token.Pos(ctx.GetConditionalOp().GetStart())
+		// If there's only one logical expression, return it
+		if len(ctx.AllLogicalExpression()) == 1 {
+			return x
+		}
 
-				x = &ast.BinaryExpr{
-					X:     x,
-					OpPos: opPos,
-					Op:    op,
-					Y:     y,
-				}
+		// Handle multiple logical expressions with operators
+		for i := 1; i < len(ctx.AllLogicalExpression()); i++ {
+			y, _ := accept[ast.Expr](ctx.LogicalExpression(i), a)
+			if y == nil {
+				continue
+			}
+
+			// Get the operator for this pair
+			var op token.Token
+			var opPos token.Pos
+
+			// Find the corresponding operator
+			opIndex := i - 1
+			if opIndex < len(ctx.AllBITAND()) {
+				op = token.CONCAT
+				opPos = token.Pos(ctx.BITAND(opIndex).GetSymbol().GetStart())
+			} else if opIndex < len(ctx.AllBITOR()) {
+				op = token.OR
+				opPos = token.Pos(ctx.BITOR(opIndex).GetSymbol().GetStart())
+			} else if opIndex < len(ctx.AllAND()) {
+				op = token.AND
+				opPos = token.Pos(ctx.AND(opIndex).GetSymbol().GetStart())
+			} else if opIndex < len(ctx.AllOR()) {
+				op = token.OR
+				opPos = token.Pos(ctx.OR(opIndex).GetSymbol().GetStart())
+			}
+
+			x = &ast.BinaryExpr{
+				X:     x,
+				OpPos: opPos,
+				Op:    op,
+				Y:     y,
 			}
 		}
 
@@ -1099,6 +1160,11 @@ func (a *Analyzer) VisitFactor(ctx *generated.FactorContext) any {
 			return a.VisitVariableExpression(ctx.VariableExpression().(*generated.VariableExpressionContext))
 		}
 
+		// Handle method expressions
+		if ctx.MethodExpression() != nil {
+			return a.VisitMethodExpression(ctx.MethodExpression().(*generated.MethodExpressionContext))
+		}
+
 		// Handle parenthesized expressions
 		if ctx.LPAREN() != nil {
 			return a.VisitFactor(ctx.Factor().(*generated.FactorContext))
@@ -1115,18 +1181,32 @@ func (a *Analyzer) VisitFactor(ctx *generated.FactorContext) any {
 func (a *Analyzer) VisitCallExpression(ctx *generated.CallExpressionContext) any {
 	return a.visitWrapper("CallExpression", ctx, func() any {
 		ret := a.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
-		stmt, ok := ret.(*ast.ComptimeExpr)
-		if !ok {
+
+		// Handle comptime expressions
+		if stmt, ok := ret.(*ast.ComptimeExpr); ok {
+			callExpr := &ast.CallExpr{Fun: stmt.X.(ast.Expr)}
+			if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
+				for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
+					e := a.VisitExpression(expr.(*generated.ExpressionContext))
+					callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
+				}
+			}
+			stmt.X = callExpr
 			return ret
 		}
-		callExpr := &ast.CallExpr{Fun: stmt.X.(ast.Expr)}
-		if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
-			for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
-				e := a.VisitExpression(expr.(*generated.ExpressionContext))
-				callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
+
+		// Handle regular function calls
+		if fun, ok := ret.(ast.Expr); ok {
+			callExpr := &ast.CallExpr{Fun: fun}
+			if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
+				for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
+					e := a.VisitExpression(expr.(*generated.ExpressionContext))
+					callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
+				}
 			}
+			return callExpr
 		}
-		stmt.X = callExpr
+
 		return ret
 	})
 }
@@ -1142,6 +1222,36 @@ func (a *Analyzer) VisitVariableExpression(ctx *generated.VariableExpressionCont
 		return &ast.RefExpr{
 			X: ret.(ast.Expr),
 		}
+	})
+}
+
+func (a *Analyzer) VisitMethodExpression(ctx *generated.MethodExpressionContext) any {
+	return a.visitWrapper("MethodExpression", ctx, func() any {
+		// Get the member access (e.g., p.greet)
+		memberAccess := a.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
+		if memberAccess == nil {
+			return nil
+		}
+
+		// Wrap the member access in a RefExpr to represent the $ prefix
+		refExpr := &ast.RefExpr{
+			X: memberAccess.(ast.Expr),
+		}
+
+		// Create a call expression
+		callExpr := &ast.CallExpr{
+			Fun:    refExpr,
+			Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+		}
+
+		// Handle arguments if present
+		if ctx.ReceiverArgumentList() != nil {
+			args, _ := accept[[]ast.Expr](ctx.ReceiverArgumentList(), a)
+			callExpr.Recv = args
+		}
+
+		return callExpr
 	})
 }
 
@@ -1372,6 +1482,8 @@ func (a *Analyzer) VisitFunctionDeclaration(ctx *generated.FunctionDeclarationCo
 			return a.VisitStandardFunctionDeclaration(ctx.StandardFunctionDeclaration().(*generated.StandardFunctionDeclarationContext))
 		} else if ctx.LambdaFunctionDeclaration() != nil {
 			return a.VisitLambdaFunctionDeclaration(ctx.LambdaFunctionDeclaration().(*generated.LambdaFunctionDeclarationContext))
+		} else if ctx.FunctionSignature() != nil {
+			return a.VisitFunctionSignature(ctx.FunctionSignature().(*generated.FunctionSignatureContext))
 		}
 		return nil
 	})
@@ -1487,6 +1599,59 @@ func (a *Analyzer) VisitLambdaFunctionDeclaration(ctx *generated.LambdaFunctionD
 	})
 }
 
+// VisitFunctionSignature implements the Visitor interface for FunctionSignature
+func (a *Analyzer) VisitFunctionSignature(ctx *generated.FunctionSignatureContext) any {
+	return a.visitWrapper("FunctionSignature", ctx, func() any {
+		// Get function name
+		var funcName *ast.Ident
+		if ctx.Identifier() != nil {
+			funcName = &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+				Name:    ctx.Identifier().GetText(),
+			}
+		} else if ctx.OperatorIdentifier() != nil {
+			opText := ctx.OperatorIdentifier().GetText()
+			funcName = &ast.Ident{
+				NamePos: token.Pos(ctx.OperatorIdentifier().GetStart().GetStart()),
+				Name:    opText,
+			}
+		}
+
+		// Get parameters
+		params, _ := accept[[]ast.Expr](ctx.ReceiverParameters(), a)
+
+		// Get return type
+		var returnType ast.Expr
+		if ctx.FunctionReturnValue() != nil {
+			returnType, _ = accept[ast.Expr](ctx.FunctionReturnValue(), a)
+		}
+
+		// Create function modifier
+		var funcMod []ast.Modifier
+		for _, modCtx := range ctx.AllFunctionModifier() {
+			if funcMod == nil {
+				funcMod = []ast.Modifier{}
+			}
+			switch {
+			case modCtx.PUB() != nil:
+				funcMod = append(funcMod, &ast.PubModifier{Pub: token.Pos(modCtx.PUB().GetSymbol().GetStart())})
+			case modCtx.COMPTIME() != nil:
+				// Handle comptime modifier if needed
+			}
+		}
+
+		// Create FuncDecl with empty body for signature
+		return &ast.FuncDecl{
+			Modifiers: funcMod,
+			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:      funcName,
+			Recv:      params,
+			Type:      returnType,
+			Body:      nil, // Function signature has no body
+		}
+	})
+}
+
 // VisitReceiverParameters implements the Visitor interface for ReceiverParameters
 func (a *Analyzer) VisitReceiverParameters(ctx *generated.ReceiverParametersContext) any {
 	return a.visitWrapper("ReceiverParameters", ctx, func() any {
@@ -1508,6 +1673,13 @@ func (a *Analyzer) VisitReceiverParameters(ctx *generated.ReceiverParametersCont
 				// Get parameter type
 				if paramCtx.Type_() != nil {
 					field.Type, _ = accept[ast.Expr](paramCtx.Type_(), a)
+
+					// Check if parameter is optional (has QUEST) - make type nullable
+					if paramCtx.QUEST() != nil {
+						field.Type = &ast.NullableType{
+							X: field.Type,
+						}
+					}
 				}
 
 				// Get default value
@@ -1532,87 +1704,101 @@ func (a *Analyzer) VisitReceiverParameters(ctx *generated.ReceiverParametersCont
 // VisitType implements the Visitor interface for Type
 func (a *Analyzer) VisitType(ctx *generated.TypeContext) any {
 	return a.visitWrapper("Type", ctx, func() any {
+		var baseType ast.Expr
+
 		// Handle basic types
 		if ctx.STR() != nil {
-			return &ast.TypeReference{
+			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
 					NamePos: token.Pos(ctx.STR().GetSymbol().GetStart()),
 					Name:    "str",
 				},
 			}
-		}
-		if ctx.NUM() != nil {
-			return &ast.TypeReference{
+		} else if ctx.NUM() != nil {
+			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
 					NamePos: token.Pos(ctx.NUM().GetSymbol().GetStart()),
 					Name:    "num",
 				},
 			}
-		}
-		if ctx.BOOL() != nil {
-			return &ast.TypeReference{
+		} else if ctx.BOOL() != nil {
+			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
 					NamePos: token.Pos(ctx.BOOL().GetSymbol().GetStart()),
 					Name:    "bool",
 				},
 			}
-		}
-		if ctx.ANY() != nil {
-			return &ast.TypeReference{
+		} else if ctx.ANY() != nil {
+			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
 					NamePos: token.Pos(ctx.ANY().GetSymbol().GetStart()),
 					Name:    "any",
 				},
 			}
-		}
-		if ctx.Identifier() != nil {
-			return &ast.TypeReference{
+		} else if ctx.Identifier() != nil {
+			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
 					NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
 					Name:    ctx.Identifier().GetText(),
 				},
 			}
-		}
-		if ctx.StringLiteral() != nil {
-			return &ast.TypeReference{
-				Name: &ast.StringLiteral{
-					Value:    ctx.StringLiteral().GetText(),
-					ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
-				},
+		} else if ctx.StringLiteral() != nil {
+			// Remove the quotes from the string literal
+			raw := ctx.StringLiteral().GetText()
+			value := raw[1 : len(raw)-1] // Remove first and last character (quotes)
+			baseType = &ast.StringLiteral{
+				Value:    value,
+				ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
 			}
-		}
-
-		// Handle member access types
-		if ctx.MemberAccess() != nil {
+		} else if ctx.MemberAccess() != nil {
+			// Handle member access types
 			memberAccess := a.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
-			return &ast.TypeReference{
-				Name: memberAccess.(ast.Expr),
+			baseType = memberAccess.(ast.Expr)
+		} else if ctx.FunctionType() != nil {
+			// Handle function types
+			funcType, _ := accept[ast.Expr](ctx.FunctionType(), a)
+			baseType = funcType
+
+		} else if ctx.ObjectType() != nil {
+			// Handle object types
+			objectType, _ := accept[ast.Expr](ctx.ObjectType(), a)
+			baseType = objectType
+		} else if ctx.TupleType() != nil {
+			// Handle tuple types
+			tupleType, _ := accept[ast.Expr](ctx.TupleType(), a)
+			baseType = tupleType
+		}
+
+		// Handle type access points (array types)
+		if baseType != nil && ctx.TypeAccessPoint() != nil {
+			baseType = a.visitTypeAccessPoint(baseType, ctx.TypeAccessPoint().(*generated.TypeAccessPointContext))
+		}
+
+		// Handle nullable types (T?)
+		if baseType != nil && ctx.QUEST() != nil {
+			baseType = &ast.NullableType{
+				X: baseType,
 			}
 		}
 
-		// Handle function types
-		if ctx.FunctionType() != nil {
-			// TODO: Implement function type handling
-			return &ast.TypeReference{
-				Name: &ast.Ident{
-					NamePos: token.Pos(ctx.GetStart().GetStart()),
-					Name:    "function",
-				},
+		// Handle composite types (union and intersection)
+		if baseType != nil && ctx.CompositeType() != nil {
+			compositeType, _ := accept[ast.Expr](ctx.CompositeType(), a)
+			if compositeType != nil {
+				// Merge the base type with the composite type
+				if unionType, ok := compositeType.(*ast.UnionType); ok {
+					unionType.Types = append([]ast.Expr{baseType}, unionType.Types...)
+					baseType = unionType
+				} else if intersectionType, ok := compositeType.(*ast.IntersectionType); ok {
+					intersectionType.Types = append([]ast.Expr{baseType}, intersectionType.Types...)
+					baseType = intersectionType
+				} else {
+					baseType = compositeType
+				}
 			}
 		}
 
-		// Handle ellipsis types
-		if ctx.EllipsisType() != nil {
-			// TODO: Implement ellipsis type handling
-			return &ast.TypeReference{
-				Name: &ast.Ident{
-					NamePos: token.Pos(ctx.GetStart().GetStart()),
-					Name:    "...",
-				},
-			}
-		}
-
-		return nil
+		return baseType
 	})
 }
 
@@ -2008,5 +2194,944 @@ func (a *Analyzer) VisitIdentifierAsIdentifier(ctx *generated.IdentifierAsIdenti
 			As:    asPos,
 			Alias: alias,
 		}
+	})
+}
+
+// VisitDeclareStatement implements the Visitor interface for DeclareStatement
+func (a *Analyzer) VisitDeclareStatement(ctx *generated.DeclareStatementContext) any {
+	return a.visitWrapper("DeclareStatement", ctx, func() any {
+		// Get the declare position
+		declarePos := token.Pos(ctx.DECLARE().GetSymbol().GetStart())
+
+		// Handle different types of declarations that can be inside declare
+		var x ast.Node
+
+		if ctx.Block() != nil {
+			// declare { ... }
+			block, _ := accept[*ast.BlockStmt](ctx.Block(), a)
+			x = block
+		} else if ctx.ClassDeclaration() != nil {
+			// declare class ...
+			classDecl, _ := accept[*ast.ClassDecl](ctx.ClassDeclaration(), a)
+			x = classDecl
+		} else if ctx.EnumDeclaration() != nil {
+			// declare enum ...
+			enumDecl, _ := accept[*ast.EnumDecl](ctx.EnumDeclaration(), a)
+			x = enumDecl
+		} else if ctx.TraitDeclaration() != nil {
+			// declare trait ...
+			traitDecl, _ := accept[*ast.TraitDecl](ctx.TraitDeclaration(), a)
+			x = traitDecl
+		} else if ctx.FunctionDeclaration() != nil {
+			// declare function ...
+			funcDecl, _ := accept[*ast.FuncDecl](ctx.FunctionDeclaration(), a)
+			x = funcDecl
+		} else if ctx.ModuleDeclaration() != nil {
+			// declare module ...
+			modDecl, _ := accept[*ast.ModDecl](ctx.ModuleDeclaration(), a)
+			x = modDecl
+		} else if ctx.TypeDeclaration() != nil {
+			// declare type ...
+			typeDecl, _ := accept[*ast.TypeDecl](ctx.TypeDeclaration(), a)
+			x = typeDecl
+		}
+
+		return &ast.DeclareDecl{
+			Declare: declarePos,
+			X:       x,
+		}
+	})
+}
+
+// VisitTypeDeclaration implements the Visitor interface for TypeDeclaration
+func (a *Analyzer) VisitTypeDeclaration(ctx *generated.TypeDeclarationContext) any {
+	return a.visitWrapper("TypeDeclaration", ctx, func() any {
+		// Get the type name
+		typeName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Get the type value
+		typeValue, _ := accept[ast.Expr](ctx.Type_(), a)
+
+		return &ast.TypeDecl{
+			Type:   token.Pos(ctx.TYPE().GetSymbol().GetStart()),
+			Name:   typeName,
+			Assign: token.Pos(ctx.ASSIGN().GetSymbol().GetStart()),
+			Value:  typeValue,
+		}
+	})
+}
+
+// visitTypeAccessPoint handles type access points like array types
+func (a *Analyzer) visitTypeAccessPoint(baseType ast.Expr, ctx *generated.TypeAccessPointContext) ast.Expr {
+	// Handle array types like T[5]
+	if ctx.LBRACK() != nil && ctx.NumberLiteral() != nil && ctx.RBRACK() != nil {
+		// For now, we'll create a simple array type
+		// In the future, this could be enhanced to support more complex array types
+		return &ast.ArrayType{
+			Name: baseType,
+		}
+	}
+
+	// Handle recursive type access points
+	if ctx.TypeAccessPoint() != nil {
+		return a.visitTypeAccessPoint(baseType, ctx.TypeAccessPoint().(*generated.TypeAccessPointContext))
+	}
+
+	return baseType
+}
+
+// VisitCompositeType implements the Visitor interface for CompositeType
+func (a *Analyzer) VisitCompositeType(ctx *generated.CompositeTypeContext) any {
+	return a.visitWrapper("CompositeType", ctx, func() any {
+		// Get the right-hand type
+		rightType, _ := accept[ast.Expr](ctx.Type_(), a)
+
+		// Handle recursive composite types first
+		if ctx.CompositeType() != nil {
+			compositeType, _ := accept[ast.Expr](ctx.CompositeType(), a)
+			if compositeType != nil {
+				// Merge the types
+				if unionType, ok := compositeType.(*ast.UnionType); ok {
+					unionType.Types = append(unionType.Types, rightType)
+					return unionType
+				} else if intersectionType, ok := compositeType.(*ast.IntersectionType); ok {
+					intersectionType.Types = append(intersectionType.Types, rightType)
+					return intersectionType
+				}
+			}
+		}
+
+		// Handle union types (T | U)
+		if ctx.BITOR() != nil {
+			// For the base case, we need to get the left type from the parent context
+			// This is tricky because we need to look up the call stack
+			// For now, let's create a union type and let the parent handle it
+			return &ast.UnionType{
+				Types: []ast.Expr{rightType},
+			}
+		}
+
+		// Handle intersection types (T & U)
+		if ctx.BITAND() != nil {
+			// For the base case, we need to get the left type from the parent context
+			// This is tricky because we need to look up the call stack
+			// For now, let's create an intersection type and let the parent handle it
+			return &ast.IntersectionType{
+				Types: []ast.Expr{rightType},
+			}
+		}
+
+		return rightType
+	})
+}
+
+// VisitFunctionType implements the Visitor interface for FunctionType
+func (a *Analyzer) VisitFunctionType(ctx *generated.FunctionTypeContext) any {
+	return a.visitWrapper("FunctionType", ctx, func() any {
+		// Get parameters
+		params, _ := accept[[]ast.Expr](ctx.ReceiverParameters(), a)
+
+		// Get return type
+		var returnType ast.Expr
+		if ctx.FunctionReturnValue() != nil {
+			returnType, _ = accept[ast.Expr](ctx.FunctionReturnValue(), a)
+		}
+
+		// Get positions safely - use default positions for now
+		var lparen, rparent token.Pos
+		if ctx.GetStart() != nil {
+			lparen = token.Pos(ctx.GetStart().GetStart())
+		}
+		if ctx.GetStop() != nil {
+			rparent = token.Pos(ctx.GetStop().GetStop())
+		}
+
+		return &ast.FunctionType{
+			Lparen:  lparen,
+			Recv:    params,
+			Rparent: rparent,
+			RetVal:  returnType,
+		}
+	})
+}
+
+// VisitObjectType implements the Visitor interface for ObjectType
+func (a *Analyzer) VisitObjectType(ctx *generated.ObjectTypeContext) any {
+	return a.visitWrapper("ObjectType", ctx, func() any {
+		var members []ast.Expr
+
+		// Get the first member
+		if ctx.ObjectTypeMember(0) != nil {
+			member, _ := accept[ast.Expr](ctx.ObjectTypeMember(0), a)
+			if member != nil {
+				members = append(members, member)
+			}
+		}
+
+		// Get additional members
+		for i := 1; i < len(ctx.AllObjectTypeMember()); i++ {
+			member, _ := accept[ast.Expr](ctx.ObjectTypeMember(i), a)
+			if member != nil {
+				members = append(members, member)
+			}
+		}
+
+		return &ast.TypeLiteral{
+			Members: members,
+		}
+	})
+}
+
+// VisitObjectTypeMember implements the Visitor interface for ObjectTypeMember
+func (a *Analyzer) VisitObjectTypeMember(ctx *generated.ObjectTypeMemberContext) any {
+	return a.visitWrapper("ObjectTypeMember", ctx, func() any {
+		// Get member name
+		memberName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Get member type
+		memberType, _ := accept[ast.Expr](ctx.Type_(), a)
+
+		return &ast.KeyValueExpr{
+			Key:   memberName,
+			Colon: token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			Value: memberType,
+		}
+	})
+}
+
+// VisitTupleType implements the Visitor interface for TupleType
+func (a *Analyzer) VisitTupleType(ctx *generated.TupleTypeContext) any {
+	return a.visitWrapper("TupleType", ctx, func() any {
+		typeList, _ := accept[[]ast.Expr](ctx.TypeList(), a)
+		return &ast.TupleType{
+			Types: typeList,
+		}
+	})
+}
+
+// VisitTypeList implements the Visitor interface for TypeList
+func (a *Analyzer) VisitTypeList(ctx *generated.TypeListContext) any {
+	return a.visitWrapper("TypeList", ctx, func() any {
+		var types []ast.Expr
+
+		// Get the first type
+		if ctx.Type_(0) != nil {
+			firstType, _ := accept[ast.Expr](ctx.Type_(0), a)
+			if firstType != nil {
+				types = append(types, firstType)
+			}
+		}
+
+		// Get additional types
+		for i := 1; i < len(ctx.AllType_()); i++ {
+			typ, _ := accept[ast.Expr](ctx.Type_(i), a)
+			if typ != nil {
+				types = append(types, typ)
+			}
+		}
+
+		return types
+	})
+}
+
+// VisitFunctionReturnValue implements the Visitor interface for FunctionReturnValue
+func (a *Analyzer) VisitFunctionReturnValue(ctx *generated.FunctionReturnValueContext) any {
+	return a.visitWrapper("FunctionReturnValue", ctx, func() any {
+		// Handle single type
+		if ctx.Type_() != nil {
+			typ, _ := accept[ast.Expr](ctx.Type_(), a)
+			return typ
+		}
+
+		// Handle tuple type (LPAREN typeList RPAREN)
+		if ctx.LPAREN() != nil && ctx.TypeList() != nil && ctx.RPAREN() != nil {
+			typeList, _ := accept[[]ast.Expr](ctx.TypeList(), a)
+			return &ast.TupleType{
+				Types: typeList,
+			}
+		}
+
+		return nil
+	})
+}
+
+// VisitGenericParameters implements the Visitor interface for GenericParameters
+func (a *Analyzer) VisitGenericParameters(ctx *generated.GenericParametersContext) any {
+	return a.visitWrapper("GenericParameters", ctx, func() any {
+		// Get parameters from GenericParameterList
+		if ctx.GenericParameterList() != nil {
+			params, _ := accept[[]ast.Expr](ctx.GenericParameterList(), a)
+			return params
+		}
+
+		return []ast.Expr{}
+	})
+}
+
+// VisitGenericParameter implements the Visitor interface for GenericParameter
+func (a *Analyzer) VisitGenericParameter(ctx *generated.GenericParameterContext) any {
+	return a.visitWrapper("GenericParameter", ctx, func() any {
+		// Get parameter name
+		paramName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Get constraint type if present
+		var constraint ast.Expr
+		if ctx.Type_() != nil {
+			constraint, _ = accept[ast.Expr](ctx.Type_(), a)
+		}
+
+		return &ast.TypeParameter{
+			Name:        paramName,
+			Constraints: []ast.Expr{constraint},
+		}
+	})
+}
+
+// VisitGenericParameterList implements the Visitor interface for GenericParameterList
+func (a *Analyzer) VisitGenericParameterList(ctx *generated.GenericParameterListContext) any {
+	return a.visitWrapper("GenericParameterList", ctx, func() any {
+		var params []ast.Expr
+
+		// Get all generic parameters
+		for i := 0; i < len(ctx.AllGenericParameter()); i++ {
+			param, _ := accept[ast.Expr](ctx.GenericParameter(i), a)
+			if param != nil {
+				params = append(params, param)
+			}
+		}
+
+		return params
+	})
+}
+
+// VisitEnumDeclaration implements the Visitor interface for EnumDeclaration
+func (a *Analyzer) VisitEnumDeclaration(ctx *generated.EnumDeclarationContext) any {
+	return a.visitWrapper("EnumDeclaration", ctx, func() any {
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		var typeParams []ast.Expr
+		if ctx.GenericParameters() != nil {
+			typeParams, _ = accept[[]ast.Expr](ctx.GenericParameters(), a)
+		}
+		var body ast.EnumBody
+		switch {
+		case ctx.EnumBodySimple() != nil:
+			body, _ = accept[*ast.BasicEnumBody](ctx.EnumBodySimple(), a)
+		case ctx.EnumBodyAssociated() != nil:
+			body, _ = accept[*ast.AssociatedEnumBody](ctx.EnumBodyAssociated(), a)
+		case ctx.EnumBodyADT() != nil:
+			body, _ = accept[*ast.ADTEnumBody](ctx.EnumBodyADT(), a)
+		}
+		return &ast.EnumDecl{
+			Enum:       token.Pos(ctx.ENUM().GetSymbol().GetStart()),
+			Name:       name,
+			TypeParams: typeParams,
+			Body:       body,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumBodySimple(ctx *generated.EnumBodySimpleContext) any {
+	return a.visitWrapper("EnumBodySimple", ctx, func() any {
+		var values []*ast.EnumValue
+		for _, v := range ctx.AllEnumValue() {
+			val, _ := accept[*ast.EnumValue](v, a)
+			values = append(values, val)
+		}
+		return &ast.BasicEnumBody{
+			Lbrace: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Values: values,
+			Rbrace: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumValue(ctx *generated.EnumValueContext) any {
+	return a.visitWrapper("EnumValue", ctx, func() any {
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		var value ast.Expr
+		var assign token.Pos
+		if ctx.ASSIGN() != nil {
+			assign = token.Pos(ctx.ASSIGN().GetSymbol().GetStart())
+			value, _ = accept[ast.Expr](ctx.Expression(), a)
+		}
+		return &ast.EnumValue{
+			Name:   name,
+			Assign: assign,
+			Value:  value,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumBodyAssociated(ctx *generated.EnumBodyAssociatedContext) any {
+	return a.visitWrapper("EnumBodyAssociated", ctx, func() any {
+		var fields *ast.FieldList
+		if ctx.EnumAssociatedFields() != nil {
+			fields, _ = accept[*ast.FieldList](ctx.EnumAssociatedFields(), a)
+		}
+		var values []*ast.EnumValue
+		if ctx.EnumAssociatedValues() != nil {
+			for _, v := range ctx.EnumAssociatedValues().AllEnumAssociatedValue() {
+				val, _ := accept[*ast.EnumValue](v, a)
+				values = append(values, val)
+			}
+		}
+		var methods []ast.Stmt
+		if ctx.EnumAssociatedMethods() != nil {
+			methods, _ = accept[[]ast.Stmt](ctx.EnumAssociatedMethods(), a)
+		}
+		// 处理构造函数
+		if ctx.EnumAssociatedConstructor() != nil {
+			constructors, _ := accept[[]ast.Stmt](ctx.EnumAssociatedConstructor(), a)
+			if constructors != nil {
+				methods = append(methods, constructors...)
+			}
+		}
+		return &ast.AssociatedEnumBody{
+			Lbrace:  token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Fields:  fields,
+			Values:  values,
+			Methods: methods,
+			Rbrace:  token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumAssociatedFields(ctx *generated.EnumAssociatedFieldsContext) any {
+	return a.visitWrapper("EnumAssociatedFields", ctx, func() any {
+		var fields []*ast.Field
+		for _, f := range ctx.AllEnumAssociatedField() {
+			field, _ := accept[*ast.Field](f, a)
+			fields = append(fields, field)
+		}
+		return &ast.FieldList{
+			Opening: token.Pos(ctx.GetStart().GetStart()),
+			List:    fields,
+			Closing: token.Pos(ctx.GetStop().GetStop()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumField(ctx *generated.EnumFieldContext) any {
+	return a.visitWrapper("EnumField", ctx, func() any {
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		typ, _ := accept[ast.Expr](ctx.Type_(), a)
+		return &ast.Field{
+			Name: name,
+			Type: typ,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumAssociatedValue(ctx *generated.EnumAssociatedValueContext) any {
+	return a.visitWrapper("EnumAssociatedValue", ctx, func() any {
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		var data []ast.Expr
+		if ctx.ExpressionList() != nil {
+			data, _ = accept[[]ast.Expr](ctx.ExpressionList(), a)
+		}
+		return &ast.EnumValue{
+			Name:   name,
+			Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+			Data:   data,
+			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumBodyADT(ctx *generated.EnumBodyADTContext) any {
+	return a.visitWrapper("EnumBodyADT", ctx, func() any {
+		var variants []*ast.EnumVariant
+		for _, v := range ctx.AllEnumVariant() {
+			variant, _ := accept[*ast.EnumVariant](v, a)
+			variants = append(variants, variant)
+		}
+		// 方法暂时略
+		return &ast.ADTEnumBody{
+			Lbrace:   token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Variants: variants,
+			Rbrace:   token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumVariant(ctx *generated.EnumVariantContext) any {
+	return a.visitWrapper("EnumVariant", ctx, func() any {
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		var fields *ast.FieldList
+		if len(ctx.AllEnumField()) > 0 {
+			var fieldList []*ast.Field
+			for _, f := range ctx.AllEnumField() {
+				field, _ := accept[*ast.Field](f, a)
+				fieldList = append(fieldList, field)
+			}
+			fields = &ast.FieldList{
+				Opening: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+				List:    fieldList,
+				Closing: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+			}
+		}
+		return &ast.EnumVariant{
+			Name:   name,
+			Lbrace: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Fields: fields,
+			Rbrace: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumAssociatedField(ctx *generated.EnumAssociatedFieldContext) any {
+	return a.visitWrapper("EnumAssociatedField", ctx, func() any {
+		var modifiers []ast.Modifier
+		for _, m := range ctx.AllEnumFieldModifier() {
+			mod, _ := accept[ast.Modifier](m, a)
+			if mod != nil {
+				modifiers = append(modifiers, mod)
+			}
+		}
+		name := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+		typeExpr, _ := accept[ast.Expr](ctx.Type_(), a)
+		return &ast.Field{
+			Modifiers: modifiers,
+			Name:      name,
+			Colon:     token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			Type:      typeExpr,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumFieldModifier(ctx *generated.EnumFieldModifierContext) any {
+	return a.visitWrapper("EnumFieldModifier", ctx, func() any {
+		if ctx.FINAL() != nil {
+			return &ast.FinalModifier{
+				Final: token.Pos(ctx.FINAL().GetSymbol().GetStart()),
+			}
+		}
+		if ctx.CONST() != nil {
+			return &ast.ConstModifier{
+				Const: token.Pos(ctx.CONST().GetSymbol().GetStart()),
+			}
+		}
+		return nil
+	})
+}
+
+func (a *Analyzer) VisitEnumAssociatedConstructor(ctx *generated.EnumAssociatedConstructorContext) any {
+	return a.visitWrapper("EnumAssociatedConstructor", ctx, func() any {
+		var constructors []ast.Stmt
+		for _, c := range ctx.AllEnumConstructor() {
+			constructor, _ := accept[ast.Stmt](c, a)
+			if constructor != nil {
+				constructors = append(constructors, constructor)
+			}
+		}
+		return constructors
+	})
+}
+
+func (a *Analyzer) VisitEnumConstructor(ctx *generated.EnumConstructorContext) any {
+	return a.visitWrapper("EnumConstructor", ctx, func() any {
+		name, _ := accept[*ast.Ident](ctx.EnumConstructorName(), a)
+		var recv []ast.Expr
+		if ctx.EnumConstructorParameters() != nil {
+			recv, _ = accept[[]ast.Expr](ctx.EnumConstructorParameters(), a)
+		}
+
+		// 处理构造函数体
+		var body *ast.BlockStmt
+		if ctx.Block() != nil {
+			body, _ = accept[*ast.BlockStmt](ctx.Block(), a)
+		}
+
+		// 处理冒号后的直接初始化表达式
+		var initFields []ast.Expr
+		if ctx.EnumConstructorInit() != nil {
+			init, _ := accept[ast.Expr](ctx.EnumConstructorInit(), a)
+			if init != nil {
+				initFields = append(initFields, init)
+			}
+		}
+
+		return &ast.ConstructorDecl{
+			Name:       name,
+			Recv:       recv,
+			InitFields: initFields,
+			Body:       body,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumConstructorName(ctx *generated.EnumConstructorNameContext) any {
+	return a.visitWrapper("EnumConstructorName", ctx, func() any {
+		mainName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier(0).GetSymbol().GetStart()),
+			Name:    ctx.Identifier(0).GetText(),
+		}
+		if len(ctx.AllIdentifier()) > 1 {
+			// 处理 Protocol.One 这种情况
+			subName := &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier(1).GetSymbol().GetStart()),
+				Name:    ctx.Identifier(1).GetText(),
+			}
+			// 这里可以创建一个复合标识符或者使用其他方式表示
+			return &ast.Ident{
+				NamePos: mainName.NamePos,
+				Name:    mainName.Name + "." + subName.Name,
+			}
+		}
+		return mainName
+	})
+}
+
+func (a *Analyzer) VisitEnumConstructorParameters(ctx *generated.EnumConstructorParametersContext) any {
+	return a.visitWrapper("EnumConstructorParameters", ctx, func() any {
+		var params []ast.Expr
+
+		// 处理直接初始化: $this.port = -1
+		if ctx.EnumConstructorDirectInit(0) != nil {
+			init, _ := accept[ast.Expr](ctx.EnumConstructorDirectInit(0), a)
+			if init != nil {
+				params = append(params, init)
+			}
+		}
+
+		// 处理普通参数: (v: num)
+		if ctx.ReceiverParameterList() != nil {
+			recvParams, _ := accept[[]ast.Expr](ctx.ReceiverParameterList(), a)
+			params = append(params, recvParams...)
+		}
+
+		return params
+	})
+}
+
+func (a *Analyzer) VisitEnumConstructorDirectInit(ctx *generated.EnumConstructorDirectInitContext) any {
+	return a.visitWrapper("EnumConstructorDirectInit", ctx, func() any {
+		// 处理直接赋值：$this.port = -1
+		varExpr, _ := accept[ast.Expr](ctx.VariableExpression(), a)
+		assignPos := token.Pos(ctx.ASSIGN().GetSymbol().GetStart())
+		value, _ := accept[ast.Expr](ctx.Expression(), a)
+
+		return &ast.BinaryExpr{
+			X:     varExpr,
+			OpPos: assignPos,
+			Op:    token.ASSIGN,
+			Y:     value,
+		}
+	})
+}
+
+func (a *Analyzer) VisitEnumConstructorInit(ctx *generated.EnumConstructorInitContext) any {
+	return a.visitWrapper("EnumConstructorInit", ctx, func() any {
+		// 处理冒号后的直接赋值：: $this.port = 1
+		if ctx.EnumConstructorDirectInit() != nil {
+			return a.VisitEnumConstructorDirectInit(ctx.EnumConstructorDirectInit().(*generated.EnumConstructorDirectInitContext))
+		}
+		return nil
+	})
+}
+
+func (a *Analyzer) VisitEnumAssociatedMethods(ctx *generated.EnumAssociatedMethodsContext) any {
+	return a.visitWrapper("EnumAssociatedMethods", ctx, func() any {
+		var methods []ast.Stmt
+		for _, m := range ctx.AllEnumMethod() {
+			method, _ := accept[ast.Stmt](m, a)
+			if method != nil {
+				methods = append(methods, method)
+			}
+		}
+		return methods
+	})
+}
+
+func (a *Analyzer) VisitEnumMethod(ctx *generated.EnumMethodContext) any {
+	return a.visitWrapper("EnumMethod", ctx, func() any {
+		switch {
+		case ctx.StandardFunctionDeclaration() != nil:
+			return a.VisitStandardFunctionDeclaration(ctx.StandardFunctionDeclaration().(*generated.StandardFunctionDeclarationContext))
+		case ctx.LambdaFunctionDeclaration() != nil:
+			return a.VisitLambdaFunctionDeclaration(ctx.LambdaFunctionDeclaration().(*generated.LambdaFunctionDeclarationContext))
+		}
+		return nil
+	})
+}
+
+// VisitMatchStatement implements the Visitor interface for MatchStatement
+func (a *Analyzer) VisitMatchStatement(ctx *generated.MatchStatementContext) any {
+	return a.visitWrapper("MatchStatement", ctx, func() any {
+		// Get the match expression
+		expr, _ := accept[ast.Expr](ctx.Expression(), a)
+
+		// Get all case clauses
+		var cases []*ast.CaseClause
+		for _, caseCtx := range ctx.AllMatchCaseClause() {
+			caseClause, _ := accept[*ast.CaseClause](caseCtx, a)
+			if caseClause != nil {
+				cases = append(cases, caseClause)
+			}
+		}
+
+		// Get default clause if exists
+		var defaultClause *ast.CaseClause
+		if ctx.MatchDefaultClause() != nil {
+			defaultClause, _ = accept[*ast.CaseClause](ctx.MatchDefaultClause(), a)
+		}
+
+		return &ast.MatchStmt{
+			Match:   token.Pos(ctx.MATCH().GetSymbol().GetStart()),
+			Expr:    expr,
+			Lbrace:  token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Cases:   cases,
+			Default: defaultClause,
+			Rbrace:  token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+// VisitMatchCaseClause implements the Visitor interface for MatchCaseClause
+func (a *Analyzer) VisitMatchCaseClause(ctx *generated.MatchCaseClauseContext) any {
+	return a.visitWrapper("MatchCaseClause", ctx, func() any {
+		// Get the condition expression
+		var cond ast.Expr
+		if ctx.Type_() != nil {
+			cond, _ = accept[ast.Expr](ctx.Type_(), a)
+		} else if ctx.MatchEnum() != nil {
+			cond, _ = accept[ast.Expr](ctx.MatchEnum(), a)
+		} else if ctx.MemberAccess() != nil {
+			cond, _ = accept[ast.Expr](ctx.MemberAccess(), a)
+		} else if ctx.MatchTriple() != nil {
+			cond, _ = accept[ast.Expr](ctx.MatchTriple(), a)
+		} else if ctx.Expression() != nil {
+			cond, _ = accept[ast.Expr](ctx.Expression(), a)
+		} else if ctx.RangeExpression() != nil {
+			// RangeExpression returns *ast.RangeExpr which implements ast.Expr
+			rangeExpr := a.VisitRangeExpression(ctx.RangeExpression().(*generated.RangeExpressionContext))
+			if rangeExpr != nil {
+				cond = rangeExpr.(ast.Expr)
+			}
+		}
+
+		// Get the case body
+		body, _ := accept[*ast.BlockStmt](ctx.MatchCaseBody(), a)
+
+		return &ast.CaseClause{
+			Cond:   cond,
+			DArrow: token.Pos(ctx.DOUBLE_ARROW().GetSymbol().GetStart()),
+			Body:   body,
+		}
+	})
+}
+
+// VisitMatchDefaultClause implements the Visitor interface for MatchDefaultClause
+func (a *Analyzer) VisitMatchDefaultClause(ctx *generated.MatchDefaultClauseContext) any {
+	return a.visitWrapper("MatchDefaultClause", ctx, func() any {
+		// Get the case body
+		body, _ := accept[*ast.BlockStmt](ctx.MatchCaseBody(), a)
+
+		return &ast.CaseClause{
+			Cond:   &ast.Ident{Name: "_"}, // Wildcard for default case
+			DArrow: token.Pos(ctx.DOUBLE_ARROW().GetSymbol().GetStart()),
+			Body:   body,
+		}
+	})
+}
+
+// VisitMatchEnum implements the Visitor interface for MatchEnum
+func (a *Analyzer) VisitMatchEnum(ctx *generated.MatchEnumContext) any {
+	return a.visitWrapper("MatchEnum", ctx, func() any {
+		// For now, just return the member access
+		return a.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
+	})
+}
+
+// VisitMatchTriple implements the Visitor interface for MatchTriple
+func (a *Analyzer) VisitMatchTriple(ctx *generated.MatchTripleContext) any {
+	return a.visitWrapper("MatchTriple", ctx, func() any {
+		// For now, just return a simple expression
+		// This could be enhanced to handle tuple patterns properly
+		return &ast.Ident{Name: "tuple"}
+	})
+}
+
+// VisitMatchCaseBody implements the Visitor interface for MatchCaseBody
+func (a *Analyzer) VisitMatchCaseBody(ctx *generated.MatchCaseBodyContext) any {
+	return a.visitWrapper("MatchCaseBody", ctx, func() any {
+		if ctx.Expression() != nil {
+			expr, _ := accept[ast.Expr](ctx.Expression(), a)
+			if expr != nil {
+				// Wrap single expression in a block
+				return &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{X: expr},
+					},
+				}
+			}
+		} else if ctx.ReturnStatement() != nil {
+			retStmt, _ := accept[ast.Stmt](ctx.ReturnStatement(), a)
+			if retStmt != nil {
+				return &ast.BlockStmt{
+					List: []ast.Stmt{retStmt},
+				}
+			}
+		} else if ctx.Block() != nil {
+			block, _ := accept[*ast.BlockStmt](ctx.Block(), a)
+			if block != nil {
+				return block
+			}
+		}
+
+		// If none of the above conditions are met, return an empty block
+		// This should not happen in valid syntax, but prevents nil returns
+		return &ast.BlockStmt{
+			List: []ast.Stmt{},
+		}
+	})
+}
+
+// VisitRangeExpression implements the Visitor interface for RangeExpression
+func (a *Analyzer) VisitRangeExpression(ctx *generated.RangeExpressionContext) any {
+	return a.visitWrapper("RangeExpression", ctx, func() any {
+		// Parse NumberLiteral as BasicLit
+		startLit := &ast.BasicLit{
+			Kind:     token.NUM,
+			Value:    ctx.NumberLiteral(0).GetText(),
+			ValuePos: token.Pos(ctx.NumberLiteral(0).GetSymbol().GetStart()),
+		}
+
+		endLit := &ast.BasicLit{
+			Kind:     token.NUM,
+			Value:    ctx.NumberLiteral(1).GetText(),
+			ValuePos: token.Pos(ctx.NumberLiteral(1).GetSymbol().GetStart()),
+		}
+
+		return &ast.RangeExpr{
+			Start:     startLit,
+			DblColon1: token.Pos(ctx.DOUBLE_DOT().GetSymbol().GetStart()),
+			End_:      endLit,
+		}
+	})
+}
+
+// VisitExternDeclaration implements the Visitor interface for ExternDeclaration
+func (a *Analyzer) VisitExternDeclaration(ctx *generated.ExternDeclarationContext) any {
+	return a.visitWrapper("ExternDeclaration", ctx, func() any {
+		// Get the extern list
+		externList, _ := accept[[]ast.Expr](ctx.ExternList(), a)
+
+		return &ast.ExternDecl{
+			Extern: token.Pos(ctx.EXTERN().GetSymbol().GetStart()),
+			List:   externList,
+		}
+	})
+}
+
+// VisitExternList implements the Visitor interface for ExternList
+func (a *Analyzer) VisitExternList(ctx *generated.ExternListContext) any {
+	return a.visitWrapper("ExternList", ctx, func() any {
+		var items []ast.Expr
+
+		// Get all extern items
+		for _, itemCtx := range ctx.AllExternItem() {
+			item, _ := accept[ast.Expr](itemCtx, a)
+			if item != nil {
+				items = append(items, item)
+			}
+		}
+
+		return items
+	})
+}
+
+// VisitExternItem implements the Visitor interface for ExternItem
+func (a *Analyzer) VisitExternItem(ctx *generated.ExternItemContext) any {
+	return a.visitWrapper("ExternItem", ctx, func() any {
+		// Get the identifier
+		ident := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		var typ ast.Expr
+		var colonPos token.Pos
+
+		if ctx.Type_() != nil {
+			typ, _ = accept[ast.Expr](ctx.Type_(), a)
+			if ctx.COLON() != nil {
+				colonPos = token.Pos(ctx.COLON().GetSymbol().GetStart())
+			}
+		}
+
+		// Create a parameter to represent the extern item
+		return &ast.Parameter{
+			Name:  ident,
+			Colon: colonPos,
+			Type:  typ,
+		}
+	})
+}
+
+// VisitUnsafeExpression implements the Visitor interface for UnsafeExpression
+func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
+	return a.visitWrapper("UnsafeExpression", ctx, func() any {
+		// Handle unsafe block: unsafe { ... }
+		if ctx.UnsafeBlock() != nil {
+			unsafeBlock := ctx.UnsafeBlock()
+			// Get the text from the UnsafeBlock token
+			blockText := unsafeBlock.GetText()
+
+			// Remove the "unsafe {" prefix and "}" suffix
+			if len(blockText) > 2 { // "unsafe {" is 8 characters
+				blockText = blockText[2 : len(blockText)-1]
+			}
+
+			return &ast.UnsafeStmt{
+				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
+				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
+				Text:   blockText, // Get the text inside the block
+				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
+			}
+		}
+
+		// Handle unsafe literal: [[ ... ]]
+		if ctx.UnsafeLiteral() != nil {
+			text := ctx.UnsafeLiteral().GetText()
+			// Remove the [[ and ]] delimiters
+			if len(text) >= 4 {
+				text = text[2 : len(text)-2]
+			}
+			return &ast.UnsafeStmt{
+				Unsafe: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStart()),
+				Text:   text,
+				EndPos: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStop()),
+			}
+		}
+
+		return nil
 	})
 }

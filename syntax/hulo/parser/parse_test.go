@@ -121,8 +121,50 @@ func TestIdentifier(t *testing.T) {
 			cmdExpr := exprStmt.Expression().CommandExpression()
 			assert.NotNil(t, cmdExpr)
 
-			member := cmdExpr.MemberAccess()
+			member := cmdExpr.MemberAccess(0)
 			assert.Equal(t, tt.expectCmd, member.GetText())
 		})
 	}
+}
+
+func TestParseDeclare(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/declare.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseTypeDecl(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/type.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseEnumDecl(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/enum.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseAccess(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/access.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseMatch(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/match.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseSelector(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/selector.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseUnsafe(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/unsafe.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
 }

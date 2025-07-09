@@ -76,7 +76,6 @@ func TestIf(t *testing.T) {
 	vast.Print(bnode)
 }
 
-
 func TestNestedIf(t *testing.T) {
 	script := `if $a > 10 {
 		echo "a is greater than 10"
@@ -178,6 +177,8 @@ func TestStringEscape(t *testing.T) {
 
 func TestClassDecl(t *testing.T) {
 	script := `
+		declare fn MsgBox(message: str)
+
 		pub class Person {
 			name: str
 			age: num
@@ -188,7 +189,19 @@ func TestClassDecl(t *testing.T) {
 			pub fn to_str() -> str {
 				return "Person(name: $name, age: $age)"
 			}
+
+			pub fn greet() {
+				MsgBox "Hello, my name is $name and I am $age years old."
+			}
 		}
+
+		let p = Person()
+		$p.name = "Tom"
+		$p.age = 30
+		$p.greet()
+
+		let p2 = Person("Jerry", 20)
+		$p2.greet()
 	`
 	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
@@ -213,6 +226,125 @@ func TestFieldModifiers(t *testing.T) {
 	assert.NoError(t, err)
 
 	fmt.Println("=== VBScript AST ===")
+	vast.Print(bnode)
+}
+
+func TestMatch(t *testing.T) {
+	script := `
+let n = 10
+match $n {
+    10 => println("ten"),
+    20 => println("twenty"),
+    _ => println("unknown")
+}
+
+let status = "success"
+match $status {
+    "success" => println("Operation completed"),
+    "error" => println("Operation failed"),
+    "pending" => println("Operation in progress"),
+    _ => println("Unknown status")
+}`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestDeclare(t *testing.T) {
+	script := `
+		declare {
+			const vbCr = "\r"
+		}
+
+		declare fn InputBox(prompt: str, title?: str, default?: str, xpos?: num, ypos?: num, helpfile?: str, context?: num) -> any;
+
+		InputBox("Hello, World!", "InputBox", "default", 100, 100, "helpfile", 100)
+		echo "Hello, World!"
+		`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestImport(t *testing.T) {
+	script := `
+		import "unsafe/vbs"
+		import "utils"
+
+		MsgBox Add(5, 7)
+	`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestEnumDecl(t *testing.T) {
+	script := `
+enum Status {
+	Pending,
+	Approved,
+	Rejected
+}
+
+enum HttpCode {
+    OK = 200,
+    NotFound = 404,
+    ServerError = 500,
+    // 自动赋值为 501
+    GatewayTimeout
+}
+
+enum Direction {
+    North = "N",
+    South = "S",
+    East = "E",
+    West = "W"
+}
+
+enum Config {
+    RetryCount = 3,
+    Timeout = "30s",
+    EnableLogging = true
+}
+
+declare fn MsgBox(message: str);
+
+MsgBox Status::Pending;
+MsgBox HttpCode::OK;
+MsgBox Direction::North;
+MsgBox Config::RetryCount;
+MsgBox Direction::North;`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestUnsafe(t *testing.T) {
+	script := `
+unsafe {
+MsgBox "Hello, World!"
+Dim count
+}
+		extern count: num
+		echo $count
+	`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
 	vast.Print(bnode)
 }
 

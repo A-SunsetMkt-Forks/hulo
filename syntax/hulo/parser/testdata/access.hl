@@ -1,0 +1,5 @@
+let c = echo time.now() $a math::$PI math::$PI.to_str() math::Calculator::add(1, 2);
+
+echo "Hello, ";
+echo "World!";
+docker run

@@ -94,11 +94,13 @@ type (
 
 	// AssociatedEnumBody represents an enum with associated values.
 	// enum Protocol { port: num; tcp(6), udp(17) }
+	// Complex associated enum: enum Protocol { final port: num; const Protocol(...); tcp(6), udp(17); fn get_port() -> num { ... } }
 	AssociatedEnumBody struct {
-		Lbrace token.Pos    // position of "{"
-		Fields *FieldList   // associated fields declaration
-		Values []*EnumValue // enum values with data
-		Rbrace token.Pos    // position of "}"
+		Lbrace  token.Pos    // position of "{"
+		Fields  *FieldList   // associated fields declaration
+		Values  []*EnumValue // enum values with data
+		Methods []Stmt       // methods
+		Rbrace  token.Pos    // position of "}"
 	}
 
 	// ADTEnumBody represents an algebraic data type enum.
@@ -556,6 +558,7 @@ type (
 	MatchStmt struct {
 		Docs    *CommentGroup
 		Match   token.Pos // position of "match"
+		Expr    Expr      // expression being matched
 		Lbrace  token.Pos // position of "{"
 		Cases   []*CaseClause
 		Default *CaseClause

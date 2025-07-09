@@ -8,8 +8,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
 // TODO: 只打印类型节点
@@ -166,8 +164,22 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitNamedObjectLiteralExpr(n)
 	case *TypeLiteral:
 		return p.visitTypeLiteral(n)
+	case *FunctionType:
+		return p.visitFunctionType(n)
+	case *TupleType:
+		return p.visitTupleType(n)
+	case *ArrayType:
+		return p.visitArrayType(n)
 	case *Import:
 		return p.visitImport(n)
+	case *MatchStmt:
+		return p.visitMatchStmt(n)
+	case *ConditionalExpr:
+		return p.visitConditionalExpr(n)
+	case *UnsafeStmt:
+		return p.visitUnsafeStmt(n)
+	case *ExternDecl:
+		return p.visitExternDecl(n)
 	default:
 		fmt.Fprintf(p.output, "%s%T\n", indentStr, n)
 		panic("unsupport")
@@ -214,7 +226,11 @@ func (p *prettyPrinter) visitComptimeStmt(n *ComptimeStmt) Visitor {
 
 func (p *prettyPrinter) visitDeclareDecl(n *DeclareDecl) Visitor {
 	p.indentWrite("declare ")
+	if fx, ok := n.X.(*FuncDecl); ok {
+		fx.Body = &BlockStmt{}
+	}
 	Walk(p, n.X)
+
 	return nil
 }
 
@@ -443,6 +459,10 @@ func (p *prettyPrinter) visitOperatorDecl(n *OperatorDecl) Visitor {
 }
 
 func (p *prettyPrinter) visitBlockStmt(n *BlockStmt) Visitor {
+	if len(n.List) == 0 {
+		p.write(" {}\n")
+		return nil
+	}
 	p.write(" {\n")
 	p.indent++
 	for _, stmt := range n.List {
@@ -635,23 +655,28 @@ func (p *prettyPrinter) visitTypeParameter(n *TypeParameter) Visitor {
 }
 
 func (p *prettyPrinter) visitAssignStmt(n *AssignStmt) Visitor {
-	if n.Tok == token.COLON_ASSIGN {
-		p.indentWrite("let")
-	} else {
-		p.indentWrite(n.Scope.String())
+	if n.Scope != 0 {
+		p.write(n.Scope.String())
+		p.write(" ")
 	}
-	p.write(" ")
-	Walk(p, n.Lhs)
-
-	if n.Type != nil {
+	if n.Lhs != nil {
+		Walk(p, n.Lhs)
+	}
+	if n.Colon != 0 {
 		p.write(": ")
-		Walk(p, n.Type)
+		if n.Type != nil {
+			Walk(p, n.Type)
+		}
 	}
-
-	p.write(" = ")
-	Walk(p, n.Rhs)
+	if n.Tok != 0 {
+		p.write(" ")
+		p.write(n.Tok.String())
+		p.write(" ")
+	}
+	if n.Rhs != nil {
+		Walk(p, n.Rhs)
+	}
 	p.write("\n")
-
 	return nil
 }
 
@@ -704,6 +729,7 @@ func (p *prettyPrinter) visitTypeDecl(n *TypeDecl) Visitor {
 	Walk(p, n.Name)
 	p.write(" = ")
 	Walk(p, n.Value)
+	p.write("\n")
 	return nil
 }
 
@@ -788,41 +814,64 @@ func (p *prettyPrinter) visitEnumDecl(n *EnumDecl) Visitor {
 		p.visitTypeParams(n.TypeParams)
 	}
 
+	p.indent++
 	// Print enum body
 	switch body := n.Body.(type) {
 	case *BasicEnumBody:
 		p.write(" {\n")
 		for i, value := range body.Values {
-			fmt.Printf("%s  %s", indentStr, value.Name)
+			p.indentWrite("")
+			Walk(p, value.Name)
 			if value.Value != nil {
-				fmt.Printf(" = %s", value.Value)
+				p.write(" = ")
+				Walk(p, value.Value)
 			}
 			if i < len(body.Values)-1 {
-				fmt.Print(",")
+				p.write(",")
 			}
-			fmt.Println()
+			p.write("\n")
 		}
-		fmt.Printf("%s}\n", indentStr)
+		p.write(indentStr)
+		p.write("}\n")
 	case *AssociatedEnumBody:
 		p.write(" {\n")
 		if body.Fields != nil {
 			for _, field := range body.Fields.List {
-				fmt.Printf("%s  %s: %s\n", indentStr, field.Name, field.Type)
+				p.indentWrite("")
+				p.visitModifiers(field.Modifiers)
+				if field.Name != nil {
+					Walk(p, field.Name)
+				}
+				if field.Type != nil {
+					p.write(": ")
+					Walk(p, field.Type)
+				}
 			}
+			p.write(";\n")
 		}
 		for i, value := range body.Values {
-			fmt.Printf("%s  %s", indentStr, value.Name)
+			p.indentWrite("")
+			Walk(p, value.Name)
 			if value.Data != nil {
-				fmt.Print("(")
+				p.write("(")
 				p.visitExprList(value.Data)
 				p.write(")")
 			}
 			if i < len(body.Values)-1 {
 				p.write(",")
+			} else {
+				p.write(";")
 			}
-			fmt.Println()
+			p.write("\n")
 		}
-		fmt.Printf("%s}\n", indentStr)
+		if len(body.Methods) > 0 {
+			p.write(";\n")
+			for _, method := range body.Methods {
+				Walk(p, method)
+			}
+		}
+		p.write(indentStr)
+		p.write("}\n")
 	case *ADTEnumBody:
 		p.write(" {\n")
 		for i, variant := range body.Variants {
@@ -847,8 +896,11 @@ func (p *prettyPrinter) visitEnumDecl(n *EnumDecl) Visitor {
 				print(method, indentStr+"  ")
 			}
 		}
-		fmt.Printf("%s}\n", indentStr)
+		p.write(indentStr)
+		p.write("}\n")
 	}
+	p.indent--
+
 	return nil
 }
 
@@ -1029,6 +1081,29 @@ func WithIndentSpace(space string) PrettyPrinterOption {
 	}
 }
 
+func (p *prettyPrinter) visitFunctionType(n *FunctionType) Visitor {
+	p.write("(")
+	p.visitExprList(n.Recv)
+	p.write(") -> ")
+	if n.RetVal != nil {
+		Walk(p, n.RetVal)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitTupleType(n *TupleType) Visitor {
+	p.write("[")
+	p.visitExprList(n.Types)
+	p.write("]")
+	return nil
+}
+
+func (p *prettyPrinter) visitArrayType(n *ArrayType) Visitor {
+	Walk(p, n.Name)
+	p.write("[]")
+	return nil
+}
+
 func Print(node Node, options ...PrettyPrinterOption) error {
 	printer := prettyPrinter{output: os.Stdout, indentSpace: "  "}
 
@@ -1040,5 +1115,91 @@ func Print(node Node, options ...PrettyPrinterOption) error {
 	}
 	printer.Visit(node)
 
+	return nil
+}
+
+// MatchStmt pretty printer
+func (p *prettyPrinter) visitMatchStmt(n *MatchStmt) Visitor {
+	p.indentWrite("match ")
+	if n.Expr != nil {
+		Walk(p, n.Expr)
+	}
+	p.write(" {\n")
+	p.indent++
+	for _, c := range n.Cases {
+		p.visitCaseClause(c)
+	}
+	if n.Default != nil {
+		p.visitCaseClause(n.Default)
+	}
+	p.indent--
+	p.indentWrite("}\n")
+	return nil
+}
+
+// CaseClause pretty printer
+func (p *prettyPrinter) visitCaseClause(n *CaseClause) Visitor {
+	p.indentWrite("")
+	if n.Cond != nil {
+		Walk(p, n.Cond)
+	}
+	p.write(" =>")
+	if n.Body != nil {
+		Walk(p, n.Body)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitConditionalExpr(n *ConditionalExpr) Visitor {
+	Walk(p, n.Cond)
+	p.write(" ? ")
+	Walk(p, n.WhenTrue)
+	p.write(" : ")
+	Walk(p, n.WhneFalse)
+	return nil
+}
+
+// visitUnsafeStmt pretty printer for unsafe statements
+func (p *prettyPrinter) visitUnsafeStmt(n *UnsafeStmt) Visitor {
+	p.indentWrite("unsafe {\n")
+	p.indent++
+
+	// Print the unsafe code as a comment or raw text
+	if n.Text != "" {
+		// Split the text into lines and print each line
+		lines := strings.Split(n.Text, "\n")
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "" {
+				p.indentWrite(line + "\n")
+			}
+		}
+	}
+
+	p.indent--
+	p.indentWrite("}\n")
+	return nil
+}
+
+// visitExternDecl pretty printer for extern declarations
+func (p *prettyPrinter) visitExternDecl(n *ExternDecl) Visitor {
+	p.indentWrite("extern ")
+
+	// Print all extern items
+	for i, item := range n.List {
+		if i > 0 {
+			p.write(", ")
+		}
+
+		// Handle KeyValueExpr which represents extern items
+		if kv, ok := item.(*KeyValueExpr); ok {
+			Walk(p, kv.Key) // Print the identifier
+			p.write(": ")
+			Walk(p, kv.Value) // Print the type
+		} else {
+			Walk(p, item)
+		}
+	}
+
+	p.write("\n")
 	return nil
 }

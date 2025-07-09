@@ -1,0 +1,7 @@
+unsafe {
+	MsgBox "Hello, World!"
+	Dim count
+}
+
+extern count: num
+echo $count

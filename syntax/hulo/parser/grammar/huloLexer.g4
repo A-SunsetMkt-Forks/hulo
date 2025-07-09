@@ -91,6 +91,7 @@ DEFER    : 'defer';
 COMPTIME : 'comptime';
 WHEN     : 'when';
 UNSAFE   : 'unsafe';
+EXTERN   : 'extern';
 
 DOT        : '.';
 DOUBLE_DOT : '..';
@@ -169,6 +170,8 @@ BOOL : 'bool';
 ANY  : 'any';
 
 UnsafeLiteral: DOUBLE_LBRACK (BACKSLASH RBRACK | ~[\]])* DOUBLE_RBRACK;
+
+UnsafeBlock: LBRACE (BACKSLASH RBRACE | ~[}])* RBRACE;
 
 DOUBLE_LBRACK : '[[';
 DOUBLE_RBRACK : ']]';

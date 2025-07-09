@@ -1,0 +1,28 @@
+declare {
+    class User {
+        name: str
+        age: num
+    }
+}
+
+declare class Caller {
+    file: str
+    func: str
+    line: num
+}
+
+declare fn hello() {
+    println("hello world")
+}
+
+declare type Function<T, R> = (arg: T) -> R
+
+declare {
+    const a = 1
+
+    const b: num = 1
+}
+
+declare fn add(x: num, y: num) -> num
+
+declare fn InputBox(prompt: str, title?: str, default?: str, xpos?: num, ypos?: num, helpfile?: str, context?: num) -> any;

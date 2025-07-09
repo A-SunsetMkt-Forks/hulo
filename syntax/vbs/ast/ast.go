@@ -234,7 +234,7 @@ type Field struct {
 
 func (f *Field) Pos() token.Pos { return f.TokPos }
 func (f *Field) End() token.Pos { return f.Name.End() }
-func (*Field) exprNode() {}
+func (*Field) exprNode()        {}
 func (f *Field) String() string {
 	if f.Tok.IsValid() {
 		return fmt.Sprintf("%s %s", f.Tok.String(), f.Name.Name)
@@ -603,6 +603,12 @@ type (
 		Rparen token.Pos // position of ")"
 	}
 
+	// A CmdExpr node represents a command expression.
+	CmdExpr struct {
+		Cmd  Expr
+		Recv []Expr
+	}
+
 	// A SelectorExpr node represents an expression followed by a selector.
 	SelectorExpr struct {
 		X   Expr // expression
@@ -620,6 +626,7 @@ type (
 
 func (x *Ident) Pos() token.Pos         { return x.NamePos }
 func (x *CallExpr) Pos() token.Pos      { return x.Func.Pos() }
+func (x *CmdExpr) Pos() token.Pos      { return x.Cmd.Pos() }
 func (x *IndexExpr) Pos() token.Pos     { return x.X.Pos() }
 func (x *IndexListExpr) Pos() token.Pos { return x.X.Pos() }
 func (x *NewExpr) Pos() token.Pos       { return x.New }
@@ -637,6 +644,12 @@ func (x *CallExpr) End() token.Pos {
 	}
 	return x.Func.End()
 }
+func (x *CmdExpr) End() token.Pos {
+	if len(x.Recv) > 0 {
+		return x.Recv[len(x.Recv)-1].End()
+	}
+	return x.Cmd.End()
+}
 func (x *IndexExpr) End() token.Pos     { return x.Rparen }
 func (x *IndexListExpr) End() token.Pos { return x.Rparen }
 func (x *NewExpr) End() token.Pos       { return x.X.End() }
@@ -646,6 +659,7 @@ func (x *BasicLit) End() token.Pos      { return token.Pos(int(x.ValuePos) + len
 
 func (*Ident) exprNode()         {}
 func (*CallExpr) exprNode()      {}
+func (*CmdExpr) exprNode()       {}
 func (*IndexExpr) exprNode()     {}
 func (*IndexListExpr) exprNode() {}
 func (*NewExpr) exprNode()       {}
@@ -673,6 +687,13 @@ func (e *CallExpr) String() string {
 		recv = append(recv, r.String())
 	}
 	return fmt.Sprintf("%s(%s)", e.Func, strings.Join(recv, ", "))
+}
+func (e *CmdExpr) String() string {
+	recv := []string{}
+	for _, r := range e.Recv {
+		recv = append(recv, r.String())
+	}
+	return fmt.Sprintf("%s %s", e.Cmd, strings.Join(recv, ", "))
 }
 func (e *IndexExpr) String() string { return fmt.Sprintf("%s(%s)", e.X, e.Index) }
 func (e *IndexListExpr) String() string {

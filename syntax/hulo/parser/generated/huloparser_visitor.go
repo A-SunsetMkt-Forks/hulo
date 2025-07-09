@@ -196,6 +196,9 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#lambdaBody.
 	VisitLambdaBody(ctx *LambdaBodyContext) interface{}
 
+	// Visit a parse tree produced by huloParser#functionSignature.
+	VisitFunctionSignature(ctx *FunctionSignatureContext) interface{}
+
 	// Visit a parse tree produced by huloParser#functionModifier.
 	VisitFunctionModifier(ctx *FunctionModifierContext) interface{}
 
@@ -256,8 +259,62 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#enumModifier.
 	VisitEnumModifier(ctx *EnumModifierContext) interface{}
 
-	// Visit a parse tree produced by huloParser#enumBody.
-	VisitEnumBody(ctx *EnumBodyContext) interface{}
+	// Visit a parse tree produced by huloParser#enumBodySimple.
+	VisitEnumBodySimple(ctx *EnumBodySimpleContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumBodyAssociated.
+	VisitEnumBodyAssociated(ctx *EnumBodyAssociatedContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumBodyADT.
+	VisitEnumBodyADT(ctx *EnumBodyADTContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumValue.
+	VisitEnumValue(ctx *EnumValueContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedFields.
+	VisitEnumAssociatedFields(ctx *EnumAssociatedFieldsContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedField.
+	VisitEnumAssociatedField(ctx *EnumAssociatedFieldContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumFieldModifier.
+	VisitEnumFieldModifier(ctx *EnumFieldModifierContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumField.
+	VisitEnumField(ctx *EnumFieldContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedValues.
+	VisitEnumAssociatedValues(ctx *EnumAssociatedValuesContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedValue.
+	VisitEnumAssociatedValue(ctx *EnumAssociatedValueContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedConstructor.
+	VisitEnumAssociatedConstructor(ctx *EnumAssociatedConstructorContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumConstructor.
+	VisitEnumConstructor(ctx *EnumConstructorContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumConstructorName.
+	VisitEnumConstructorName(ctx *EnumConstructorNameContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumConstructorParameters.
+	VisitEnumConstructorParameters(ctx *EnumConstructorParametersContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumConstructorDirectInit.
+	VisitEnumConstructorDirectInit(ctx *EnumConstructorDirectInitContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumConstructorInit.
+	VisitEnumConstructorInit(ctx *EnumConstructorInitContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumAssociatedMethods.
+	VisitEnumAssociatedMethods(ctx *EnumAssociatedMethodsContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumVariant.
+	VisitEnumVariant(ctx *EnumVariantContext) interface{}
+
+	// Visit a parse tree produced by huloParser#enumMethods.
+	VisitEnumMethods(ctx *EnumMethodsContext) interface{}
 
 	// Visit a parse tree produced by huloParser#enumMethod.
 	VisitEnumMethod(ctx *EnumMethodContext) interface{}
@@ -271,14 +328,8 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#enumMemberModifier.
 	VisitEnumMemberModifier(ctx *EnumMemberModifierContext) interface{}
 
-	// Visit a parse tree produced by huloParser#enumBuiltinMethod.
-	VisitEnumBuiltinMethod(ctx *EnumBuiltinMethodContext) interface{}
-
 	// Visit a parse tree produced by huloParser#enumBuiltinMethodModifier.
 	VisitEnumBuiltinMethodModifier(ctx *EnumBuiltinMethodModifierContext) interface{}
-
-	// Visit a parse tree produced by huloParser#enumBodySimple.
-	VisitEnumBodySimple(ctx *EnumBodySimpleContext) interface{}
 
 	// Visit a parse tree produced by huloParser#enumInitialize.
 	VisitEnumInitialize(ctx *EnumInitializeContext) interface{}
@@ -412,8 +463,14 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#asExpression.
 	VisitAsExpression(ctx *AsExpressionContext) interface{}
 
-	// Visit a parse tree produced by huloParser#ellipsisType.
-	VisitEllipsisType(ctx *EllipsisTypeContext) interface{}
+	// Visit a parse tree produced by huloParser#objectType.
+	VisitObjectType(ctx *ObjectTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#objectTypeMember.
+	VisitObjectTypeMember(ctx *ObjectTypeMemberContext) interface{}
+
+	// Visit a parse tree produced by huloParser#tupleType.
+	VisitTupleType(ctx *TupleTypeContext) interface{}
 
 	// Visit a parse tree produced by huloParser#functionType.
 	VisitFunctionType(ctx *FunctionTypeContext) interface{}
@@ -513,4 +570,13 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#comptimeExpression.
 	VisitComptimeExpression(ctx *ComptimeExpressionContext) interface{}
+
+	// Visit a parse tree produced by huloParser#externDeclaration.
+	VisitExternDeclaration(ctx *ExternDeclarationContext) interface{}
+
+	// Visit a parse tree produced by huloParser#externList.
+	VisitExternList(ctx *ExternListContext) interface{}
+
+	// Visit a parse tree produced by huloParser#externItem.
+	VisitExternItem(ctx *ExternItemContext) interface{}
 }

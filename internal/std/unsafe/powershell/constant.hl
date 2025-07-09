@@ -3,5 +3,5 @@ declare {
 
     const Env: {
         [key: str]: str
-    }   
+    }
 }

@@ -1,0 +1,25 @@
+// let max = $a > $b ? $a : $b
+
+// $max = ($a > $b) ? $a : ($b > 10 ? $b : ($b > $max ? $b : $max))
+// let max = 10
+// match $max {
+//     1 => println("one!"),
+//     2 | 3 | 5 => println("this is prime"),  // Multiple matching
+//     13..19 => println($max),                // Range matching
+//     _ => println("default"),                // Default branch
+// }
+
+let n = 10
+match $n {
+    10 => println("ten"),
+    20 => println("twenty"),
+    _ => println("unknown")
+}
+
+let status = "success"
+match $status {
+    "success" => println("Operation completed"),
+    "error" => println("Operation failed"),
+    "pending" => println("Operation in progress"),
+    _ => println("Unknown status")
+}

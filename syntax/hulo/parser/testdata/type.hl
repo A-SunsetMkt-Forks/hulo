@@ -1,0 +1,29 @@
+// Basic type aliases
+type A = num | str | bool
+type B = num & str
+type C = num?
+
+// String literal types
+type Protocol = 'tcp' | 'udp'
+
+// Object types
+type User = { name: str, age: num }
+
+// Function types
+type Function<T, R> = (arg: T) -> R
+
+// Array types
+type Numbers = num[5]
+
+// Member access types
+type TimeDate = time::Date
+
+// Ellipsis types
+type Rest = ...str
+
+// Complex union types
+type Status = 'pending' | 'approved' | 'rejected'
+
+// Nullable types
+type OptionalString = str?
+type OptionalNumber = num?

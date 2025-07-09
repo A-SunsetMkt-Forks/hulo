@@ -259,6 +259,10 @@ func (v *BasehuloParserVisitor) VisitLambdaBody(ctx *LambdaBodyContext) interfac
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitFunctionSignature(ctx *FunctionSignatureContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitFunctionModifier(ctx *FunctionModifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -339,7 +343,79 @@ func (v *BasehuloParserVisitor) VisitEnumModifier(ctx *EnumModifierContext) inte
 	return v.VisitChildren(ctx)
 }
 
-func (v *BasehuloParserVisitor) VisitEnumBody(ctx *EnumBodyContext) interface{} {
+func (v *BasehuloParserVisitor) VisitEnumBodySimple(ctx *EnumBodySimpleContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumBodyAssociated(ctx *EnumBodyAssociatedContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumBodyADT(ctx *EnumBodyADTContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumValue(ctx *EnumValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedFields(ctx *EnumAssociatedFieldsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedField(ctx *EnumAssociatedFieldContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumFieldModifier(ctx *EnumFieldModifierContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumField(ctx *EnumFieldContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedValues(ctx *EnumAssociatedValuesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedValue(ctx *EnumAssociatedValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedConstructor(ctx *EnumAssociatedConstructorContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumConstructor(ctx *EnumConstructorContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumConstructorName(ctx *EnumConstructorNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumConstructorParameters(ctx *EnumConstructorParametersContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumConstructorDirectInit(ctx *EnumConstructorDirectInitContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumConstructorInit(ctx *EnumConstructorInitContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumAssociatedMethods(ctx *EnumAssociatedMethodsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumVariant(ctx *EnumVariantContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitEnumMethods(ctx *EnumMethodsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -359,15 +435,7 @@ func (v *BasehuloParserVisitor) VisitEnumMemberModifier(ctx *EnumMemberModifierC
 	return v.VisitChildren(ctx)
 }
 
-func (v *BasehuloParserVisitor) VisitEnumBuiltinMethod(ctx *EnumBuiltinMethodContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BasehuloParserVisitor) VisitEnumBuiltinMethodModifier(ctx *EnumBuiltinMethodModifierContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasehuloParserVisitor) VisitEnumBodySimple(ctx *EnumBodySimpleContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -547,7 +615,15 @@ func (v *BasehuloParserVisitor) VisitAsExpression(ctx *AsExpressionContext) inte
 	return v.VisitChildren(ctx)
 }
 
-func (v *BasehuloParserVisitor) VisitEllipsisType(ctx *EllipsisTypeContext) interface{} {
+func (v *BasehuloParserVisitor) VisitObjectType(ctx *ObjectTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitObjectTypeMember(ctx *ObjectTypeMemberContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitTupleType(ctx *TupleTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -680,5 +756,17 @@ func (v *BasehuloParserVisitor) VisitUnsafeExpression(ctx *UnsafeExpressionConte
 }
 
 func (v *BasehuloParserVisitor) VisitComptimeExpression(ctx *ComptimeExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitExternDeclaration(ctx *ExternDeclarationContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitExternList(ctx *ExternListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitExternItem(ctx *ExternItemContext) interface{} {
 	return v.VisitChildren(ctx)
 }

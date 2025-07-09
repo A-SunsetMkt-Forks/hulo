@@ -1,0 +1,82 @@
+// Basic enum
+
+enum Status {
+    // 0
+    Pending,
+    // 1
+    Approved,
+    // 2
+    Rejected
+}
+
+enum HttpCode {
+    OK = 200,
+    NotFound = 404,
+    ServerError = 500,
+    // 自动赋值为 501
+    GatewayTimeout
+}
+
+enum Direction {
+    North = "N",
+    South = "S",
+    East = "E",
+    West = "W"
+}
+
+enum Config {
+    RetryCount = 3,
+    Timeout = "30s",
+    EnableLogging = true
+}
+
+// Associated value enum
+
+enum Protocol {
+    port: num;
+    tcp(6),
+    udp(17)
+}
+
+// enum Protocol {
+//     final port: num;
+
+//     const Protocol($this.port = -1);
+
+//     const Protocol.One(): $this.port = 1 {}
+
+//     const Protocol.Port(v: num): $this.port = v {}
+
+//     const Protocol(zero: bool, ...v: num) {
+//         if $zero {
+//             return Protocol.Zero()
+//         }
+//         return Protocol.Port($v[0])
+//     }
+
+//     const Protocol.Zero(): $this.port = 0 {
+//         echo "Protocol.Zero"
+//     }
+
+//     tcp(6),
+//     udp(17);
+
+//     fn get_port() -> num {
+//         return $this.port
+//     }
+
+//     fn describe() -> str {
+//         match $this {
+//             Protocol::tcp => "TCP",
+//             Protocol::udp => "UDP"
+//             _ => "Unknown"
+//         }
+//     }
+// }
+
+// ADT enum
+
+enum NetworkPacket {
+    TCP { src_port: num, dst_port: num },
+    UDP { port: num, payload: str }
+}
