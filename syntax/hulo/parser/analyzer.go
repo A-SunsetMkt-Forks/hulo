@@ -307,22 +307,41 @@ func (a *Analyzer) VisitAddSubExpression(ctx *generated.AddSubExpressionContext)
 func (a *Analyzer) VisitMulDivExpression(ctx *generated.MulDivExpressionContext) any {
 	return a.visitWrapper("MulDivExpression", ctx, func() any {
 
-		var ret ast.Expr
-		switch ctx.GetChildCount() {
-		case 1:
-			ret, _ = accept[ast.Expr](ctx.IncDecExpression(0), a)
-		case 2:
-			x, _ := accept[ast.Expr](ctx.IncDecExpression(0), a)
-			y, _ := accept[ast.Expr](ctx.IncDecExpression(1), a)
-			ret = &ast.BinaryExpr{
+		// 获取所有的 IncDecExpression
+		incDecExprs := ctx.AllIncDecExpression()
+
+		if len(incDecExprs) == 1 {
+			// 只有一个表达式，直接返回
+			ret, _ := accept[ast.Expr](incDecExprs[0], a)
+			return ret
+		} else if len(incDecExprs) == 2 {
+			// 有两个表达式，说明有运算符
+			x, _ := accept[ast.Expr](incDecExprs[0], a)
+			y, _ := accept[ast.Expr](incDecExprs[1], a)
+
+			// 获取运算符
+			op := ctx.GetMulDivOp()
+			if op == nil {
+				// 如果没有运算符，返回第一个表达式
+				return x
+			}
+
+			ret := &ast.BinaryExpr{
 				X:     x,
-				OpPos: token.Pos(ctx.GetMulDivOp().GetStart()),
-				Op:    token.Token(ctx.GetMulDivOp().GetTokenType()),
+				OpPos: token.Pos(op.GetStart()),
+				Op:    a.convertTokenType(op.GetTokenType()),
 				Y:     y,
 			}
+			return ret
 		}
 
-		return ret
+		// 默认情况，返回第一个表达式
+		if len(incDecExprs) > 0 {
+			ret, _ := accept[ast.Expr](incDecExprs[0], a)
+			return ret
+		}
+
+		return nil
 	})
 }
 
@@ -1155,6 +1174,16 @@ func (a *Analyzer) VisitFactor(ctx *generated.FactorContext) any {
 			return a.VisitLiteral(ctx.Literal().(*generated.LiteralContext))
 		}
 
+		// Handle list expressions (array literals)
+		if ctx.ListExpression() != nil {
+			return a.VisitListExpression(ctx.ListExpression().(*generated.ListExpressionContext))
+		}
+
+		// Handle map expressions (object literals)
+		if ctx.MapExpression() != nil {
+			return a.VisitMapExpression(ctx.MapExpression().(*generated.MapExpressionContext))
+		}
+
 		// Handle identifiers
 		if ctx.VariableExpression() != nil {
 			return a.VisitVariableExpression(ctx.VariableExpression().(*generated.VariableExpressionContext))
@@ -1245,10 +1274,14 @@ func (a *Analyzer) VisitMethodExpression(ctx *generated.MethodExpressionContext)
 			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
 		}
 
-		// Handle arguments if present
-		if ctx.ReceiverArgumentList() != nil {
-			args, _ := accept[[]ast.Expr](ctx.ReceiverArgumentList(), a)
-			callExpr.Recv = args
+		// Handle arguments if present - use the same approach as VisitCallExpression
+		if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
+			for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
+				e := a.VisitExpression(expr.(*generated.ExpressionContext))
+				if e != nil {
+					callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
+				}
+			}
 		}
 
 		return callExpr
@@ -1446,10 +1479,33 @@ func (a *Analyzer) VisitForStatement(ctx *generated.ForStatementContext) any {
 func (a *Analyzer) VisitForeachStatement(ctx *generated.ForeachStatementContext) any {
 	return a.visitWrapper("ForeachStatement", ctx, func() any {
 
-		index, _ := accept[ast.Expr](ctx.ForeachClause().VariableName(0), a)
+		// Get the foreach clause
+		foreachClause := ctx.ForeachClause()
+
+		var index ast.Expr
 		var value ast.Expr
-		if len(ctx.ForeachClause().AllVariableName()) > 1 {
-			value, _ = accept[ast.Expr](ctx.ForeachClause().VariableName(1), a)
+		var lparen, rparen token.Pos
+
+		// Check if we have parentheses (multiple variables)
+		if foreachClause.LPAREN() != nil {
+			// Multiple variables: ($item, $index)
+			lparen = token.Pos(foreachClause.LPAREN().GetSymbol().GetStart())
+			rparen = token.Pos(foreachClause.RPAREN().GetSymbol().GetStart())
+
+			// Get the first variable (index)
+			if len(foreachClause.AllForeachVariableName()) > 0 {
+				index, _ = accept[ast.Expr](foreachClause.ForeachVariableName(0), a)
+			}
+
+			// Get the second variable (value) if it exists
+			if len(foreachClause.AllForeachVariableName()) > 1 {
+				value, _ = accept[ast.Expr](foreachClause.ForeachVariableName(1), a)
+			}
+		} else {
+			// Single variable: $item
+			if len(foreachClause.AllForeachVariableName()) > 0 {
+				index, _ = accept[ast.Expr](foreachClause.ForeachVariableName(0), a)
+			}
 		}
 
 		expr, _ := accept[ast.Expr](ctx.Expression(), a)
@@ -1464,10 +1520,10 @@ func (a *Analyzer) VisitForeachStatement(ctx *generated.ForeachStatementContext)
 
 		return &ast.ForeachStmt{
 			Loop:   token.Pos(ctx.LOOP().GetSymbol().GetStart()),
-			Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+			Lparen: lparen,
 			Index:  index,
 			Value:  value,
-			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+			Rparen: rparen,
 			Tok:    tok,
 			Var:    expr,
 			Body:   body.(*ast.BlockStmt),
@@ -3014,6 +3070,147 @@ func (a *Analyzer) VisitMatchCaseBody(ctx *generated.MatchCaseBodyContext) any {
 	})
 }
 
+// VisitVariableName implements the Visitor interface for VariableName
+func (a *Analyzer) VisitVariableName(ctx *generated.VariableNameContext) any {
+	return a.visitWrapper("VariableName", ctx, func() any {
+		// Handle wildcard
+		if ctx.WILDCARD() != nil {
+			return &ast.Ident{
+				NamePos: token.Pos(ctx.WILDCARD().GetSymbol().GetStart()),
+				Name:    "_",
+			}
+		}
+
+		// Handle identifier with optional type
+		if ctx.Identifier() != nil {
+			ident := &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+				Name:    ctx.Identifier().GetText(),
+			}
+
+			// If there's a type annotation, create a typed parameter
+			if ctx.Type_() != nil {
+				typ, _ := accept[ast.Expr](ctx.Type_(), a)
+				return &ast.Parameter{
+					Name:  ident,
+					Colon: token.Pos(ctx.COLON().GetSymbol().GetStart()),
+					Type:  typ,
+				}
+			}
+
+			return ident
+		}
+
+		return nil
+	})
+}
+
+// VisitListExpression implements the Visitor interface for ListExpression
+func (a *Analyzer) VisitListExpression(ctx *generated.ListExpressionContext) any {
+	return a.visitWrapper("ListExpression", ctx, func() any {
+		var elements []ast.Expr
+
+		// Get all expressions in the list
+		for _, exprCtx := range ctx.AllExpression() {
+			expr, _ := accept[ast.Expr](exprCtx, a)
+			if expr != nil {
+				elements = append(elements, expr)
+			}
+		}
+
+		return &ast.ArrayLiteralExpr{
+			Lbrack: token.Pos(ctx.LBRACK().GetSymbol().GetStart()),
+			Elems:  elements,
+			Rbrack: token.Pos(ctx.RBRACK().GetSymbol().GetStart()),
+		}
+	})
+}
+
+// VisitMapExpression implements the Visitor interface for MapExpression
+func (a *Analyzer) VisitMapExpression(ctx *generated.MapExpressionContext) any {
+	return a.visitWrapper("MapExpression", ctx, func() any {
+		var properties []ast.Expr
+
+		// Get all pairs in the map
+		for _, pairCtx := range ctx.AllPair() {
+			pair, _ := accept[ast.Expr](pairCtx, a)
+			if pair != nil {
+				properties = append(properties, pair)
+			}
+		}
+
+		return &ast.ObjectLiteralExpr{
+			Lbrace: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Props:  properties,
+			Rbrace: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+	})
+}
+
+// VisitPair implements the Visitor interface for Pair
+func (a *Analyzer) VisitPair(ctx *generated.PairContext) any {
+	return a.visitWrapper("Pair", ctx, func() any {
+		var key ast.Expr
+
+		// Handle different types of keys
+		if ctx.NumberLiteral() != nil {
+			key = &ast.NumericLiteral{
+				Value:    ctx.NumberLiteral().GetText(),
+				ValuePos: token.Pos(ctx.NumberLiteral().GetSymbol().GetStart()),
+			}
+		} else if ctx.BoolLiteral() != nil {
+			value := ctx.BoolLiteral().GetText()
+			if value == "true" {
+				key = &ast.TrueLiteral{
+					ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
+				}
+			} else {
+				key = &ast.FalseLiteral{
+					ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
+				}
+			}
+		} else if ctx.StringLiteral() != nil {
+			raw := ctx.StringLiteral().GetText()
+			value := raw[1 : len(raw)-1] // Remove quotes
+			key = &ast.StringLiteral{
+				Value:    value,
+				ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
+			}
+		} else if ctx.Identifier() != nil {
+			key = &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+				Name:    ctx.Identifier().GetText(),
+			}
+		}
+
+		// Get the value expression
+		value, _ := accept[ast.Expr](ctx.Expression(), a)
+
+		return &ast.KeyValueExpr{
+			Key:   key,
+			Colon: token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			Value: value,
+		}
+	})
+}
+
+// VisitForeachVariableName implements the Visitor interface for ForeachVariableName
+func (a *Analyzer) VisitForeachVariableName(ctx *generated.ForeachVariableNameContext) any {
+	return a.visitWrapper("ForeachVariableName", ctx, func() any {
+		// Handle variable name
+		if ctx.VariableName() != nil {
+			return a.VisitVariableName(ctx.VariableName().(*generated.VariableNameContext))
+		}
+
+		// Handle variable expression
+		if ctx.VariableExpression() != nil {
+			return a.VisitVariableExpression(ctx.VariableExpression().(*generated.VariableExpressionContext))
+		}
+
+		return nil
+	})
+}
+
 // VisitRangeExpression implements the Visitor interface for RangeExpression
 func (a *Analyzer) VisitRangeExpression(ctx *generated.RangeExpressionContext) any {
 	return a.visitWrapper("RangeExpression", ctx, func() any {
@@ -3097,41 +3294,96 @@ func (a *Analyzer) VisitExternItem(ctx *generated.ExternItemContext) any {
 }
 
 // VisitUnsafeExpression implements the Visitor interface for UnsafeExpression
-func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
-	return a.visitWrapper("UnsafeExpression", ctx, func() any {
-		// Handle unsafe block: unsafe { ... }
-		if ctx.UnsafeBlock() != nil {
-			unsafeBlock := ctx.UnsafeBlock()
-			// Get the text from the UnsafeBlock token
-			blockText := unsafeBlock.GetText()
+// func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
+// 	return a.visitWrapper("UnsafeExpression", ctx, func() any {
+// 		// Handle unsafe block: unsafe { ... }
+// 		if ctx.UnsafeBlock() != nil {
+// 			unsafeBlock := ctx.UnsafeBlock()
+// 			// Get the text from the UnsafeBlock token
+// 			blockText := unsafeBlock.GetText()
 
-			// Remove the "unsafe {" prefix and "}" suffix
-			if len(blockText) > 2 { // "unsafe {" is 8 characters
-				blockText = blockText[2 : len(blockText)-1]
-			}
+// 			// Remove the "unsafe {" prefix and "}" suffix
+// 			if len(blockText) > 2 { // "unsafe {" is 8 characters
+// 				blockText = blockText[2 : len(blockText)-1]
+// 			}
 
-			return &ast.UnsafeStmt{
-				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
-				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
-				Text:   blockText, // Get the text inside the block
-				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
-			}
-		}
+// 			return &ast.UnsafeStmt{
+// 				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
+// 				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
+// 				Text:   blockText, // Get the text inside the block
+// 				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
+// 			}
+// 		}
 
-		// Handle unsafe literal: [[ ... ]]
-		if ctx.UnsafeLiteral() != nil {
-			text := ctx.UnsafeLiteral().GetText()
-			// Remove the [[ and ]] delimiters
-			if len(text) >= 4 {
-				text = text[2 : len(text)-2]
-			}
-			return &ast.UnsafeStmt{
-				Unsafe: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStart()),
-				Text:   text,
-				EndPos: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStop()),
-			}
-		}
+// 		// Handle unsafe literal: [[ ... ]]
+// 		if ctx.UnsafeLiteral() != nil {
+// 			text := ctx.UnsafeLiteral().GetText()
+// 			// Remove the [[ and ]] delimiters
+// 			if len(text) >= 4 {
+// 				text = text[2 : len(text)-2]
+// 			}
+// 			return &ast.UnsafeStmt{
+// 				Unsafe: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStart()),
+// 				Text:   text,
+// 				EndPos: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStop()),
+// 			}
+// 		}
 
-		return nil
-	})
+// 		return nil
+// 	})
+// }
+
+// convertTokenType 将 ANTLR token 类型转换为 Hulo token 类型
+func (a *Analyzer) convertTokenType(antlrTokenType int) token.Token {
+	switch antlrTokenType {
+	case 57: // huloLexerMUL
+		return token.ASTERISK // 44
+	case 59: // huloLexerDIV
+		return token.SLASH // 45
+	case 58: // huloLexerMOD
+		return token.MOD // 46
+	case 56: // huloLexerEXP
+		return token.POWER // 47
+	case 60: // huloLexerADD
+		return token.PLUS // 38
+	case 61: // huloLexerSUB
+		return token.MINUS // 39
+	case 81: // huloLexerEQ
+		return token.EQ // 48
+	case 80: // huloLexerNEQ
+		return token.NEQ // 49
+	case 76: // huloLexerLT
+		return token.LT // 50
+	case 77: // huloLexerGT
+		return token.GT // 51
+	case 78: // huloLexerLE
+		return token.LE // 52
+	case 79: // huloLexerGE
+		return token.GE // 53
+	case 92: // huloLexerAND
+		return token.AND // 54
+	case 93: // huloLexerOR
+		return token.OR // 55
+	case 97: // huloLexerBITAND
+		return token.CONCAT // 56
+	case 68: // huloLexerASSIGN
+		return token.ASSIGN // 37
+	case 71: // huloLexerMUL_ASSIGN
+		return token.ASTERISK_ASSIGN // 47
+	case 73: // huloLexerDIV_ASSIGN
+		return token.SLASH_ASSIGN // 48
+	case 74: // huloLexerMOD_ASSIGN
+		return token.MOD_ASSIGN // 49
+	case 69: // huloLexerADD_ASSIGN
+		return token.PLUS_ASSIGN // 40
+	case 70: // huloLexerSUB_ASSIGN
+		return token.MINUS_ASSIGN // 41
+	case 95: // huloLexerINC
+		return token.INC // 42
+	case 96: // huloLexerDEC
+		return token.DEC // 43
+	default:
+		// 对于未知的 token 类型，返回 ILLEGAL
+		return token.ILLEGAL
+	}
 }

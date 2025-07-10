@@ -1,0 +1,9 @@
+// Test array access
+echo $arr1[0]
+echo $arr2[1]
+echo $mixed["numbers"][2]
+
+// Test object property access
+echo $obj1["name"]
+echo $obj2.count
+echo $mixed.nested.x

@@ -1,0 +1,3 @@
+import { Import } from "import.vbs"
+
+declare fn Import(path: str)

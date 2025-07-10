@@ -223,6 +223,7 @@ namedArgumentList: namedArgument (COMMA namedArgument)*;
 // ident: expr
 namedArgument: Identifier COLON expression;
 
+// _ or ident: type
 variableName: WILDCARD | Identifier (COLON type)?;
 
 rangeExpression: NumberLiteral DOUBLE_DOT NumberLiteral;
@@ -786,9 +787,17 @@ loopStatement:
 
 loopLabel: Identifier COLON;
 
-foreachStatement: LOOP LPAREN foreachClause RPAREN (IN | OF) expression block;
+// loop ($item, $index) in $arr {
+//     echo $item
+// }
+// loop $item in $arr {
+//     echo $item
+// }
+foreachStatement: LOOP foreachClause (IN | OF) expression block;
 
-foreachClause: variableName (COMMA variableName)?;
+foreachClause: foreachVariableName | LPAREN foreachVariableName COMMA foreachVariableName RPAREN;
+
+foreachVariableName: variableName | variableExpression;
 
 forStatement: LOOP LPAREN? forClause RPAREN? block;
 
@@ -839,7 +848,7 @@ channelInputStatement:
 ;
 channelOutputExpression: BACKARROW variableExpression;
 
-unsafeExpression: UNSAFE UnsafeBlock | UnsafeLiteral;
+unsafeExpression: UnsafeLiteral;
 
 comptimeExpression: COMPTIME block;
 

@@ -5,13 +5,16 @@ package build
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/hulo-lang/hulo/internal/build"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 	vast "github.com/hulo-lang/hulo/syntax/vbs/ast"
 	vtok "github.com/hulo-lang/hulo/syntax/vbs/token"
@@ -26,11 +29,407 @@ func TranspileToVBScript(opts *config.VBScriptOptions, node hast.Node) (vast.Nod
 		enableShell:     false,
 		declStmts:       container.NewArrayStack[vast.Stmt](),
 		declaredClasses: container.NewMapSet[string](),
-		classSymbols:    NewClassSymbolTable(),
-		enumSymbols:     NewEnumSymbolTable(),
 		declaredConsts:  container.NewMapSet[string](),
+		symbolTable: &SymbolTable{
+			classes: make(map[string]*ClassSymbol),
+			enums:   make(map[string]*EnumSymbol),
+		},
+		moduleManager:   nil,                              // 将在需要时初始化
+		importedSymbols: make(map[string]map[string]bool), // 初始化空的导入符号集合
 	}
 	return tr.Convert(node), nil
+}
+
+// TranspileToVBScriptWithModules 支持模块导入的转换函数
+func TranspileToVBScriptWithModules(opts *config.VBScriptOptions, node hast.Node, vfs vfs.VFS, basePath string) (vast.Node, error) {
+	tr := &VBScriptTranspiler{
+		opts:            opts,
+		scopeStack:      container.NewArrayStack[ScopeType](),
+		declaredVars:    container.NewMapSet[string](),
+		declaredFuncs:   container.NewMapSet[string](),
+		enableShell:     false,
+		declStmts:       container.NewArrayStack[vast.Stmt](),
+		declaredClasses: container.NewMapSet[string](),
+		declaredConsts:  container.NewMapSet[string](),
+		symbolTable: &SymbolTable{
+			classes: make(map[string]*ClassSymbol),
+			enums:   make(map[string]*EnumSymbol),
+		},
+		moduleManager:   NewModuleManager(vfs, basePath),
+		importedSymbols: make(map[string]map[string]bool), // 初始化空的导入符号集合
+	}
+	return tr.Convert(node), nil
+}
+
+// Transpile 编译函数，处理依赖关系和内置函数内联
+func Transpile(opts *config.VBScriptOptions, mainFile string, vfs vfs.VFS, basePath string, huloPath string, popts ...parser.ParserOptions) (map[string]string, error) {
+	// 1. 读取并解析 builtin.hl 获取内置函数
+	builtinFunctions, err := loadBuiltinFunctions(vfs, huloPath, popts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load builtin functions: %w", err)
+	}
+
+	// 2. 解析所有依赖
+	dependencies, err := resolveDependencies(mainFile, vfs, basePath, popts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dependencies: %w", err)
+	}
+
+	// 3. 收集所有模块的导出符号
+	moduleExports := make(map[string]*ModuleExports)
+
+	// 分析所有依赖文件，收集导出符号
+	for _, dep := range dependencies {
+		exports, err := analyzeModuleExports(dep, vfs, popts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to analyze module %s: %w", dep, err)
+		}
+		moduleExports[dep] = exports
+	}
+
+	// 4. 编译每个文件
+	results := make(map[string]string)
+
+	// 编译所有依赖文件
+	for _, dep := range dependencies {
+		content, err := vfs.ReadFile(dep)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s: %w", dep, err)
+		}
+
+		ast, err := parser.ParseSourceScript(string(content), popts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file %s: %w", dep, err)
+		}
+
+		// 创建翻译器并设置内置函数
+		tr := &VBScriptTranspiler{
+			opts:            opts,
+			scopeStack:      container.NewArrayStack[ScopeType](),
+			declaredVars:    container.NewMapSet[string](),
+			declaredFuncs:   container.NewMapSet[string](),
+			enableShell:     false,
+			declStmts:       container.NewArrayStack[vast.Stmt](),
+			declaredClasses: container.NewMapSet[string](),
+			declaredConsts:  container.NewMapSet[string](),
+			symbolTable: &SymbolTable{
+				classes: make(map[string]*ClassSymbol),
+				enums:   make(map[string]*EnumSymbol),
+			},
+			moduleManager:    NewModuleManager(vfs, basePath),
+			builtinFunctions: builtinFunctions,
+			importedSymbols:  make(map[string]map[string]bool), // 初始化空的导入符号集合
+		}
+
+		// 分析当前文件的导入语句，并收集导入的符号信息
+		tr.analyzeImportsWithSymbols(ast, vfs, basePath, moduleExports)
+
+		vbsAST := tr.Convert(ast)
+
+		// 转换为字符串
+		vbsCode := vast.String(vbsAST)
+		results[dep] = vbsCode
+	}
+
+	// 编译主文件
+	content, err := vfs.ReadFile(mainFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read main file: %w", err)
+	}
+
+	ast, err := parser.ParseSourceScript(string(content), popts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse main file: %w", err)
+	}
+
+	// 创建翻译器并设置内置函数和导入的符号
+	tr := &VBScriptTranspiler{
+		opts:            opts,
+		scopeStack:      container.NewArrayStack[ScopeType](),
+		declaredVars:    container.NewMapSet[string](),
+		declaredFuncs:   container.NewMapSet[string](),
+		enableShell:     false,
+		declStmts:       container.NewArrayStack[vast.Stmt](),
+		declaredClasses: container.NewMapSet[string](),
+		declaredConsts:  container.NewMapSet[string](),
+		symbolTable: &SymbolTable{
+			classes: make(map[string]*ClassSymbol),
+			enums:   make(map[string]*EnumSymbol),
+		},
+		moduleManager:    NewModuleManager(vfs, basePath),
+		builtinFunctions: builtinFunctions,
+	}
+
+	// 将内置函数添加到已声明函数集合中
+	for funcName := range builtinFunctions {
+		tr.declaredFuncs.Add(funcName)
+	}
+
+	// 分析主文件的导入语句，并收集导入的符号信息
+	tr.analyzeImportsWithSymbols(ast, vfs, basePath, moduleExports)
+
+	// 将依赖模块的导出符号添加到主文件的符号表中
+	for _, exports := range moduleExports {
+		for funcName := range exports.Functions {
+			tr.declaredFuncs.Add(funcName)
+		}
+		for className := range exports.Classes {
+			tr.declaredClasses.Add(className)
+		}
+	}
+
+	vbsAST := tr.Convert(ast)
+
+	// 检查是否需要Import函数，如果需要则内联
+	needsImport := hasImportStatements(ast)
+	var vbsCode string
+	if needsImport {
+		// 内联Import函数
+		importCode := ""
+		if importFunc, exists := builtinFunctions["Import"]; exists {
+			importCode = importFunc.Code + "\n\n"
+		}
+		vbsCode = importCode + vast.String(vbsAST)
+	} else {
+		vbsCode = vast.String(vbsAST)
+	}
+
+	results[mainFile] = vbsCode
+
+	return results, nil
+}
+
+// ModuleExports 模块导出的符号
+type ModuleExports struct {
+	Functions map[string]bool
+	Classes   map[string]bool
+	Constants map[string]bool
+}
+
+// analyzeModuleExports 分析模块的导出符号
+func analyzeModuleExports(filePath string, vfs vfs.VFS, popts ...parser.ParserOptions) (*ModuleExports, error) {
+	content, err := vfs.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	ast, err := parser.ParseSourceScript(string(content), popts...)
+	if err != nil {
+		return nil, err
+	}
+
+	exports := &ModuleExports{
+		Functions: make(map[string]bool),
+		Classes:   make(map[string]bool),
+		Constants: make(map[string]bool),
+	}
+
+	// 分析AST，收集公共符号
+	for _, stmt := range ast.Stmts {
+		switch s := stmt.(type) {
+		case *hast.FuncDecl:
+			// 检查是否是公共函数
+			for _, modifier := range s.Modifiers {
+				if _, ok := modifier.(*hast.PubModifier); ok {
+					exports.Functions[s.Name.Name] = true
+					break
+				}
+			}
+		case *hast.ClassDecl:
+			// 检查是否是公共类
+			if s.Pub.IsValid() {
+				exports.Classes[s.Name.Name] = true
+			}
+		case *hast.AssignStmt:
+			// 检查是否是公共常量
+			if s.Scope == htok.CONST {
+				if ident, ok := s.Lhs.(*hast.Ident); ok {
+					exports.Constants[ident.Name] = true
+				}
+			}
+		}
+	}
+
+	return exports, nil
+}
+
+// hasImportStatements 检查AST是否包含import语句
+func hasImportStatements(ast *hast.File) bool {
+	for _, stmt := range ast.Stmts {
+		if _, ok := stmt.(*hast.Import); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// BuiltinFunction 内置函数信息
+type BuiltinFunction struct {
+	Name     string
+	Code     string
+	IsInline bool
+}
+
+// loadBuiltinFunctions 加载内置函数
+func loadBuiltinFunctions(vfs vfs.VFS, basePath string, popts ...parser.ParserOptions) (map[string]*BuiltinFunction, error) {
+	builtinFunctions := make(map[string]*BuiltinFunction)
+
+	// 读取 builtin.hl
+	builtinPath := filepath.Join(basePath, "builtin.hl")
+
+	if vfs.Exists(builtinPath) {
+		content, err := vfs.ReadFile(builtinPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read builtin.hl: %w", err)
+		}
+
+		ast, err := parser.ParseSourceScript(string(content), popts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse builtin.hl: %w", err)
+		}
+
+		// 收集所有 declare 的函数名
+		declareFunctions := make(map[string]bool)
+		// 收集所有 import 语句中的符号信息
+		importSymbols := make(map[string]string) // symbolName -> filePath
+
+		// 解析内置函数和导入语句
+		for _, stmt := range ast.Stmts {
+			switch s := stmt.(type) {
+			case *hast.DeclareDecl:
+				if funcDecl, ok := s.X.(*hast.FuncDecl); ok {
+					declareFunctions[funcDecl.Name.Name] = true
+					builtinFunctions[funcDecl.Name.Name] = &BuiltinFunction{
+						Name:     funcDecl.Name.Name,
+						IsInline: true,
+					}
+				}
+			case *hast.Import:
+				// 处理导入语句，收集符号信息
+				if s.ImportMulti != nil {
+					// import { Import } from "a.vbs"
+					importPath := s.ImportMulti.Path
+					for _, field := range s.ImportMulti.List {
+						symbolName := field.Field
+						if field.Alias != "" {
+							symbolName = field.Alias
+						}
+						importSymbols[symbolName] = importPath
+					}
+				} else if s.ImportSingle != nil {
+					// import "a.vbs" as alias
+					importPath := s.ImportSingle.Path
+					symbolName := s.ImportSingle.Alias
+					if symbolName == "" {
+						// 如果没有别名，使用文件名作为符号名
+						symbolName = strings.TrimSuffix(filepath.Base(importPath), filepath.Ext(importPath))
+					}
+					importSymbols[symbolName] = importPath
+				}
+			}
+		}
+
+		// 为每个 declare 的函数查找对应的导入文件并读取代码
+		for funcName := range declareFunctions {
+			if importPath, exists := importSymbols[funcName]; exists {
+				// 检查是否是 .vbs 文件
+				if strings.HasSuffix(importPath, ".vbs") {
+					// 解析完整的文件路径
+					resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+					if err == nil && vfs.Exists(resolvedPath) {
+						// 读取整个文件内容作为代码
+						fileContent, err := vfs.ReadFile(resolvedPath)
+						if err == nil {
+							builtinFunctions[funcName].Code = string(fileContent)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return builtinFunctions, nil
+}
+
+// resolveDependencies 解析依赖关系
+func resolveDependencies(mainFile string, vfs vfs.VFS, basePath string, popts ...parser.ParserOptions) ([]string, error) {
+	var dependencies []string
+	visited := make(map[string]bool)
+
+	var resolve func(string) error
+	resolve = func(filePath string) error {
+		if visited[filePath] {
+			return nil
+		}
+		visited[filePath] = true
+
+		content, err := vfs.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		}
+
+		ast, err := parser.ParseSourceScript(string(content), popts...)
+		if err != nil {
+			return fmt.Errorf("failed to parse file %s: %w", filePath, err)
+		}
+
+		// 提取导入
+		for _, stmt := range ast.Stmts {
+			if importStmt, ok := stmt.(*hast.Import); ok {
+				if importStmt.ImportSingle != nil {
+					importPath := importStmt.ImportSingle.Path
+
+					// 解析模块路径
+					resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+					if err != nil {
+						return fmt.Errorf("failed to resolve module %s: %w", importPath, err)
+					}
+
+					// 递归解析依赖
+					err = resolve(resolvedPath)
+					if err != nil {
+						return err
+					}
+
+					dependencies = append(dependencies, resolvedPath)
+				}
+			}
+		}
+
+		return nil
+	}
+
+	err := resolve(mainFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return dependencies, nil
+}
+
+// resolveModulePath 解析模块路径
+func resolveModulePath(importPath string, vfs vfs.VFS, basePath string) (string, error) {
+	// 移除可能的文件扩展名
+	importPath = strings.TrimSuffix(importPath, ".hl")
+
+	// 尝试不同的文件扩展名
+	extensions := []string{".hl", ".vbs", ""}
+
+	for _, ext := range extensions {
+		// 相对路径
+		relativePath := importPath + ext
+		if vfs.Exists(relativePath) {
+			return relativePath, nil
+		}
+
+		// 相对于basePath的路径
+		basePath := filepath.Join(basePath, importPath+ext)
+		if vfs.Exists(basePath) {
+			return basePath, nil
+		}
+	}
+
+	return "", fmt.Errorf("module not found: %s", importPath)
 }
 
 type VBScriptTranspiler struct {
@@ -42,15 +441,22 @@ type VBScriptTranspiler struct {
 	declaredVars    container.Set[string]
 	declaredFuncs   container.Set[string]
 	declaredClasses container.Set[string]
-	classSymbols    *ClassSymbolTable
-	enumSymbols     *EnumSymbolTable
-	declaredConsts  container.Set[string] // 跟踪已声明的常量
+
+	declaredConsts container.Set[string] // 跟踪已声明的常量
+
+	symbolTable *SymbolTable
 
 	declStmts container.Stack[vast.Stmt]
 
 	enableShell bool
 
 	alloc *build.Allocator
+
+	moduleManager *ModuleManager // 模块管理器
+
+	builtinFunctions map[string]*BuiltinFunction // 内置函数
+
+	importedSymbols map[string]map[string]bool // 导入的符号信息: moduleName -> {symbolName -> true}
 }
 
 type ScopeType int
@@ -62,6 +468,11 @@ const (
 	IfScope
 )
 
+type SymbolTable struct {
+	classes map[string]*ClassSymbol
+	enums   map[string]*EnumSymbol
+}
+
 // ClassSymbol 表示类的符号表信息
 type ClassSymbol struct {
 	Name   string   // 类名
@@ -69,32 +480,21 @@ type ClassSymbol struct {
 	Public bool     // 是否为公共类
 }
 
-// ClassSymbolTable 类符号表
-type ClassSymbolTable struct {
-	classes map[string]*ClassSymbol
-}
-
-func NewClassSymbolTable() *ClassSymbolTable {
-	return &ClassSymbolTable{
-		classes: make(map[string]*ClassSymbol),
-	}
-}
-
-func (cst *ClassSymbolTable) AddClass(name string, fields []string, public bool) {
-	cst.classes[name] = &ClassSymbol{
+func (st *SymbolTable) AddClass(name string, fields []string, public bool) {
+	st.classes[name] = &ClassSymbol{
 		Name:   name,
 		Fields: fields,
 		Public: public,
 	}
 }
 
-func (cst *ClassSymbolTable) GetClass(name string) (*ClassSymbol, bool) {
-	class, exists := cst.classes[name]
+func (st *SymbolTable) GetClass(name string) (*ClassSymbol, bool) {
+	class, exists := st.classes[name]
 	return class, exists
 }
 
-func (cst *ClassSymbolTable) HasClass(name string) bool {
-	_, exists := cst.classes[name]
+func (st *SymbolTable) HasClass(name string) bool {
+	_, exists := st.classes[name]
 	return exists
 }
 
@@ -111,36 +511,25 @@ type EnumSymbol struct {
 	Values []*EnumValue // 枚举值列表
 }
 
-// EnumSymbolTable 枚举符号表
-type EnumSymbolTable struct {
-	enums map[string]*EnumSymbol
-}
-
-func NewEnumSymbolTable() *EnumSymbolTable {
-	return &EnumSymbolTable{
-		enums: make(map[string]*EnumSymbol),
-	}
-}
-
-func (est *EnumSymbolTable) AddEnum(name string, values []*EnumValue) {
-	est.enums[name] = &EnumSymbol{
+func (st *SymbolTable) AddEnum(name string, values []*EnumValue) {
+	st.enums[name] = &EnumSymbol{
 		Name:   name,
 		Values: values,
 	}
 }
 
-func (est *EnumSymbolTable) GetEnum(name string) (*EnumSymbol, bool) {
-	enum, exists := est.enums[name]
+func (st *SymbolTable) GetEnum(name string) (*EnumSymbol, bool) {
+	enum, exists := st.enums[name]
 	return enum, exists
 }
 
-func (est *EnumSymbolTable) HasEnum(name string) bool {
-	_, exists := est.enums[name]
+func (st *SymbolTable) HasEnum(name string) bool {
+	_, exists := st.enums[name]
 	return exists
 }
 
-func (est *EnumSymbolTable) HasEnumValue(enumName, valueName string) bool {
-	if enum, exists := est.enums[enumName]; exists {
+func (st *SymbolTable) HasEnumValue(enumName, valueName string) bool {
+	if enum, exists := st.enums[enumName]; exists {
 		for _, value := range enum.Values {
 			if value.Name == valueName {
 				return true
@@ -183,8 +572,12 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 		}
 		return &vast.CommentGroup{List: docs}
 	case *hast.ExprStmt:
+		expr := v.Convert(node.X)
+		if s, ok := expr.(vast.Stmt); ok {
+			return s
+		}
 		return &vast.ExprStmt{
-			X: v.Convert(node.X).(vast.Expr),
+			X: expr.(vast.Expr),
 		}
 	case *hast.UnsafeStmt:
 		return v.ConvertUnsafeStmt(node)
@@ -211,6 +604,12 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 			Kind:  vtok.BOOLEAN,
 			Value: "false",
 		}
+	case *hast.ArrayLiteralExpr:
+		return v.ConvertArrayLiteral(node)
+	case *hast.ObjectLiteralExpr:
+		return v.ConvertObjectLiteral(node)
+	case *hast.ForeachStmt:
+		return v.ConvertForeachStmt(node)
 	// case *hast.BasicLit:
 	// 	return &vast.BasicLit{
 	// 		Kind:  Token(node.Kind),
@@ -322,7 +721,7 @@ func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast
 	memberName := v.Convert(node.Y).(*vast.Ident).Name
 
 	// 检查是否是枚举访问
-	if v.enumSymbols.HasEnum(moduleName) && v.enumSymbols.HasEnumValue(moduleName, memberName) {
+	if v.symbolTable.HasEnum(moduleName) && v.symbolTable.HasEnumValue(moduleName, memberName) {
 		// 检查是否是纯数字枚举，如果是则直接返回数值
 		if v.isNumericEnum(moduleName) {
 			// 对于数字枚举，直接返回数值
@@ -360,7 +759,7 @@ func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast
 
 // isNumericEnum 检查是否是纯数字枚举
 func (v *VBScriptTranspiler) isNumericEnum(enumName string) bool {
-	if enum, exists := v.enumSymbols.GetEnum(enumName); exists {
+	if enum, exists := v.symbolTable.GetEnum(enumName); exists {
 		for _, value := range enum.Values {
 			if value.Type != "number" {
 				return false
@@ -373,7 +772,7 @@ func (v *VBScriptTranspiler) isNumericEnum(enumName string) bool {
 
 // getEnumNumericValue 获取枚举的数值
 func (v *VBScriptTranspiler) getEnumNumericValue(enumName, valueName string) vast.Expr {
-	if enum, exists := v.enumSymbols.GetEnum(enumName); exists {
+	if enum, exists := v.symbolTable.GetEnum(enumName); exists {
 		for _, value := range enum.Values {
 			if value.Name == valueName {
 				return &vast.BasicLit{
@@ -392,7 +791,7 @@ func (v *VBScriptTranspiler) getEnumNumericValue(enumName, valueName string) vas
 
 // getEnumStringValue 获取枚举的字符串值
 func (v *VBScriptTranspiler) getEnumStringValue(enumName, valueName string) vast.Expr {
-	if enum, exists := v.enumSymbols.GetEnum(enumName); exists {
+	if enum, exists := v.symbolTable.GetEnum(enumName); exists {
 		for _, value := range enum.Values {
 			if value.Name == valueName {
 				// 根据类型返回相应的字面量
@@ -427,13 +826,11 @@ func (v *VBScriptTranspiler) ConvertImport(node *hast.Import) vast.Node {
 	if node.ImportSingle != nil {
 		importPath := node.ImportSingle.Path
 
-		// TODO 去除后缀
-
-		// 解析 import 指代的文件路径
-
+		// 生成运行时导入代码
+		// 使用Import函数在运行时加载模块
 		return &vast.ExprStmt{
-			X: &vast.CmdExpr{
-				Cmd: &vast.Ident{Name: "Import"},
+			X: &vast.CallExpr{
+				Func: &vast.Ident{Name: "Import"},
 				Recv: []vast.Expr{
 					&vast.BasicLit{Kind: vtok.STRING, Value: fmt.Sprintf("%s.vbs", importPath)},
 				},
@@ -739,7 +1136,7 @@ func (v *VBScriptTranspiler) ConvertEnumDecl(node *hast.EnumDecl) vast.Node {
 	}
 
 	// 将枚举信息添加到符号表
-	v.enumSymbols.AddEnum(enumName, enumValues)
+	v.symbolTable.AddEnum(enumName, enumValues)
 
 	// 不生成任何语句，只收集符号表信息
 	return nil
@@ -873,7 +1270,36 @@ func (v *VBScriptTranspiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 			}
 		}
 	case *vast.SelectorExpr:
-		// Handle $p.greet() case - the RefExpr was converted to SelectorExpr
+		// Handle module access like utils.Calculate() or $p.greet()
+		// Check if this is a module access (e.g., utils.Calculate)
+		if moduleIdent, ok := fun.X.(*vast.Ident); ok {
+			if funcIdent, ok := fun.Sel.(*vast.Ident); ok {
+				// Check if this is a module access (e.g., utils.Calculate)
+				// vs object method call (e.g., $p2.greet())
+				if v.isImportedSymbol(moduleIdent.Name, funcIdent.Name) {
+					// This is a module access like utils.Calculate
+					// We should just use the function name since modules are imported
+					recv := []vast.Expr{}
+					for _, r := range node.Recv {
+						recv = append(recv, v.Convert(r).(vast.Expr))
+					}
+					return &vast.CallExpr{
+						Func: funcIdent, // Just use the function name
+						Recv: recv,
+					}
+				} else {
+					// Check if this is an attempt to access a non-exported symbol from a module
+					// If the module exists in importedSymbols but the symbol doesn't, it's an error
+					if _, exists := v.importedSymbols[moduleIdent.Name]; exists {
+						// Module is imported but symbol is not exported - this is an error
+						panic(fmt.Sprintf("symbol '%s' is not exported from module '%s'", funcIdent.Name, moduleIdent.Name))
+					}
+				}
+				// Otherwise, it's an object method call, keep the selector expression
+			}
+		}
+
+		// Handle other selector expressions (e.g., $p.greet())
 		recv := []vast.Expr{}
 		for _, r := range node.Recv {
 			recv = append(recv, v.Convert(r).(vast.Expr))
@@ -942,7 +1368,16 @@ func (v *VBScriptTranspiler) ConvertBlock(node *hast.BlockStmt) vast.Node {
 	for _, s := range node.List {
 		stmt := v.Convert(s)
 		stmts = append(stmts, v.Flush()...)
-		stmts = append(stmts, stmt.(vast.Stmt))
+		if stmt == nil {
+			continue
+		}
+		if s, ok := stmt.(vast.Stmt); ok {
+			stmts = append(stmts, s)
+		} else {
+			// 不是vast.Stmt类型，忽略或报错
+			// 可以选择panic或者continue，这里选择continue
+			continue
+		}
 	}
 	return &vast.BlockStmt{List: stmts}
 }
@@ -1032,7 +1467,7 @@ func (v *VBScriptTranspiler) ConvertClassDecl(node *hast.ClassDecl) vast.Node {
 	}
 
 	// 将类信息添加到符号表
-	v.classSymbols.AddClass(className.Name, fieldNames, isPublic)
+	v.symbolTable.AddClass(className.Name, fieldNames, isPublic)
 
 	// 处理方法
 	for _, method := range node.Methods {
@@ -1147,6 +1582,30 @@ func (v *VBScriptTranspiler) ConvertForStmt(node *hast.ForStmt) vast.Node {
 	}
 }
 
+// isObjectExpression 判断表达式是否是对象类型
+func (v *VBScriptTranspiler) isObjectExpression(expr vast.Expr) bool {
+	switch e := expr.(type) {
+	case *vast.CallExpr:
+		// CreateObject 调用返回对象
+		if ident, ok := e.Func.(*vast.Ident); ok && ident.Name == "CreateObject" {
+			return true
+		}
+		// Array 调用返回数组，不需要 Set
+		if ident, ok := e.Func.(*vast.Ident); ok && ident.Name == "Array" {
+			return false
+		}
+	case *vast.NewExpr:
+		// New 表达式创建对象
+		return true
+	case *vast.Ident:
+		// 检查是否是已知的对象变量（如Dictionary）
+		if e.Name == "dict_0" || strings.HasPrefix(e.Name, "dict_") {
+			return true
+		}
+	}
+	return false
+}
+
 func (v *VBScriptTranspiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node {
 	lhs := v.Convert(node.Lhs).(vast.Expr)
 	rhs := v.Convert(node.Rhs).(vast.Expr)
@@ -1170,6 +1629,16 @@ func (v *VBScriptTranspiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node 
 	if v.needsDimDeclaration(lhs) {
 		v.Emit(&vast.DimDecl{List: []vast.Expr{lhs}})
 	}
+
+	// 检查右侧表达式是否是对象类型
+	if v.isObjectExpression(rhs) {
+		// 对象赋值需要使用 Set
+		return &vast.SetStmt{
+			Lhs: lhs,
+			Rhs: rhs,
+		}
+	}
+
 	return &vast.AssignStmt{
 		Lhs: lhs,
 		Rhs: rhs,
@@ -1261,7 +1730,7 @@ func (v *VBScriptTranspiler) convertConstructorAssignment(lhs vast.Expr, classNa
 
 // getClassFieldNames 获取类的字段名列表
 func (v *VBScriptTranspiler) getClassFieldNames(className string) []string {
-	if class, exists := v.classSymbols.GetClass(className); exists {
+	if class, exists := v.symbolTable.GetClass(className); exists {
 		return class.Fields
 	}
 	return []string{}
@@ -1352,6 +1821,32 @@ func (v *VBScriptTranspiler) ConvertMatchStmt(node *hast.MatchStmt) vast.Node {
 	return firstIf
 }
 
+// addImportedSymbols 将导入模块的符号添加到当前作用域
+func (v *VBScriptTranspiler) addImportedSymbols(imported *ImportedModule) {
+	// 将导入模块的函数添加到已声明函数集合
+	for funcName := range imported.Exports {
+		if _, ok := imported.Exports[funcName].(*hast.FuncDecl); ok {
+			v.declaredFuncs.Add(funcName)
+		}
+	}
+
+	// 将导入模块的类添加到已声明类集合
+	for className := range imported.Exports {
+		if _, ok := imported.Exports[className].(*hast.ClassDecl); ok {
+			v.declaredClasses.Add(className)
+		}
+	}
+
+	// 将导入模块的常量添加到已声明常量集合
+	for constName := range imported.Exports {
+		if _, ok := imported.Exports[constName].(*hast.AssignStmt); ok {
+			if assign, ok := imported.Exports[constName].(*hast.AssignStmt); ok && assign.Scope == htok.CONST {
+				v.declaredConsts.Add(constName)
+			}
+		}
+	}
+}
+
 // convertMatchCondition 转换 match 语句的条件表达式
 func (v *VBScriptTranspiler) convertMatchCondition(matchExpr vast.Expr, cond hast.Expr) vast.Expr {
 	switch c := cond.(type) {
@@ -1418,6 +1913,231 @@ func (v *VBScriptTranspiler) convertMatchCondition(matchExpr vast.Expr, cond has
 			X:  matchExpr,
 			Op: vtok.EQ,
 			Y:  v.Convert(c).(vast.Expr),
+		}
+	}
+}
+
+// ConvertArrayLiteral 将Hulo数组字面量转换为VBScript的Array函数调用
+func (v *VBScriptTranspiler) ConvertArrayLiteral(node *hast.ArrayLiteralExpr) vast.Node {
+	var args []vast.Expr
+
+	// 转换所有数组元素
+	for _, elem := range node.Elems {
+		converted := v.Convert(elem)
+		if converted != nil {
+			args = append(args, converted.(vast.Expr))
+		}
+	}
+
+	// 创建Array函数调用
+	return &vast.CallExpr{
+		Func:   &vast.Ident{Name: "Array"},
+		Lparen: vtok.Pos(node.Lbrack),
+		Recv:   args,
+		Rparen: vtok.Pos(node.Rbrack),
+	}
+}
+
+// ConvertObjectLiteral 将Hulo对象字面量转换为VBScript的Dictionary对象
+func (v *VBScriptTranspiler) ConvertObjectLiteral(node *hast.ObjectLiteralExpr) vast.Node {
+	// 生成唯一的变量名
+	dictVarName := fmt.Sprintf("dict_%d", len(v.buffer))
+
+	// 生成创建Dictionary的代码
+	createDict := &vast.SetStmt{
+		Lhs: &vast.Ident{Name: dictVarName},
+		Rhs: &vast.CallExpr{
+			Func: &vast.Ident{Name: "CreateObject"},
+			Recv: []vast.Expr{
+				&vast.BasicLit{
+					Kind:  vtok.STRING,
+					Value: "Scripting.Dictionary",
+				},
+			},
+		},
+	}
+
+	// 将创建语句添加到缓冲区
+	v.Emit(createDict)
+
+	// 处理所有属性
+	for _, prop := range node.Props {
+		if keyValue, ok := prop.(*hast.KeyValueExpr); ok {
+			// 转换键和值
+			key := v.Convert(keyValue.Key).(vast.Expr)
+			value := v.Convert(keyValue.Value).(vast.Expr)
+
+			// 生成Add方法调用
+			addCall := &vast.CmdExpr{
+				Cmd: &vast.SelectorExpr{
+					X:   &vast.Ident{Name: dictVarName},
+					Sel: &vast.Ident{Name: "Add"},
+				},
+				Recv: []vast.Expr{key, value},
+			}
+
+			// 将Add调用添加到缓冲区
+			v.Emit(&vast.ExprStmt{X: addCall})
+		}
+	}
+
+	// 返回Dictionary变量引用
+	return &vast.Ident{Name: dictVarName}
+}
+
+const WILDCARD = "_"
+
+// ConvertForeachStmt 将Hulo的foreach语句转换为VBScript的For Each语句
+func (v *VBScriptTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) vast.Node {
+	// 转换集合表达式
+	collectionExpr := v.Convert(node.Var).(vast.Expr)
+
+	// 如果是对象遍历（使用of关键字），需要特殊处理
+	if node.Tok == htok.OF {
+		// 对于对象遍历，我们需要遍历Dictionary的Keys
+		// 修改集合表达式为 collectionExpr.Keys
+		collectionExpr = &vast.SelectorExpr{
+			X:   collectionExpr,
+			Sel: &vast.Ident{Name: "Keys"},
+		}
+
+		// 转换循环变量
+		var elemExpr vast.Expr
+		if node.Index != nil {
+			// 检查是否是下划线占位符
+			if ident, ok := node.Index.(*hast.Ident); ok && ident.Name == WILDCARD {
+				// 使用临时变量名
+				elemExpr = &vast.Ident{Name: "tempKey"}
+			} else {
+				elemExpr = v.Convert(node.Index).(vast.Expr)
+			}
+		} else {
+			// 如果没有指定变量名，使用默认的key
+			elemExpr = &vast.Ident{Name: "key"}
+		}
+
+		// 转换循环体
+		body := v.Convert(node.Body).(*vast.BlockStmt)
+
+		// 如果有两个变量（key和value），需要在循环体中添加value变量的赋值
+		if node.Value != nil {
+			// 检查value是否是下划线占位符
+			if valueIdent, ok := node.Value.(*hast.Ident); ok && valueIdent.Name == WILDCARD {
+				// 如果value是下划线，不需要赋值语句，直接使用循环体
+				// 但需要确保key变量名是有效的
+				if ident, ok := node.Index.(*hast.Ident); ok && ident.Name == WILDCARD {
+					// 如果key也是下划线，使用临时变量名
+					elemExpr = &vast.Ident{Name: "tempKey"}
+				}
+			} else {
+				// 创建新的循环体，在开头添加value赋值语句
+				var newBodyStmts []vast.Stmt
+
+				// 添加 value = collectionExpr.Item(key) 语句
+				valueAssignStmt := &vast.AssignStmt{
+					Lhs: v.Convert(node.Value).(vast.Expr),
+					Rhs: &vast.CallExpr{
+						Func: &vast.SelectorExpr{
+							X:   v.Convert(node.Var).(vast.Expr),
+							Sel: &vast.Ident{Name: "Item"},
+						},
+						Recv: []vast.Expr{elemExpr},
+					},
+				}
+				newBodyStmts = append(newBodyStmts, valueAssignStmt)
+
+				// 添加原有的循环体语句
+				newBodyStmts = append(newBodyStmts, body.List...)
+
+				body = &vast.BlockStmt{List: newBodyStmts}
+			}
+		}
+
+		// 创建For Each语句
+		forEachStmt := &vast.ForEachStmt{
+			For:   vtok.Pos(node.Loop),
+			Each:  vtok.Pos(node.Loop), // 使用相同位置
+			Elem:  elemExpr,
+			In:    vtok.Pos(node.Tok),
+			Group: collectionExpr,
+			Body:  body,
+			Next:  vtok.Pos(node.Body.Rbrace), // 使用循环体结束位置
+		}
+
+		return forEachStmt
+	} else {
+		// 对于数组遍历（使用in关键字），直接处理
+		var elemExpr vast.Expr
+		if node.Index != nil {
+			elemExpr = v.Convert(node.Index).(vast.Expr)
+		} else {
+			// 如果没有指定变量名，使用默认的item
+			elemExpr = &vast.Ident{Name: "item"}
+		}
+
+		// 转换循环体
+		body := v.Convert(node.Body).(*vast.BlockStmt)
+
+		// 创建For Each语句
+		forEachStmt := &vast.ForEachStmt{
+			For:   vtok.Pos(node.Loop),
+			Each:  vtok.Pos(node.Loop), // 使用相同位置
+			Elem:  elemExpr,
+			In:    vtok.Pos(node.Tok),
+			Group: collectionExpr,
+			Body:  body,
+			Next:  vtok.Pos(node.Body.Rbrace), // 使用循环体结束位置
+		}
+
+		return forEachStmt
+	}
+}
+
+// isImportedSymbol 检查给定的模块名和符号名是否是导入的符号
+func (v *VBScriptTranspiler) isImportedSymbol(moduleName, symbolName string) bool {
+	if symbols, exists := v.importedSymbols[moduleName]; exists {
+		return symbols[symbolName]
+	}
+	return false
+}
+
+// analyzeImportsWithSymbols 分析AST中的导入语句，并收集导入的符号信息
+func (v *VBScriptTranspiler) analyzeImportsWithSymbols(ast *hast.File, vfs vfs.VFS, basePath string, moduleExports map[string]*ModuleExports) {
+	// 确保 importedSymbols 已初始化
+	if v.importedSymbols == nil {
+		v.importedSymbols = make(map[string]map[string]bool)
+	}
+
+	for _, stmt := range ast.Stmts {
+		if importStmt, ok := stmt.(*hast.Import); ok {
+			if importStmt.ImportSingle != nil {
+				importPath := importStmt.ImportSingle.Path
+
+				// 解析模块路径
+				resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+				if err == nil {
+					// 从文件路径中提取模块名（去掉扩展名）
+					moduleName := strings.TrimSuffix(filepath.Base(resolvedPath), filepath.Ext(resolvedPath))
+
+					// 初始化模块的符号集合
+					if v.importedSymbols[moduleName] == nil {
+						v.importedSymbols[moduleName] = make(map[string]bool)
+					}
+
+					// 添加该模块的所有导出符号
+					if exports, exists := moduleExports[resolvedPath]; exists {
+						for funcName := range exports.Functions {
+							v.importedSymbols[moduleName][funcName] = true
+						}
+						for className := range exports.Classes {
+							v.importedSymbols[moduleName][className] = true
+						}
+						for constName := range exports.Constants {
+							v.importedSymbols[moduleName][constName] = true
+						}
+					}
+				}
+			}
 		}
 	}
 }

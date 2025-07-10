@@ -711,6 +711,10 @@ func (v *BasehuloParserVisitor) VisitForeachClause(ctx *ForeachClauseContext) in
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitForeachVariableName(ctx *ForeachVariableNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitForStatement(ctx *ForStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }

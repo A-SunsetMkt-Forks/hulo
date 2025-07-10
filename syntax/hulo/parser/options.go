@@ -13,6 +13,13 @@ import (
 
 type ParserOptions func(*Analyzer) error
 
+func OptionDisableTracer() ParserOptions {
+	return func(a *Analyzer) error {
+		a.Tracer.writer = io.Discard
+		return nil
+	}
+}
+
 func OptionTracerLevel(level log.Level) ParserOptions {
 	return func(a *Analyzer) error {
 		log.SetLevel(level)

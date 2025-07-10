@@ -15,6 +15,7 @@ type Huloc struct {
 	Language        Language        `json:"language"`
 	Include         []string        `json:"include"`
 	Exclude         []string        `json:"exclude"`
+	HULOPATH        string          `json:"hulopath"`
 }
 
 // Validate validates the Huloc configuration.
@@ -33,6 +34,7 @@ type CompilerOptions struct {
 type Language string
 
 const (
-	L_BASH  Language = "bash"
-	L_BATCH Language = "batch"
+	L_BASH     Language = "bash"
+	L_BATCH    Language = "batch"
+	L_VBSCRIPT Language = "vbs"
 )

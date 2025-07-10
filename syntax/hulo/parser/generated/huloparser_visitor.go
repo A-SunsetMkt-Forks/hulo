@@ -535,6 +535,9 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#foreachClause.
 	VisitForeachClause(ctx *ForeachClauseContext) interface{}
 
+	// Visit a parse tree produced by huloParser#foreachVariableName.
+	VisitForeachVariableName(ctx *ForeachVariableNameContext) interface{}
+
 	// Visit a parse tree produced by huloParser#forStatement.
 	VisitForStatement(ctx *ForStatementContext) interface{}
 

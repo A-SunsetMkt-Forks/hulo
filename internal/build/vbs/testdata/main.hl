@@ -1,0 +1,7 @@
+import "utils"
+
+let result = utils.Add(5, 7)
+echo $result;
+
+let pi = utils.PI()
+echo $pi;

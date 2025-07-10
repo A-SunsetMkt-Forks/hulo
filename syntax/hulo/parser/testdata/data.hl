@@ -1,0 +1,21 @@
+// Test array literals
+let arr1: list<num> = [1, 2, 3, 4, 5]
+let arr2: list<str> = ["hello", "world", "test"]
+let arr3: list<bool> = [true, false, true]
+let arr4: list<any> = [1, "hello", true, 3.14]
+
+// Test object literals
+let obj1: map<str, str> = {"name": "hulo", "version": "0.1.0"}
+let obj2: map<str, num> = {"count": 10, "score": 95.5}
+let obj3: map<str, bool> = {"enabled": true, "debug": false}
+let obj4: map<str, any> = {"id": 1, "name": "test", "active": true}
+
+// Test mixed literals
+let mixed: map<str, any> = {
+    "numbers": [1, 2, 3],
+    "strings": ["a", "b", "c"],
+    "nested": {
+        "x": 10,
+        "y": 20
+    }
+}

@@ -171,7 +171,7 @@ ANY  : 'any';
 
 UnsafeLiteral: DOUBLE_LBRACK (BACKSLASH RBRACK | ~[\]])* DOUBLE_RBRACK;
 
-UnsafeBlock: LBRACE (BACKSLASH RBRACE | ~[}])* RBRACE;
+// UnsafeBlock: LBRACE (BACKSLASH RBRACE | ~[}])* RBRACE;
 
 DOUBLE_LBRACK : '[[';
 DOUBLE_RBRACK : ']]';

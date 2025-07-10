@@ -9,4 +9,12 @@ pub class Person {
     pub fn to_str() -> str {
         return "Person(name: $name, age: $age)"
     }
+
+    pub fn greet(name: str) {
+        echo "Hello $name, my name is ${this.name}"
+    }
 }
+
+let p = Person()
+$p.to_str()
+$p.greet("John")

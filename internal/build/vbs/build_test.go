@@ -6,10 +6,12 @@ package build_test
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	build "github.com/hulo-lang/hulo/internal/build/vbs"
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	vast "github.com/hulo-lang/hulo/syntax/vbs/ast"
 	"github.com/stretchr/testify/assert"
@@ -97,8 +99,19 @@ func TestNestedIf(t *testing.T) {
 	vast.Print(bnode)
 }
 
+func TestStandardWhile(t *testing.T) {
+	script := `loop $a < 2 { MsgBox $a; $a++; }`
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
 func TestWhile(t *testing.T) {
-	script := `loop {
+	script := `
+	loop {
 		echo "Hello, World!"
 	}
 
@@ -109,7 +122,7 @@ func TestWhile(t *testing.T) {
 	do {
 		echo "Hello, World!"
 	} loop ($a > 10)`
-	node, err := parser.ParseSourceScript(script)
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	// hast.Print(node)
 	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
@@ -120,12 +133,59 @@ func TestWhile(t *testing.T) {
 // TODO j-- error
 func TestFor(t *testing.T) {
 	script := `
+	declare fn MsgBox(message: str);
 	loop $i := 0; $i < 10; $i++ {
-		echo "Hello, World!"
+		MsgBox "Hello, World!"
 		loop $j := 10; $j > 0; $j-- {
-			echo "Hello, World!"
+			MsgBox "Hello, World!"
 		}
 	}`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestForIn(t *testing.T) {
+	script := `
+	declare fn MsgBox(message: str);
+	let arr: list<num> = [1, 3.14, 5.0, 0.7]
+	loop $item in $arr {
+		MsgBox $item
+	}
+
+	loop $i in [0, 1, 2] {
+		MsgBox $i
+	}`
+	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	// hast.Print(node)
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
+}
+
+func TestForOf(t *testing.T) {
+	script := `
+declare fn MsgBox(message: str);
+let config: map<str, str> = {"host": "localhost", "port": "8080"}
+loop ($key, $value) of $config {
+    MsgBox "$key = $value"
+}
+loop ($key, _) of $config {
+    MsgBox $key
+}
+
+loop (_, $value) of $config {
+    MsgBox $value
+}
+
+loop $key of $config {
+    MsgBox $key
+}
+`
 	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	// hast.Print(node)
@@ -146,7 +206,12 @@ func TestFunc(t *testing.T) {
 
 	fn add(a: num, b: num) {
 		return $a + $b
-	}`
+	}
+
+	fn multiply(a: num, b: num) -> num {
+		return $a * $b
+	}
+	`
 	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	// hast.Print(node)
@@ -193,6 +258,10 @@ func TestClassDecl(t *testing.T) {
 			pub fn greet() {
 				MsgBox "Hello, my name is $name and I am $age years old."
 			}
+
+			pub fn greet_with_age(age: num) {
+				MsgBox "Hello, my name is $name and I am $age years old."
+			}
 		}
 
 		let p = Person()
@@ -202,6 +271,7 @@ func TestClassDecl(t *testing.T) {
 
 		let p2 = Person("Jerry", 20)
 		$p2.greet()
+		$p2.greet_with_age(10)
 	`
 	node, err := parser.ParseSourceScript(script, parser.OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
@@ -919,4 +989,137 @@ func TestParseStringInterpolation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModuleImport(t *testing.T) {
+	// 创建内存文件系统
+	memFS := memvfs.New()
+
+	// 创建测试模块文件
+	moduleContent := `
+		pub fn Add(a: num, b: num) {
+			return $a + $b
+		}
+
+		pub fn Multiply(a: num, b: num) {
+			return $a * $b
+		}
+
+		const PI = 3.14159
+	`
+
+	// 写入模块文件
+	err := memFS.WriteFile("utils.hl", []byte(moduleContent), 0644)
+	assert.NoError(t, err)
+
+	// 创建主文件
+	mainContent := `
+		import "utils"
+
+		let result = Add(5, 7)
+		echo $result
+	`
+
+	// 解析主文件
+	node, err := parser.ParseSourceScript(mainContent)
+	assert.NoError(t, err)
+
+	// 使用模块管理器进行转换
+	bnode, err := build.TranspileToVBScriptWithModules(&config.VBScriptOptions{}, node, memFS, ".")
+	assert.NoError(t, err)
+
+	// 打印结果
+	vast.Print(bnode)
+}
+
+func TestSmartCompile(t *testing.T) {
+	// 创建内存文件系统
+	memFS := memvfs.New()
+
+	// 创建测试文件
+	testFiles := map[string]string{
+		"builtin.hl": `
+			import { Import } from "import.vbs"
+
+			declare fn Import(path: str)
+
+			declare fn MsgBox(message: str)
+		`,
+		"import.vbs": `
+Function Import(modulePath)
+	' Runtime import function
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	If fso.FileExists(modulePath) Then
+		ExecuteGlobal fso.OpenTextFile(modulePath, 1).ReadAll()
+	End If
+End Function
+`,
+		"math.hl": `
+			pub fn Add(a: num, b: num) -> num {
+				return $a + $b
+			}
+
+			pub fn Multiply(a: num, b: num) -> num {
+				return $a * $b
+			}
+
+			pub const PI = 3.14159
+		`,
+		"utils.hl": `
+			import "math"
+
+			pub fn Calculate(a: num, b: num) -> num {
+				let sum = math.Add($a, $b)
+				let product = math.Multiply($a, $b)
+				return $sum + $product
+			}
+
+			// pub fn PI() -> num {
+			// 	return math.$PI
+			// }
+		`,
+		"main.hl": `
+			import "utils"
+			import * from "utils"
+
+			let result = utils.Calculate(5, 3)
+			MsgBox $result;
+			MsgBox Calculate(5, 3);
+		`,
+	}
+
+	// 写入测试文件
+	for path, content := range testFiles {
+		err := memFS.WriteFile(path, []byte(content), 0644)
+		assert.NoError(t, err)
+	}
+
+	// 测试智能编译
+	results, err := build.Transpile(&config.VBScriptOptions{}, "main.hl", memFS, ".", ".")
+	assert.NoError(t, err)
+
+	// 验证结果
+	assert.NotNil(t, results)
+	assert.Contains(t, results, "main.hl")
+	assert.Contains(t, results, "utils.hl")
+	assert.Contains(t, results, "math.hl")
+
+	// 打印结果
+	for file, code := range results {
+		file = strings.Replace(file, ".hl", ".vbs", 1)
+		os.WriteFile(file, []byte(code), 0644)
+		// fmt.Printf("=== %s ===\n", file)
+		// fmt.Println(code)
+		// fmt.Println()
+	}
+}
+
+func TestSimpleMultiplication(t *testing.T) {
+	script := `$a * $b`
+	node, err := parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+
+	bnode, err := build.TranspileToVBScript(&config.VBScriptOptions{}, node)
+	assert.NoError(t, err)
+	vast.Print(bnode)
 }

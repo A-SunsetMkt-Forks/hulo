@@ -30,6 +30,12 @@ func TestParseSourceFile(t *testing.T) {
 	ast.Print(node)
 }
 
+func TestParseSourceLoop(t *testing.T) {
+	node, err := ParseSourceScript("loop $a < 2 { MsgBox $a; $a++; }")
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
 func TestParseIfStmt(t *testing.T) {
 	node, err := ParseSourceFile("./testdata/if.hl", OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
@@ -165,6 +171,12 @@ func TestParseSelector(t *testing.T) {
 
 func TestParseUnsafe(t *testing.T) {
 	node, err := ParseSourceFile("./testdata/unsafe.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseData(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/data.hl", OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	ast.Print(node)
 }

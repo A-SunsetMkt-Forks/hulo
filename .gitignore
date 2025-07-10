@@ -36,3 +36,8 @@ coverage
 coverage.txt
 
 *.zip
+*.tgz
+
+node_modules/
+
+release/

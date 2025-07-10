@@ -1,0 +1,13 @@
+import * as math from "math"
+
+pub fn Add(a: num, b: num) -> num {
+	return $a + $b
+}
+
+pub fn Multiply(a: num, b: num) -> num {
+	return $a * $b
+}
+
+pub fn PI() -> num {
+	return math.$PI
+}
