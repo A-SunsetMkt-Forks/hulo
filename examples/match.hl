@@ -1,0 +1,7 @@
+let n = InputBox("Input a number:");
+
+match $n {
+    0 => MsgBox("The number is 0."),
+    1 => MsgBox("The number is 1."),
+    _ => MsgBox("The number is not 0 or 1.")
+}

@@ -1,0 +1,15 @@
+let a = InputBox("Input a:")
+let b = InputBox("Input b:")
+
+if $a > 10 {
+	MsgBox "a is greater than 10"
+    if $b > 20 {
+		MsgBox "b is greater than 20"
+	} else {
+		MsgBox "b is less than or equal to 20"
+	}
+} else if $a < 0 {
+	MsgBox "a is less than 0"
+} else {
+	MsgBox "a is 0"
+}

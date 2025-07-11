@@ -5,6 +5,7 @@ package tools
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -178,4 +179,15 @@ func addFileToZip(zipWriter *zip.Writer, fullPath, relPath string) error {
 
 	_, err = io.Copy(w, file)
 	return err
+}
+
+func resolveVersion() {
+	data, err := exec.Command("gitversion").Output()
+	if err != nil {
+		log.WithError(err).Fatal("failed to get git version")
+	}
+	err = json.Unmarshal(data, &version)
+	if err != nil {
+		log.WithError(err).Fatal("failed to unmarshal git version")
+	}
 }

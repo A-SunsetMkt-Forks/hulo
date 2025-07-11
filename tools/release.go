@@ -8,7 +8,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
+	"runtime"
+	"strings"
 
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/tools/release"
@@ -18,13 +19,13 @@ import (
 var (
 	name = "hulo"
 	// TODO build as tag to inject cmd/hulo.go
-	version     = "1.0.0"
-	description = ""
+	version     = release.GitVersion{}
+	description = "Hulo is a batch-oriented programming language."
 	homepage    = "https://hulo-lang.github.io/docs/"
 	repository  = "https://github.com/hulo-lang/hulo"
 	author      = "The Hulo Authors"
 	license     = "MIT"
-	keywords    = []string{}
+	keywords    = []string{"hulo", "batch", "programming", "language", "vbs", "vbscript"}
 )
 
 type Release mg.Namespace
@@ -36,22 +37,22 @@ func (r Release) All() {
 
 // builds and publishes the PyPI package.
 func (r Release) Pypi() {
-	r.prepare()
+	mg.Deps(r.setup)
 }
 
 // builds and publishes the npm package.
 func (r Release) Npm() {
-	r.prepare()
+	mg.Deps(r.setup)
 }
 
 // generates and publishes GoFish manifest files.
 func (r Release) Gofish() {
-	r.prepare()
+	mg.Deps(r.setup)
 	food := release.Food{
 		Name:        name,
 		Description: description,
 		Homepage:    homepage,
-		Version:     version,
+		Version:     version.SemVer,
 		License:     license,
 		Packages:    buildPackages(),
 	}
@@ -78,45 +79,78 @@ func (r Release) Gofish() {
 	}
 }
 
-func (Release) prepare() {
+func (Release) setup() {
+	mg.Deps(resolveVersion)
+	err := os.Setenv("Version", version.SemVer)
+	if err != nil {
+		log.WithError(err).Fatal("failed to set Version environment variable")
+	}
+
+	err = os.Setenv("GOVERSION", runtime.Version())
+	if err != nil {
+		log.WithError(err).Fatal("failed to set GOVERSION environment variable")
+	}
+
+	err = runCmd("goreleaser", "release", "--snapshot", "--clean")
+	if err != nil {
+		log.WithError(err).Fatal("goreleaser build failed")
+	}
+
 	os.MkdirAll("dist/release", 0755)
 }
 
-func buildPackages() []release.Package {
-	baseURL := "https://github.com/hulo-lang/hulo/releases/download/v" + version + "/"
-	distDir := "dist"
-	entries, err := os.ReadDir(distDir)
+type Checksum struct {
+	SHA256  string `json:"sha256"`
+	Archive string `json:"archive"`
+}
+
+func parseChecksums() ([]Checksum, error) {
+	data, err := os.ReadFile("dist/checksums.txt")
 	if err != nil {
-		log.Fatalf("failed to read dist dir: %v", err)
+		return nil, err
 	}
 
-	re := regexp.MustCompile(`^hulo_(\w+)_([\w\d]+)_v[\d.]+$`)
+	var checksums []Checksum
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "  ")
+		if len(parts) != 2 {
+			continue
+		}
+		checksums = append(checksums, Checksum{
+			SHA256:  parts[0],
+			Archive: parts[1],
+		})
+	}
+	return checksums, nil
+}
+
+func buildPackages() []release.Package {
+	baseURL := "https://github.com/hulo-lang/hulo/releases/download/v" + version.MajorMinorPatch + "/"
+
+	checksums, err := parseChecksums()
+	if err != nil {
+		log.Fatalf("failed to parse checksums: %v", err)
+	}
+
 	var pkgs []release.Package
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		matches := re.FindStringSubmatch(entry.Name())
+	for _, checksum := range checksums {
+		matches := strings.SplitN(checksum.Archive, "_", 3)
 		if len(matches) != 3 {
+			log.WithField("archive", checksum.Archive).Warn("invalid archive name")
 			continue
 		}
-		goos := matches[1]
+		goos := strings.ToLower(matches[1])
 		arch := matches[2]
 
-		var fileExt string
-		if goos == "windows" {
-			fileExt = ".zip"
-		} else {
-			fileExt = ".tar.gz"
-		}
+		arch = strings.TrimSuffix(arch, ".tar.gz")
+		arch = strings.TrimSuffix(arch, ".zip")
 
-		archiveName := entry.Name() + fileExt
-		url := baseURL + archiveName
-
-		// ⚠️ 你需要计算实际文件的 sha256，这里是占位
-		sha := "REPLACE_WITH_REAL_SHA256"
+		url := baseURL + checksum.Archive
 
 		binName := "hulo"
 		if goos == "windows" {
@@ -127,7 +161,7 @@ func buildPackages() []release.Package {
 			OS:     goos,
 			Arch:   arch,
 			URL:    url,
-			SHA256: sha,
+			SHA256: checksum.SHA256,
 			Resources: []release.Resource{
 				{
 					Path:        binName,

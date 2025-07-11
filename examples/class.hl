@@ -1,0 +1,16 @@
+class User {
+    pub name: str
+    pub age: num
+
+    pub fn to_str() -> str {
+        return "User(name: $name, age: $age)"
+    }
+
+    pub fn greet(other: str) {
+        MsgBox "Hello, $other! I'm $name."
+    }
+}
+
+let u = User("John", 20)
+MsgBox $u.to_str();
+$u.greet("Jane");

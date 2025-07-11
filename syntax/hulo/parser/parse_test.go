@@ -180,3 +180,36 @@ func TestParseData(t *testing.T) {
 	assert.NoError(t, err)
 	ast.Print(node)
 }
+
+func TestParseDate(t *testing.T) {
+	node, err := ParseSourceFile("./testdata/date.hl", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseEllipsis(t *testing.T) {
+	node, err := ParseSourceScript("type Function = (...args: any[]) -> any", OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+func TestParseFunction(t *testing.T) {
+	node, err := ParseSourceScript(`// Creates and returns a reference to an Automation object.
+declare fn CreateObject(
+    // The name of the application providing the object.
+    servername: String,
+    // The type or class of the object to create.
+    typename: String,
+    // The name of the network server where the object is to be created. This feature is available in version 5.1 or later.
+    location?: String
+) -> Object`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}
+
+// TODO: no support
+func TestParseNumbericReturn(t *testing.T) {
+	node, err := ParseSourceScript(`declare fn Sgn(x: num) -> -1 | 0 | 1`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Print(node)
+}

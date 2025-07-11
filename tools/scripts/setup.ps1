@@ -49,6 +49,14 @@ if (-not (Test-CommandExists "java")) {
     Write-Info "Java already installed"
 }
 
+Write-Info "Checking GitVersion installation..."
+if (-not (Test-CommandExists "gitversion")) {
+    Write-Info "Installing GitVersion..."
+    scoop install gitversion
+} else {
+    Write-Info "GitVersion already installed"
+}
+
 Write-Info "Checking Mage installation..."
 if (-not (Test-CommandExists "mage")) {
     Write-Info "Installing Mage..."

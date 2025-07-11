@@ -168,6 +168,7 @@ NUM  : 'num';
 STR  : 'str';
 BOOL : 'bool';
 ANY  : 'any';
+VOID : 'void';
 
 UnsafeLiteral: DOUBLE_LBRACK (BACKSLASH RBRACK | ~[\]])* DOUBLE_RBRACK;
 

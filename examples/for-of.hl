@@ -1,0 +1,15 @@
+let config: map<str, str> = {"host": "localhost", "port": "8080"}
+loop ($key, $value) of $config {
+    MsgBox "$key = $value"
+}
+loop ($key, _) of $config {
+    MsgBox $key
+}
+
+loop (_, $value) of $config {
+    MsgBox $value
+}
+
+loop $key of $config {
+    MsgBox $key
+}

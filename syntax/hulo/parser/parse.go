@@ -30,7 +30,7 @@ func ParseSourceFile(filename string, opts ...ParserOptions) (*ast.File, error) 
 		return nil, err
 	}
 
-	log.Infof("visiting %s", filename)
+	log.Debugf("visiting %s", filename)
 	start := time.Now()
 
 	if file, ok := accept[*ast.File](analyzer.file, analyzer); ok {
@@ -39,7 +39,7 @@ func ParseSourceFile(filename string, opts ...ParserOptions) (*ast.File, error) 
 	}
 
 	elapsed := time.Since(start)
-	log.Infof("visited %s in %.2fs", filename, elapsed.Seconds())
+	log.Debugf("visited %s in %.2fs", filename, elapsed.Seconds())
 
 	return nil, ErrFailToParseFile
 }
@@ -47,7 +47,7 @@ func ParseSourceFile(filename string, opts ...ParserOptions) (*ast.File, error) 
 func ParseSourceScript(input string, opts ...ParserOptions) (*ast.File, error) {
 	stream := antlr.NewInputStream(input)
 
-	log.Infof("parsing input")
+	log.Debug("parsing input")
 	start := time.Now()
 
 	analyzer, err := NewAnalyzer(stream, opts...)
@@ -61,7 +61,7 @@ func ParseSourceScript(input string, opts ...ParserOptions) (*ast.File, error) {
 	}
 
 	elapsed := time.Since(start)
-	log.Infof("parsed input in %.2fs", elapsed.Seconds())
+	log.Debugf("parsed input in %.2fs", elapsed.Seconds())
 
 	return nil, ErrFailToParseInput
 }
@@ -69,7 +69,7 @@ func ParseSourceScript(input string, opts ...ParserOptions) (*ast.File, error) {
 func ParseReader(reader io.Reader, opts ...ParserOptions) (*ast.File, error) {
 	stream := antlr.NewIoStream(reader)
 
-	log.Infof("parsing reader")
+	log.Debug("parsing reader")
 	start := time.Now()
 
 	analyzer, err := NewAnalyzer(stream, opts...)
@@ -83,7 +83,7 @@ func ParseReader(reader io.Reader, opts ...ParserOptions) (*ast.File, error) {
 	}
 
 	elapsed := time.Since(start)
-	log.Infof("parsed reader in %.2fs", elapsed.Seconds())
+	log.Debugf("parsed reader in %.2fs", elapsed.Seconds())
 
 	return nil, ErrFailToParseReader
 }

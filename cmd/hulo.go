@@ -4,7 +4,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -17,19 +20,56 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var (
+	Version   = "dev"
+	Date      = "unknown"
+	Commit    = "none"
+	GoVersion = "unknown"
+)
+
+// huloCmdParameters is the parameters for the hulo command
 type huloCmdParameters struct {
-	lang    string
+	// lang is the language to compile
+	lang string
+	// verbose is the verbose mode
 	verbose bool
+	// version is the version of the compiler
 	version bool
+	// dstDir is the directory to write the output
+	dstDir string
 }
 
 var (
 	params  = huloCmdParameters{}
 	huloCmd = &cobra.Command{
-		Use:   "hulo filename",
+		Use:   "hulo [filename]",
 		Short: "Hulo is a batch-oriented programming language.",
-		Args:  cobra.ExactArgs(1),
+		Example: `
+# print the version
+hulo -V
+
+# compile main.hl to current directory
+hulo main.hl
+
+# compile main.hl to ./output
+hulo -d ./output main.hl
+
+# enable verbose mode
+hulo main.hl -v
+`,
 		Run: func(cmd *cobra.Command, args []string) {
+			if params.version {
+				fmt.Printf("hulo %s\n", Version)
+				fmt.Printf("Hulo Runtime Environment (build %s)\n", Date)
+				fmt.Printf("Hulo %s %s Compiler (build %s, %s)\n", runtime.GOOS, runtime.GOARCH, Commit, GoVersion)
+				return
+			}
+
+			if len(args) == 0 {
+				cmd.Help()
+				return
+			}
+
 			startTime := time.Now()
 			if params.verbose {
 				log.SetLevel(log.InfoLevel)
@@ -59,7 +99,11 @@ var (
 
 			hulopath := os.Getenv("HULOPATH")
 			if hulopath == "" {
-				huloc.HULOPATH = "."
+				execPath, err := os.Executable()
+				if err != nil {
+					log.WithError(err).Fatal("fail to get executable path")
+				}
+				huloc.HULOPATH = filepath.Dir(execPath)
 			} else {
 				huloc.HULOPATH = hulopath
 			}
@@ -91,8 +135,11 @@ var (
 			}
 
 			for file, code := range results {
+				if strings.Contains(file, "std") {
+					continue
+				}
 				file = strings.Replace(file, ".hl", ".vbs", 1)
-				err := localFs.WriteFile(file, []byte(code), 0644)
+				err := localFs.WriteFile(filepath.Join(params.dstDir, file), []byte(code), 0644)
 				if err != nil {
 					log.WithError(err).Info("fail to write file")
 				}
@@ -111,8 +158,10 @@ var (
 )
 
 func init() {
+	huloCmd.PersistentFlags().BoolVarP(&params.version, "version", "V", false, "print the version")
 	huloCmd.PersistentFlags().StringVarP(&params.lang, "lang", "l", string(config.L_BASH), "specify a language to compile")
 	huloCmd.PersistentFlags().BoolVarP(&params.verbose, "verbose", "v", false, "enables detailed log")
+	huloCmd.PersistentFlags().StringVarP(&params.dstDir, "dst", "d", ".", "specify a directory to write the output")
 }
 
 func main() {

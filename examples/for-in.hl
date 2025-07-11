@@ -1,0 +1,9 @@
+let arr: list<num> = [1, 2, 3, 4, 5]
+
+loop $item in $arr {
+    MsgBox $item
+}
+
+loop $i in [0, 1, 2] {
+	MsgBox $i
+}

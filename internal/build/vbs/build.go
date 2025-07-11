@@ -75,12 +75,18 @@ func Transpile(opts *config.VBScriptOptions, mainFile string, vfs vfs.VFS, baseP
 		return nil, fmt.Errorf("failed to resolve dependencies: %w", err)
 	}
 
+	// 手动添加 builtin.hl 到依赖列表
+	builtinPath := filepath.Join(huloPath, "std", "unsafe", "vbs", "index.hl")
+	if vfs.Exists(builtinPath) {
+		dependencies = append(dependencies, builtinPath)
+	}
+
 	// 3. 收集所有模块的导出符号
 	moduleExports := make(map[string]*ModuleExports)
 
 	// 分析所有依赖文件，收集导出符号
 	for _, dep := range dependencies {
-		exports, err := analyzeModuleExports(dep, vfs, popts...)
+		exports, err := analyzeModuleExports(dep, vfs, basePath, popts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to analyze module %s: %w", dep, err)
 		}
@@ -165,6 +171,19 @@ func Transpile(opts *config.VBScriptOptions, mainFile string, vfs vfs.VFS, baseP
 		tr.declaredFuncs.Add(funcName)
 	}
 
+	// 将 builtin.hl 的所有导出符号（包括递归导入的）加到主文件作用域
+	if exports, exists := moduleExports["builtin.hl"]; exists {
+		for funcName := range exports.Functions {
+			tr.declaredFuncs.Add(funcName)
+		}
+		for className := range exports.Classes {
+			tr.declaredClasses.Add(className)
+		}
+		for constName := range exports.Constants {
+			tr.declaredConsts.Add(constName)
+		}
+	}
+
 	// 分析主文件的导入语句，并收集导入的符号信息
 	tr.analyzeImportsWithSymbols(ast, vfs, basePath, moduleExports)
 
@@ -207,7 +226,7 @@ type ModuleExports struct {
 }
 
 // analyzeModuleExports 分析模块的导出符号
-func analyzeModuleExports(filePath string, vfs vfs.VFS, popts ...parser.ParserOptions) (*ModuleExports, error) {
+func analyzeModuleExports(filePath string, vfs vfs.VFS, basePath string, popts ...parser.ParserOptions) (*ModuleExports, error) {
 	content, err := vfs.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -227,6 +246,27 @@ func analyzeModuleExports(filePath string, vfs vfs.VFS, popts ...parser.ParserOp
 	// 分析AST，收集公共符号
 	for _, stmt := range ast.Stmts {
 		switch s := stmt.(type) {
+		case *hast.Import:
+			if s.ImportAll != nil {
+				// 递归处理 import * from "module"
+				importPath := s.ImportAll.Path
+				resolvedPath, err := resolveModulePath(importPath, vfs, basePath, filepath.Dir(filePath))
+				if err == nil {
+					importedExports, err := analyzeModuleExports(resolvedPath, vfs, basePath, popts...)
+					if err == nil {
+						// 合并导入模块的所有导出符号
+						for k := range importedExports.Functions {
+							exports.Functions[k] = true
+						}
+						for k := range importedExports.Classes {
+							exports.Classes[k] = true
+						}
+						for k := range importedExports.Constants {
+							exports.Constants[k] = true
+						}
+					}
+				}
+			}
 		case *hast.FuncDecl:
 			// 检查是否是公共函数
 			for _, modifier := range s.Modifiers {
@@ -234,6 +274,11 @@ func analyzeModuleExports(filePath string, vfs vfs.VFS, popts ...parser.ParserOp
 					exports.Functions[s.Name.Name] = true
 					break
 				}
+			}
+		case *hast.DeclareDecl:
+			// declare fn 也算作导出函数
+			if funcDecl, ok := s.X.(*hast.FuncDecl); ok {
+				exports.Functions[funcDecl.Name.Name] = true
 			}
 		case *hast.ClassDecl:
 			// 检查是否是公共类
@@ -274,18 +319,18 @@ type BuiltinFunction struct {
 func loadBuiltinFunctions(vfs vfs.VFS, basePath string, popts ...parser.ParserOptions) (map[string]*BuiltinFunction, error) {
 	builtinFunctions := make(map[string]*BuiltinFunction)
 
-	// 读取 builtin.hl
-	builtinPath := filepath.Join(basePath, "builtin.hl")
+	// 读取 index.hl
+	builtinPath := filepath.Join(basePath, "std", "unsafe", "vbs", "index.hl")
 
 	if vfs.Exists(builtinPath) {
 		content, err := vfs.ReadFile(builtinPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read builtin.hl: %w", err)
+			return nil, fmt.Errorf("failed to read index.hl: %w", err)
 		}
 
 		ast, err := parser.ParseSourceScript(string(content), popts...)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse builtin.hl: %w", err)
+			return nil, fmt.Errorf("failed to parse index.hl: %w", err)
 		}
 
 		// 收集所有 declare 的函数名
@@ -325,6 +370,14 @@ func loadBuiltinFunctions(vfs vfs.VFS, basePath string, popts ...parser.ParserOp
 						symbolName = strings.TrimSuffix(filepath.Base(importPath), filepath.Ext(importPath))
 					}
 					importSymbols[symbolName] = importPath
+				} else if s.ImportAll != nil {
+					// import * from "io"
+					importPath := s.ImportAll.Path
+					symbolName := s.ImportAll.Alias
+					if symbolName == "" {
+						symbolName = strings.TrimSuffix(filepath.Base(importPath), filepath.Ext(importPath))
+					}
+					importSymbols[symbolName] = importPath
 				}
 			}
 		}
@@ -335,7 +388,7 @@ func loadBuiltinFunctions(vfs vfs.VFS, basePath string, popts ...parser.ParserOp
 				// 检查是否是 .vbs 文件
 				if strings.HasSuffix(importPath, ".vbs") {
 					// 解析完整的文件路径
-					resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+					resolvedPath, err := resolveModulePath(importPath, vfs, basePath, filepath.Dir(builtinPath))
 					if err == nil && vfs.Exists(resolvedPath) {
 						// 读取整个文件内容作为代码
 						fileContent, err := vfs.ReadFile(resolvedPath)
@@ -380,7 +433,24 @@ func resolveDependencies(mainFile string, vfs vfs.VFS, basePath string, popts ..
 					importPath := importStmt.ImportSingle.Path
 
 					// 解析模块路径
-					resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+					resolvedPath, err := resolveModulePath(importPath, vfs, basePath, filepath.Dir(filePath))
+					if err != nil {
+						return fmt.Errorf("failed to resolve module %s: %w", importPath, err)
+					}
+
+					// 递归解析依赖
+					err = resolve(resolvedPath)
+					if err != nil {
+						return err
+					}
+
+					dependencies = append(dependencies, resolvedPath)
+				} else if importStmt.ImportAll != nil {
+					// 处理 import * from "module"
+					importPath := importStmt.ImportAll.Path
+
+					// 解析模块路径
+					resolvedPath, err := resolveModulePath(importPath, vfs, basePath, filepath.Dir(filePath))
 					if err != nil {
 						return fmt.Errorf("failed to resolve module %s: %w", importPath, err)
 					}
@@ -408,7 +478,7 @@ func resolveDependencies(mainFile string, vfs vfs.VFS, basePath string, popts ..
 }
 
 // resolveModulePath 解析模块路径
-func resolveModulePath(importPath string, vfs vfs.VFS, basePath string) (string, error) {
+func resolveModulePath(importPath string, vfs vfs.VFS, basePath string, currentFileDir string) (string, error) {
 	// 移除可能的文件扩展名
 	importPath = strings.TrimSuffix(importPath, ".hl")
 
@@ -416,13 +486,19 @@ func resolveModulePath(importPath string, vfs vfs.VFS, basePath string) (string,
 	extensions := []string{".hl", ".vbs", ""}
 
 	for _, ext := range extensions {
-		// 相对路径
-		relativePath := importPath + ext
+		// 1. 相对路径（相对于当前文件所在目录）
+		relativePath := filepath.Join(currentFileDir, importPath+ext)
 		if vfs.Exists(relativePath) {
 			return relativePath, nil
 		}
 
-		// 相对于basePath的路径
+		// 2. 相对路径（相对于当前工作目录）
+		relativePath = importPath + ext
+		if vfs.Exists(relativePath) {
+			return relativePath, nil
+		}
+
+		// 3. 相对于basePath的路径
 		basePath := filepath.Join(basePath, importPath+ext)
 		if vfs.Exists(basePath) {
 			return basePath, nil
@@ -2114,7 +2190,7 @@ func (v *VBScriptTranspiler) analyzeImportsWithSymbols(ast *hast.File, vfs vfs.V
 				importPath := importStmt.ImportSingle.Path
 
 				// 解析模块路径
-				resolvedPath, err := resolveModulePath(importPath, vfs, basePath)
+				resolvedPath, err := resolveModulePath(importPath, vfs, basePath, filepath.Dir(importPath))
 				if err == nil {
 					// 从文件路径中提取模块名（去掉扩展名）
 					moduleName := strings.TrimSuffix(filepath.Base(resolvedPath), filepath.Ext(resolvedPath))

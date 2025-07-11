@@ -61,6 +61,14 @@ else
   info "Java already installed"
 fi
 
+info "Checking GitVersion installation..."
+if ! command_exists gitversion; then
+  info "Installing GitVersion..."
+  scoop install gitversion
+else
+  info "GitVersion already installed"
+fi
+
 info "Checking Mage installation..."
 if ! command_exists mage; then
   info "Installing Mage..."

@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
+	"github.com/magefile/mage/mg"
 )
 
 // builds distributable archives into current directory.
 func Pack() {
+	mg.Deps(resolveVersion)
 	log.Info("running pack...")
 	start := time.Now()
 
-	outputZip := fmt.Sprintf("%s-%s.zip", name, version)
+	outputZip := fmt.Sprintf("%s-v%s.zip", name, version.SemVer)
 	fileCount, err := ZipDirWithGitIgnore(".", outputZip)
 	if err != nil {
 		elapsed := time.Since(start)

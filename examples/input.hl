@@ -1,0 +1,7 @@
+let n = InputBox("Input a number:");
+
+if $n < 0 {
+    MsgBox("The number is negative.")
+} else {
+    MsgBox("The number is positive.")
+}

@@ -514,6 +514,14 @@ func (a *Analyzer) VisitStatement(ctx *generated.StatementContext) any {
 	})
 }
 
+func (a *Analyzer) collectComments() *ast.CommentGroup {
+	ret := a.comments
+	a.comments = nil
+	return &ast.CommentGroup{
+		List: ret,
+	}
+}
+
 // VisitExpressionStatement implements the Visitor interface for ExpressionStatement
 func (a *Analyzer) VisitExpressionStatement(ctx *generated.ExpressionStatementContext) any {
 	return a.visitWrapper("ExpressionStatement", ctx, func() any {
@@ -596,6 +604,11 @@ func (a *Analyzer) VisitAssignStatement(ctx *generated.AssignStatementContext) a
 			tok = token.POWER_ASSIGN
 		}
 
+		var type_ ast.Expr
+		if ctx.Type_() != nil {
+			type_, _ = accept[ast.Expr](ctx.Type_(), a)
+		}
+
 		// Get right hand side expression
 		var rhs ast.Expr
 		if ctx.Expression() != nil {
@@ -605,9 +618,11 @@ func (a *Analyzer) VisitAssignStatement(ctx *generated.AssignStatementContext) a
 		}
 
 		return &ast.AssignStmt{
+			Docs:     a.collectComments(),
 			Scope:    scope,
 			ScopePos: scopePos,
 			Lhs:      lhs,
+			Type:     type_,
 			Tok:      tok,
 			Rhs:      rhs,
 		}
@@ -1718,6 +1733,12 @@ func (a *Analyzer) VisitReceiverParameters(ctx *generated.ReceiverParametersCont
 			for _, paramCtx := range ctx.ReceiverParameterList().AllReceiverParameter() {
 				field := &ast.Parameter{}
 
+				if paramCtx.ELLIPSIS() != nil {
+					field.Modifier = &ast.EllipsisModifier{
+						Ellipsis: token.Pos(paramCtx.ELLIPSIS().GetSymbol().GetStart()),
+					}
+				}
+
 				// Get parameter name
 				if paramCtx.Identifier() != nil {
 					field.Name = &ast.Ident{
@@ -2256,12 +2277,15 @@ func (a *Analyzer) VisitIdentifierAsIdentifier(ctx *generated.IdentifierAsIdenti
 // VisitDeclareStatement implements the Visitor interface for DeclareStatement
 func (a *Analyzer) VisitDeclareStatement(ctx *generated.DeclareStatementContext) any {
 	return a.visitWrapper("DeclareStatement", ctx, func() any {
-		// Get the declare position
-		declarePos := token.Pos(ctx.DECLARE().GetSymbol().GetStart())
 
 		// Handle different types of declarations that can be inside declare
-		var x ast.Node
 
+		decl := &ast.DeclareDecl{
+			Docs:    a.collectComments(),
+			Declare: token.Pos(ctx.DECLARE().GetSymbol().GetStart()),
+		}
+
+		var x ast.Node
 		if ctx.Block() != nil {
 			// declare { ... }
 			block, _ := accept[*ast.BlockStmt](ctx.Block(), a)
@@ -2292,10 +2316,9 @@ func (a *Analyzer) VisitDeclareStatement(ctx *generated.DeclareStatementContext)
 			x = typeDecl
 		}
 
-		return &ast.DeclareDecl{
-			Declare: declarePos,
-			X:       x,
-		}
+		decl.X = x
+
+		return decl
 	})
 }
 
@@ -2322,8 +2345,8 @@ func (a *Analyzer) VisitTypeDeclaration(ctx *generated.TypeDeclarationContext) a
 
 // visitTypeAccessPoint handles type access points like array types
 func (a *Analyzer) visitTypeAccessPoint(baseType ast.Expr, ctx *generated.TypeAccessPointContext) ast.Expr {
-	// Handle array types like T[5]
-	if ctx.LBRACK() != nil && ctx.NumberLiteral() != nil && ctx.RBRACK() != nil {
+	// Handle array types like T[5] or T[]
+	if ctx.LBRACK() != nil && ctx.RBRACK() != nil {
 		// For now, we'll create a simple array type
 		// In the future, this could be enhanced to support more complex array types
 		return &ast.ArrayType{

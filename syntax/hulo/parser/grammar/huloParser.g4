@@ -293,7 +293,7 @@ receiverParameterList: receiverParameter (COMMA receiverParameter)*;
  * title?: str -> IDENT QUEST (COLON type)
  * title?: str = "default" -> IDENT QUEST (COLON type) (ASSIGN expression)
  */
-receiverParameter: Identifier QUEST? (COLON type)? (ASSIGN expression)?;
+receiverParameter: comment* ELLIPSIS? Identifier QUEST? (COLON type)? (ASSIGN expression)?;
 
 namedParameters: LBRACE namedParameterList? RBRACE;
 
@@ -665,13 +665,13 @@ compositeType: (BITOR type | BITAND type) compositeType?;
  * [str, num, bool]
  */
 type: (
-        (STR | NUM | BOOL | ANY | Identifier) typeAccessPoint?
+        (STR | NUM | BOOL | ANY | VOID | Identifier) typeAccessPoint?
         | memberAccess
         | StringLiteral
         | functionType
         | objectType
         | tupleType
-    ) QUEST? compositeType?
+    ) QUEST? comment? compositeType?
 ;
 
 //// TODO
@@ -688,11 +688,11 @@ unionType: type (BITOR type)*;
 intersectionType: type (BITAND type)*;
 
 // str[5]
-arrayType: type LBRACK NumberLiteral RBRACK;
+arrayType: type LBRACK (NumberLiteral)? RBRACK;
 
 ///// ENDING - TODO
 
-typeAccessPoint: LBRACK NumberLiteral RBRACK typeAccessPoint?;
+typeAccessPoint: LBRACK (NumberLiteral)? RBRACK typeAccessPoint?;
 
 typeList: type (COMMA type)*;
 

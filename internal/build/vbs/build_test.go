@@ -1032,18 +1032,31 @@ func TestModuleImport(t *testing.T) {
 	vast.Print(bnode)
 }
 
-func TestSmartCompile(t *testing.T) {
-	// 创建内存文件系统
+func TestTranspileWithModules(t *testing.T) {
 	memFS := memvfs.New()
 
-	// 创建测试文件
 	testFiles := map[string]string{
-		"builtin.hl": `
+		"std/unsafe/vbs/fmt.hl": `
+			declare fn Print(message: str)
+		`,
+		"std/unsafe/vbs/type.hl": `
+			declare {
+				type String = str
+			}
+
+			import * from "fmt"
+			declare fn CvtString(s: str) -> String
+		`,
+		"std/unsafe/vbs/io.hl": `
+			import * from "type"
+			// MsgBox function
+			declare fn MsgBox(message: String)
+		`,
+		"std/unsafe/vbs/index.hl": `
 			import { Import } from "import.vbs"
+			import * from "io"
 
 			declare fn Import(path: str)
-
-			declare fn MsgBox(message: str)
 		`,
 		"import.vbs": `
 Function Import(modulePath)
@@ -1085,32 +1098,29 @@ End Function
 			let result = utils.Calculate(5, 3)
 			MsgBox $result;
 			MsgBox Calculate(5, 3);
+			CvtString("Hello, World!")
+			Print("Hello, World!")
 		`,
 	}
 
-	// 写入测试文件
 	for path, content := range testFiles {
 		err := memFS.WriteFile(path, []byte(content), 0644)
 		assert.NoError(t, err)
 	}
 
-	// 测试智能编译
 	results, err := build.Transpile(&config.VBScriptOptions{}, "main.hl", memFS, ".", ".")
 	assert.NoError(t, err)
 
-	// 验证结果
 	assert.NotNil(t, results)
 	assert.Contains(t, results, "main.hl")
 	assert.Contains(t, results, "utils.hl")
 	assert.Contains(t, results, "math.hl")
 
-	// 打印结果
 	for file, code := range results {
 		file = strings.Replace(file, ".hl", ".vbs", 1)
-		os.WriteFile(file, []byte(code), 0644)
-		// fmt.Printf("=== %s ===\n", file)
-		// fmt.Println(code)
-		// fmt.Println()
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
 	}
 }
 

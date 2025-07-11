@@ -1,0 +1,18 @@
+fn helloWorld() {
+	MsgBox "Hello, World!"
+}
+
+fn sayHello(name: str) -> void {
+	MsgBox "Hello, $name!"
+}
+
+fn add(a: num, b: num) => $a + $b
+
+fn multiply(a: num, b: num) -> num {
+	return $a * $b
+}
+
+helloWorld;
+sayHello "Hulo";
+MsgBox add(1, 2);
+MsgBox multiply(1, 2);

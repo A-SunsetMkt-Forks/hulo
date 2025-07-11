@@ -4,6 +4,8 @@
 package tools
 
 import (
+	"os"
+	"runtime"
 	"time"
 
 	"github.com/caarlos0/log"
@@ -20,9 +22,16 @@ func Build() {
 	elapsed := time.Since(start)
 	log.Infof("build completed in %.2fs", elapsed.Seconds())
 
+	err := os.Setenv("GOVERSION", runtime.Version())
+	if err != nil {
+		log.WithError(err).Fatal("failed to set GOVERSION environment variable")
+	}
+
 	// TODO build:all build:single-platform
-	err := runCmd("goreleaser", "build", "--snapshot", "--clean")
+	err = runCmd("goreleaser", "build", "--snapshot", "--clean")
 	if err != nil {
 		log.WithError(err).Fatal("goreleaser build failed")
 	}
+
+	// copy standard library to the output directory
 }

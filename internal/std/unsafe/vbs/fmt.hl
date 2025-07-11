@@ -19,7 +19,7 @@ declare fn FormatCurrency(
     NumDigitsAfterDecimal?: num,
     IncludeLeadingDigit?: Tristate,
     UseParensForNegativeNumbers?: Tristate,
-    GroupDigits?: Tristate,
+    GroupDigits?: Tristate
 ) -> String
 
 // Returns an expression formatted as a date or time.

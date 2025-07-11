@@ -1,11 +1,11 @@
 /**
  * Returns the absolute value of a number.
  *
- * The absolute value of a number is its unsigned magnitude. 
+ * The absolute value of a number is its unsigned magnitude.
  *
  * For example, Abs(-1) and Abs(1) both return 1.
  * The following example uses the Abs function to compute the absolute value of a number:
- * 
+ *
  * ```hulo
  * Abs(50.3) // 50.3
  * Abs(-50.3) // 50.3
@@ -15,9 +15,9 @@ declare fn Abs(x: num) -> num
 
 /**
  * Returns the arctangent of a number.
- * 
+ *
  * The Atn function takes the ratio of two sides of a right triangle (number) and returns the corresponding angle in radians.
- * The ratio is the length of the side opposite the angle divided by the length of the side adjacent to the angle. 
+ * The ratio is the length of the side opposite the angle divided by the length of the side adjacent to the angle.
  * The range of the result is -pi/2 to pi/2 radians.
  * To convert degrees to radians, multiply degrees by pi/180.
  * To convert radians to degrees, multiply radians by 180/pi.
@@ -48,7 +48,7 @@ declare fn Rnd(seed: num?) -> num
 declare fn Round(v: num, numdecimalplaces?: num) -> num
 
 // Returns an integer indicating the sign of a number.
-declare fn Sgn(x: num) -> -1 | 0 | 1
+declare fn Sgn(x: num) -> num
 
 // Returns the sine of an angle.
 declare fn Sin(x: num) -> num

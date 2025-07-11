@@ -1,0 +1,6 @@
+import "math"
+
+MsgBox math.add(1, 2);
+MsgBox math.sub_(1, 2);
+MsgBox math.mul(1, 2);
+MsgBox math.div(1, 2);

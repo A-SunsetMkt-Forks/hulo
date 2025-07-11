@@ -7,5 +7,9 @@ import * from "type"
 import * from "fmt"
 import * from "runtime"
 import * from "array"
-import * from "fs"
-import * from "errors"
+// import * from "fs"
+// import * from "errors"
+
+import { Import } from "import.vbs"
+
+declare fn Import(path: str) -> void

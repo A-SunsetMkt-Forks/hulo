@@ -18,6 +18,9 @@ go mod tidy
 scoop bucket add java
 scoop install temurin22-jdk
 
+@REM resolve gitversion
+scoop install gitversion
+
 echo Installing mage...
 go install github.com/magefile/mage@latest
 mage setup

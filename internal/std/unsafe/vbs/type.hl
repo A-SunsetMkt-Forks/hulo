@@ -30,18 +30,18 @@ type Object = object
 // Variable-length strings may range in length from 0 to approximately 2 billion characters.
 type String = str
 
-type Function = (..args: any[]) -> any
+type Function = (...args: any[]) -> any
 
 type Sub = Function
 
 /**
  * Returns a Variant containing an array.
  *
- * The required arglist argument is a comma-delimited list of values that are assigned to the elements of an array contained with the Variant. 
+ * The required arglist argument is a comma-delimited list of values that are assigned to the elements of an array contained with the Variant.
  * If no arguments are specified, an array of zero length is created.
- * 
+ *
  * Example:
- * ```hulo 
+ * ```hulo
  * let arr = Array(10, 20, 30)
  * echo $arr[2] // 30
  * echo Array() // []
@@ -49,10 +49,10 @@ type Sub = Function
  */
 declare fn Array(...args: any[]) -> any[]
 
-/** 
+/**
  * Returns an expression that has been converted to a Variant of subtype Boolean.
- * 
- * If expression is zero, False is returned; otherwise, True is returned. 
+ *
+ * If expression is zero, False is returned; otherwise, True is returned.
  * If expression can't be interpreted as a numeric value, a run-time error occurs.
  * The following example uses the CBool function to convert an expression to a Boolean.
  * If the expression evaluates to a nonzero value, CBool returns True; otherwise, it returns False.
@@ -73,7 +73,7 @@ declare fn CBool(
  * Returns an expression that has been converted to a Variant of subtype Byte.
  *
  * In general, you can document your code using the subtype conversion functions to show that the result of some operation should be expressed as a particular data type rather than the default data type. For example, use CByte to force byte arithmetic in cases where currency, single-precision, double-precision, or integer arithmetic normally would occur.
- * Use the CByte function to provide internationally aware conversions from any other data type to a Byte subtype. 
+ * Use the CByte function to provide internationally aware conversions from any other data type to a Byte subtype.
  * For example, different decimal separators are properly recognized depending on the locale setting of your system, as are different thousand separators.
  * If expression lies outside the acceptable range for the Byte subtype, an error occurs. The following example uses the CByte function to convert an expression to a byte:
  * ```hulo
@@ -85,9 +85,9 @@ declare fn CByte(expr: any) -> Byte
 /**
  * Returns an expression that has been converted to a Variant of subtype Currency.
  *
- * In general, you can document your code using the subtype conversion functions to show that the result of some operation should be expressed as a particular data type rather than the default data type. 
+ * In general, you can document your code using the subtype conversion functions to show that the result of some operation should be expressed as a particular data type rather than the default data type.
  * For example, use CCur to force currency arithmetic in cases where integer arithmetic normally would occur.
- * You should use the CCur function to provide internationally aware conversions from any other data type to a Currency subtype. 
+ * You should use the CCur function to provide internationally aware conversions from any other data type to a Currency subtype.
  * For example, different decimal separators and thousands separators are properly recognized depending on the locale setting of your system.
  * The following example uses the CCur function to convert an expression to a Currency:
  * ```hulo
@@ -100,14 +100,14 @@ declare fn CCur(expr: any) -> Currency
 /**
  * Returns an expression that has been converted to a Variant of subtype Date.
  *
- * Use the IsDate function to determine if date can be converted to a date or time. 
+ * Use the IsDate function to determine if date can be converted to a date or time.
  * CDate recognizes date literals and time literals as well as some numbers that fall within the range of acceptable dates.
  * When converting a number to a date, the whole number portion is converted to a date.
  * Any fractional part of the number is converted to a time of day, starting at midnight.
  * CDate recognizes date formats according to the locale setting of your system.
  * The correct order of day, month, and year may not be determined if it is provided in a format other than one of the recognized date settings.
  * In addition, a long date format is not recognized if it also contains the day-of-the-week string.
- * The following example uses the CDate function to convert a string to a date. 
+ * The following example uses the CDate function to convert a string to a date.
  * In general, hard coding dates and times as strings (as shown in this example) is not recommended.
  * Use date and time literals (such as #10/19/1962#, #4:45:23 PM#) instead.
  * Example:
@@ -141,8 +141,8 @@ declare fn CLng(v: num) -> Long
  *  Empty           A zero-length String ("").
  *  Error           A String containing the word Error followed by the error number.
  *  Other numeric   A String containing the number.
- */ 
-declare fn CStr(v: any) -> String 
+ */
+declare fn CStr(v: any) -> String
 
 // Creates and returns a reference to an Automation object.
 declare fn CreateObject(
@@ -151,7 +151,7 @@ declare fn CreateObject(
     // The type or class of the object to create.
     typename: String,
     // The name of the network server where the object is to be created. This feature is available in version 5.1 or later.
-    location?: String,
+    location?: String
 ) -> Object
 
 // Returns the integer portion of a number.
@@ -163,9 +163,9 @@ declare fn Fix(v: num) -> num
 // Returns a reference to an Automation object from a file.
 declare fn GetObject(
     // Full path and name of the file containing the object to retrieve. If pathname is omitted, class is required.
-    pathname?: String, 
+    pathname?: String,
     // Class of the object
-    class?: String) -> Object
+    class_?: String) -> Object
 
 // Returns a reference to a procedure that can be bound to an event.
 declare fn GetRef(procname: str) -> Function | Sub
@@ -273,8 +273,8 @@ declare {
 }
 
 // TODO
-extension type Boolean {
-    operator as() {
-        ${CBool({{&this}})}
-    }
-}
+// extension type Boolean {
+//     operator as() {
+//         ${CBool({{&this}})}
+//     }
+// }

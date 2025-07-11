@@ -180,12 +180,30 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitUnsafeStmt(n)
 	case *ExternDecl:
 		return p.visitExternDecl(n)
+	case *CommentGroup:
+		return p.visitCommentGroup(n)
+	case *Comment:
+		return p.visitComment(n)
 	default:
 		fmt.Fprintf(p.output, "%s%T\n", indentStr, n)
 		panic("unsupport")
 	}
 	fmt.Println()
 	return p
+}
+
+func (p *prettyPrinter) visitCommentGroup(n *CommentGroup) Visitor {
+	for _, cmt := range n.List {
+		Walk(p, cmt)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitComment(n *Comment) Visitor {
+	p.write("//")
+	p.write(n.Text)
+	p.write("\n")
+	return nil
 }
 
 func (p *prettyPrinter) visitNamedObjectLiteralExpr(n *NamedObjectLiteralExpr) Visitor {
@@ -225,6 +243,7 @@ func (p *prettyPrinter) visitComptimeStmt(n *ComptimeStmt) Visitor {
 }
 
 func (p *prettyPrinter) visitDeclareDecl(n *DeclareDecl) Visitor {
+	Walk(p, n.Docs)
 	p.indentWrite("declare ")
 	if fx, ok := n.X.(*FuncDecl); ok {
 		fx.Body = &BlockStmt{}
@@ -655,6 +674,7 @@ func (p *prettyPrinter) visitTypeParameter(n *TypeParameter) Visitor {
 }
 
 func (p *prettyPrinter) visitAssignStmt(n *AssignStmt) Visitor {
+	Walk(p, n.Docs)
 	if n.Scope != 0 {
 		p.write(n.Scope.String())
 		p.write(" ")
@@ -662,11 +682,9 @@ func (p *prettyPrinter) visitAssignStmt(n *AssignStmt) Visitor {
 	if n.Lhs != nil {
 		Walk(p, n.Lhs)
 	}
-	if n.Colon != 0 {
+	if n.Type != nil {
 		p.write(": ")
-		if n.Type != nil {
-			Walk(p, n.Type)
-		}
+		Walk(p, n.Type)
 	}
 	if n.Tok != 0 {
 		p.write(" ")

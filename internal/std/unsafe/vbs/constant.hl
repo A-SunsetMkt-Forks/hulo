@@ -61,7 +61,7 @@ declare {
     const vbNewLine = "\n"; // Or "\r\n" depending on platform
 
     // Character having the value 0.
-    const vbNullChar = "\0"; // Chr(0)
+    const vbNullChar = "\\0"; // Chr(0)
 
     // String having value 0 (not the same as "") — used for calling external procedures.
     const vbNullString = null;
@@ -70,5 +70,5 @@ declare {
     const vbTab = "\t"; // Chr(9)
 
     // Vertical tab; not useful in Microsoft Windows.
-    const vbVerticalTab = "\v"; // Chr(11)
+    const vbVerticalTab = "\\v"; // Chr(11)
 }

@@ -1,0 +1,5 @@
+let a = 15
+do {
+	MsgBox "Hello, World!";
+    $a--;
+} loop ($a > 10)
