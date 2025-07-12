@@ -1,7 +1,7 @@
-<h1 align="center">Welcome to Hulo 👋</h1>
+<h1 align="center">欢迎使用 Hulo 👋</h1>
 <center>
 
-![Hulo](https://img.shields.io/badge/Hulo-%238866E9.svg?logoColor=white&style=for-the-badge) [![Go](https://img.shields.io/badge/Go-1.24.4-%2300ADD8.svg?logo=go&logoColor=white&style=for-the-badge)](https://golang.org/) [![BashScript](https://img.shields.io/badge/Bash%20Script-%23121011.svg?logo=gnu-bash&logoColor=white&style=for-the-badge)](https://www.gnu.org/software/bash/) [![PowerShell](https://img.shields.io/badge/PowerShell-%235391FE.svg?logo=powershell&logoColor=white&style=for-the-badge)](https://learn.microsoft.com/en-us/powershell/)
+[![Hulo](https://img.shields.io/badge/Hulo-%238866E9.svg?logoColor=white&style=for-the-badge)](https://github.com/hulo-lang/hulo) [![Go](https://img.shields.io/badge/Go-1.24.4-%2300ADD8.svg?logo=go&logoColor=white&style=for-the-badge)](https://golang.org/) [![BashScript](https://img.shields.io/badge/Bash%20Script-%23121011.svg?logo=gnu-bash&logoColor=white&style=for-the-badge)](https://www.gnu.org/software/bash/) [![PowerShell](https://img.shields.io/badge/PowerShell-%235391FE.svg?logo=powershell&logoColor=white&style=for-the-badge)](https://learn.microsoft.com/en-us/powershell/) [![VBScript](https://img.shields.io/badge/VBScript-%234A4A4A.svg?logo=windows&logoColor=white&style=for-the-badge)](https://documentation.help/MS-Office-VBScript/VBSTOC.htm)
 
 </center>
 
@@ -9,18 +9,48 @@
 
 [English](README.md) | 简体中文
 
-> Hulo 是一种现代的批处理式编程语言，它可以编译为 Bash、PowerShell 和 VBScript。它旨在通过简洁一致的 DSL 统一跨平台脚本编写体验。
+> Hulo 是一个现代化的、面向批处理的编程语言，可以编译为 Bash、PowerShell 和 VBScript。它旨在通过简洁一致的 DSL 来统一跨平台的脚本编写。
 
 ## 📦 安装
-```sh
-git clone git@github.com:hulo-lang/hulo.git
 
-# for Windows
+#### **直接下载**
+
+从 [GitHub Releases](https://github.com/hulo-lang/hulo/releases) 直接下载预构建的二进制文件：
+
+Ps. 即将推出
+```sh
+# Linux/macOS
+curl -L https://github.com/hulo-lang/hulo/releases/latest/download/install.sh | bash
+
+# Windows (PowerShell)
+irm https://github.com/hulo-lang/hulo/releases/latest/download/install.ps1 | iex
+```
+
+#### **从源码构建**
+```sh
+# 克隆仓库
+git clone https://github.com/hulo-lang/hulo.git
+cd hulo
+
+# Windows 用户
 tools/scripts/setup.ps1
 
-# for linux
+# Linux 用户
 tools/scripts/setup.sh
+
+# 构建
+mage build
 ```
+
+#### **包管理器**
+
+| 包管理器 | 主页 | 仓库 |
+|---------|------|------|
+| **npm** | [hulo-lang](https://www.npmjs.com/package/hulo-lang) | [hulo-npm](https://github.com/hulo-lang/hulo-npm) |
+| **pypi** | [hulo](https://pypi.org/project/hulo) | [hulo-py](https://github.com/hulo-lang/hulo-py) |
+| **scoop** |  | [scoop-hulo](https://github.com/hulo-lang/scoop-hulo) |
+| **brew** |  | [homebrew-hulo](https://github.com/hulo-lang/homebrew-hulo) |
+
 
 ## 🚀 使用示例
 
@@ -30,16 +60,17 @@ tools/scripts/setup.sh
 echo "Hello, World!"
 ```
 
-运行 `hulo build hello.hl`，将会编译为：
-* `hello.sh`（适用于类 Unix 系统）
-* `hello.ps1`（适用于 Windows）
-* `hello.vbs`（如果启用了 VBScript 输出）
-* 更多目标平台即将支持！
+运行 `hulo hello.hl`，它将编译为：
+* Unix 系统的 `hello.sh`
+* Windows 的 `hello.ps1`
+* 如果启用了 VBScript 输出，则为 `hello.vbs`
+* 未来版本中将支持更多目标平台！
 
-## 📚 文档
+## 📖 文档
 
-访问官方文档：[hulo-lang.github.io/docs](https://hulo-lang.github.io/docs)
-（或查看文档源码仓库：[hulo-docs](https://github.com/hulo-lang/docs)）
+- **[官方文档](https://hulo-lang.github.io/docs)** - 完整的语言参考
+- **[示例](./examples/)** - 代码示例
+- **[讨论](https://github.com/hulo-lang/hulo/discussions)** - 提问和分享想法
 
 ## 🤝 贡献方式
 
