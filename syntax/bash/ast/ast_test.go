@@ -15,15 +15,15 @@ var NotNullPos = token.Pos(1)
 
 func TestAssignStmt(t *testing.T) {
 	actual := ast.String(&ast.AssignStmt{
-		Lhs: &ast.Ident{Name: "count"},
-		Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+		Lhs: ast.Identifier("count"),
+		Rhs: ast.Literal("0"),
 	})
 	assert.Equal(t, "count=0\n", actual)
 
 	actual = ast.String(&ast.AssignStmt{
 		Local: NotNullPos,
-		Lhs:   &ast.Ident{Name: "count"},
-		Rhs:   &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+		Lhs:   ast.Identifier("count"),
+		Rhs:   ast.Literal("0"),
 	})
 	assert.Equal(t, "local count=0\n", actual)
 }
@@ -34,14 +34,14 @@ func TestIfStmt(t *testing.T) {
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
 				Op: token.Assgn,
-				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
+				Y:  ast.Literal(`""`),
 			},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{
 					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-					Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+					Rhs: ast.Literal("0"),
 				},
 			},
 		},
@@ -52,14 +52,14 @@ func TestIfStmt(t *testing.T) {
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
 				Op: token.Assgn,
-				Y:  &ast.BasicLit{Kind: token.STRING, Value: ""},
+				Y:  ast.Literal(`""`),
 			},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{
 					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-					Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+					Rhs: ast.Literal("0"),
 				},
 				nestedIf,
 			},
@@ -78,7 +78,7 @@ func TestFuncDecl(t *testing.T) {
 				&ast.ExprStmt{
 					X: &ast.CallExpr{
 						Func: &ast.Ident{Name: "echo"},
-						Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "Hello, World!"}},
+						Recv: []ast.Expr{ast.Literal(`"Hello, World!"`)},
 					},
 				},
 			},
@@ -90,16 +90,16 @@ func TestForStmt(t *testing.T) {
 	ast.Print(&ast.ForStmt{
 		Init: &ast.AssignStmt{
 			Lhs: &ast.Ident{Name: "i"},
-			Rhs: &ast.BasicLit{Kind: token.NUMBER, Value: "0"},
+			Rhs: ast.Literal("0"),
 		},
 		Cond: &ast.BinaryExpr{
 			X:  &ast.Ident{Name: "i"},
 			Op: token.TsLss,
-			Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
+			Y:  ast.Literal("10"),
 		},
 		Post: &ast.AssignStmt{
 			Lhs: &ast.Ident{Name: "i"},
-			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.Plus, Y: &ast.BasicLit{Kind: token.NUMBER, Value: "1"}},
+			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.Plus, Y: ast.Literal("1")},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
@@ -125,7 +125,7 @@ func TestForStmt(t *testing.T) {
 							// TODO "$var"
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "var"}},
 							Op: token.Assgn,
-							Y:  &ast.BasicLit{Kind: token.STRING, Value: "."},
+							Y:  ast.Literal(`"."`),
 						},
 					},
 					Body: &ast.BlockStmt{
@@ -160,7 +160,7 @@ func TestWhileStmt(t *testing.T) {
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
 				Op: token.TsLss,
-				Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "10"},
+				Y:  &ast.Lit{Val: "10"},
 			},
 		},
 		Body: &ast.BlockStmt{
@@ -171,7 +171,7 @@ func TestWhileStmt(t *testing.T) {
 						X: &ast.BinaryExpr{
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
 							Op: token.Plus,
-							Y:  &ast.BasicLit{Kind: token.NUMBER, Value: "1"},
+							Y:  &ast.Lit{Val: "1"},
 						},
 					},
 				},
@@ -207,7 +207,7 @@ func TestStmt(t *testing.T) {
 					X: &ast.BinaryExpr{
 						X: &ast.CallExpr{
 							Func: &ast.Ident{Name: "echo"},
-							Recv: []ast.Expr{&ast.Ident{Name: "-e"}, &ast.BasicLit{Kind: token.STRING, Value: "${string}"}},
+							Recv: []ast.Expr{&ast.Ident{Name: "-e"}, ast.Literal(`"${string}"`)},
 						},
 						Op: token.Or,
 						Y: &ast.CallExpr{
@@ -222,7 +222,7 @@ func TestStmt(t *testing.T) {
 
 func TestPrint(t *testing.T) {
 	ast.Print(&ast.File{
-		Decls: []ast.Decl{
+		Stmts: []ast.Stmt{
 			&ast.FuncDecl{
 				Name: &ast.Ident{Name: "scan"},
 				Body: &ast.BlockStmt{
@@ -236,7 +236,7 @@ func TestPrint(t *testing.T) {
 											&ast.ExprStmt{
 												&ast.CallExpr{
 													Func: &ast.Ident{Name: "echo"},
-													Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "string"}},
+													Recv: []ast.Expr{ast.Literal(`"string"`)},
 												},
 											},
 										},
@@ -247,7 +247,7 @@ func TestPrint(t *testing.T) {
 									&ast.ExprStmt{
 										&ast.CallExpr{
 											Func: &ast.Ident{Name: "echo"},
-											Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "string"}},
+											Recv: []ast.Expr{ast.Literal(`"string"`)},
 										},
 									},
 								},
@@ -256,8 +256,6 @@ func TestPrint(t *testing.T) {
 					},
 				},
 			},
-		},
-		Stmts: []ast.Stmt{
 			&ast.IfStmt{
 				Cond: &ast.ExtendedTestExpr{
 					X: &ast.UnaryExpr{
@@ -279,7 +277,7 @@ func TestPrint(t *testing.T) {
 					Op: token.ExclMark,
 					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
-							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
+							X:  ast.Literal(`"$number"`),
 							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
@@ -289,7 +287,7 @@ func TestPrint(t *testing.T) {
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
 								Func: &ast.Ident{Name: "echo"},
-								Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
+								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
 							},
 						},
 					},
@@ -297,7 +295,7 @@ func TestPrint(t *testing.T) {
 					Op: token.ExclMark,
 					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
-							X:  &ast.BasicLit{Kind: token.STRING, Value: "$number"},
+							X:  ast.Literal(`"$number"`),
 							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
@@ -307,7 +305,7 @@ func TestPrint(t *testing.T) {
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
 								Func: &ast.Ident{Name: "echo"},
-								Recv: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: "input is invalid"}},
+								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
 							},
 						},
 					},

@@ -19,11 +19,6 @@ func Translate(opts *config.BashOptions, node hast.Node) (bast.Node, error) {
 func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 	switch node := node.(type) {
 	case *hast.File:
-		decls := make([]bast.Decl, len(node.Decls))
-		for i, d := range node.Decls {
-			decls[i] = translate2Bash(opts, d).(bast.Decl)
-		}
-
 		stmts := []bast.Stmt{
 			&bast.Comment{
 				Text: "!/bin/bash",
@@ -34,7 +29,6 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 		}
 
 		return &bast.File{
-			Decls: decls,
 			Stmts: stmts,
 		}
 	case *hast.IfStmt:
@@ -68,9 +62,8 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			Name: node.Name,
 		}
 	case *hast.BasicLit:
-		return &bast.BasicLit{
-			Kind:  Token(node.Kind),
-			Value: node.Value,
+		return &bast.Lit{
+			Val: node.Value,
 		}
 	case *hast.ExprStmt:
 		return &bast.ExprStmt{

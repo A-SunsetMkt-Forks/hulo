@@ -13,7 +13,7 @@
 
 ## 📦 安装
 
-#### **直接下载**
+### **直接下载**
 
 从 [GitHub Releases](https://github.com/hulo-lang/hulo/releases) 直接下载预构建的二进制文件：
 
@@ -25,7 +25,7 @@ curl -L https://github.com/hulo-lang/hulo/releases/latest/download/install.sh | 
 irm https://github.com/hulo-lang/hulo/releases/latest/download/install.ps1 | iex
 ```
 
-#### **从源码构建**
+### **从源码构建**
 ```sh
 # 克隆仓库
 git clone https://github.com/hulo-lang/hulo.git
@@ -38,10 +38,10 @@ tools/scripts/setup.ps1
 tools/scripts/setup.sh
 
 # 构建
-mage build
+mage release:all
 ```
 
-#### **包管理器**
+### **包管理器**
 
 | 包管理器 | 主页 | 仓库 |
 |---------|------|------|

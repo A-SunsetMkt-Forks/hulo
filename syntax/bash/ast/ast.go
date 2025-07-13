@@ -4,9 +4,6 @@
 package ast
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/hulo-lang/hulo/syntax/bash/token"
 )
 
@@ -22,17 +19,10 @@ type Stmt interface {
 	stmtNode()
 }
 
-// All declaration nodes implement the Decl interface.
-type Decl interface {
-	Node
-	declNode()
-}
-
 // All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
 	exprNode()
-	String() string
 }
 
 // ----------------------------------------------------------------------------
@@ -70,7 +60,7 @@ func (d *FuncDecl) Pos() token.Pos { return d.Function }
 
 func (d *FuncDecl) End() token.Pos { return d.Body.Closing }
 
-func (*FuncDecl) declNode() {}
+func (*FuncDecl) stmtNode() {}
 
 type (
 	AssignStmt struct {
@@ -269,11 +259,10 @@ type (
 		Name    string
 	}
 
-	// A BasicLit node represents a literal of basic type.
-	BasicLit struct {
-		Kind     token.Token
-		Value    string
-		ValuePos token.Pos // literal position
+	// A Lit node represents a literal type.
+	Lit struct {
+		Val    string
+		ValPos token.Pos // literal position
 	}
 
 	// [ ]
@@ -515,7 +504,7 @@ type (
 func (x *BinaryExpr) Pos() token.Pos       { return x.X.Pos() }
 func (x *CallExpr) Pos() token.Pos         { return x.Func.NamePos }
 func (x *Ident) Pos() token.Pos            { return x.NamePos }
-func (x *BasicLit) Pos() token.Pos         { return x.ValuePos }
+func (x *Lit) Pos() token.Pos              { return x.ValPos }
 func (x *TestExpr) Pos() token.Pos         { return x.Lbrack }
 func (x *ExtendedTestExpr) Pos() token.Pos { return x.Lbrack }
 func (x *ArithEvalExpr) Pos() token.Pos    { return x.Lparen }
@@ -537,7 +526,7 @@ func (x *CallExpr) End() token.Pos {
 	return token.NoPos
 }
 func (x *Ident) End() token.Pos            { return token.Pos(int(x.NamePos) + len(x.Name)) }
-func (x *BasicLit) End() token.Pos         { return token.Pos(int(x.ValuePos) + len(x.Value)) }
+func (x *Lit) End() token.Pos              { return token.Pos(int(x.ValPos) + len(x.Val)) }
 func (x *TestExpr) End() token.Pos         { return x.Rbrack }
 func (x *ExtendedTestExpr) End() token.Pos { return x.Rbrack }
 func (x *ArithEvalExpr) End() token.Pos    { return x.Rparen }
@@ -554,7 +543,7 @@ func (x *UnaryExpr) End() token.Pos        { return x.X.End() }
 func (*BinaryExpr) exprNode()       {}
 func (*CallExpr) exprNode()         {}
 func (*Ident) exprNode()            {}
-func (*BasicLit) exprNode()         {}
+func (*Lit) exprNode()              {}
 func (*TestExpr) exprNode()         {}
 func (*ExtendedTestExpr) exprNode() {}
 func (*ArithEvalExpr) exprNode()    {}
@@ -566,145 +555,6 @@ func (*ParamExpExpr) exprNode()     {}
 func (*IndexExpr) exprNode()        {}
 func (*ArrExpr) exprNode()          {}
 func (*UnaryExpr) exprNode()        {}
-
-func (e *BinaryExpr) String() string {
-	switch e.Op {
-	case token.TsLss, token.TsGtr:
-		return fmt.Sprintf("%s %s %s", e.X, e.Op, e.Y)
-	default:
-		return fmt.Sprintf("%s%s%s", e.X, e.Op, e.Y)
-	}
-}
-
-func (e *Ident) String() string {
-	return e.Name
-}
-
-func (e *BasicLit) String() string {
-	if e.Kind == token.STRING {
-		return fmt.Sprintf(`"%s"`, e.Value)
-	}
-	return e.Value
-}
-
-func (e *CallExpr) String() string {
-	if len(e.Recv) == 0 {
-		return e.Func.String()
-	}
-	recv := []string{}
-	for _, e := range e.Recv {
-		recv = append(recv, e.String())
-	}
-	return fmt.Sprintf("%s %s", e.Func, strings.Join(recv, " "))
-}
-
-func (e *TestExpr) String() string {
-	return fmt.Sprintf("[ %s ]", e.X)
-}
-
-func (e *ExtendedTestExpr) String() string {
-	return fmt.Sprintf("[[ %s ]]", e.X)
-}
-
-func (e *ArithEvalExpr) String() string {
-	return fmt.Sprintf("(( %s ))", e.X)
-}
-
-func (e *CmdSubst) String() string {
-	if e.Tok == token.LeftParen {
-		return fmt.Sprintf("$( %s )", e.X)
-	}
-	return fmt.Sprintf("` %s `", e.X)
-}
-
-func (e *ProcSubst) String() string {
-	if e.Tok == token.RdrIn {
-		return fmt.Sprintf("<( %s )", e.X)
-	}
-	return fmt.Sprintf(">( %s )", e.X)
-}
-
-func (e *ArithExpr) String() string {
-	return fmt.Sprintf("$(( %s ))", e.X)
-}
-
-func (e *VarExpExpr) String() string {
-	return fmt.Sprintf("$%s", e.X)
-}
-
-func (e *ParamExpExpr) String() string {
-	switch {
-	case e.DefaultValExp != nil:
-		return fmt.Sprintf("${%s:-%s}", e.Var, e.DefaultValExp.Val)
-	case e.DefaultValAssignExp != nil:
-		return fmt.Sprintf("${%s:=%s}", e.Var, e.DefaultValAssignExp.Val)
-	case e.NonNullCheckExp != nil:
-		return fmt.Sprintf("${%s:?%s}", e.Var, e.NonNullCheckExp.Val)
-	case e.NonNullExp != nil:
-		return fmt.Sprintf("${%s:+%s}", e.Var, e.NonNullExp.Val)
-	case e.PrefixExp != nil:
-		return fmt.Sprintf("${!%s*}", e.Var)
-	case e.PrefixArrayExp != nil:
-		return fmt.Sprintf("${!%s@}", e.Var)
-	case e.ArrayIndexExp != nil:
-		if e.Tok == token.Star {
-			return fmt.Sprintf("${!%s[*]}", e.Var)
-		}
-		return fmt.Sprintf("${!%s[@]}", e.Var)
-	case e.LengthExp != nil:
-		return fmt.Sprintf("${#%s}", e.Var)
-	case e.DelPrefix != nil:
-		if e.DelPrefix.Longest {
-			return fmt.Sprintf("${%s##%s}", e.Var, e.DelPrefix.Val)
-		}
-		return fmt.Sprintf("${%s#%s}", e.Var, e.DelPrefix.Val)
-	case e.DelSuffix != nil:
-		if e.DelSuffix.Longest {
-			return fmt.Sprintf("${%s%%%%%s}", e.Var, e.DelPrefix.Val)
-		}
-		return fmt.Sprintf("${%s%%%s}", e.Var, e.DelPrefix.Val)
-	case e.SubstringExp != nil:
-		if e.SubstringExp.Offset != e.SubstringExp.Length {
-			return fmt.Sprintf("${%s:%d:%d}", e.Var, e.SubstringExp.Offset, e.SubstringExp.Length)
-		}
-		return fmt.Sprintf("${%s:%d}", e.Var, e.SubstringExp.Offset)
-	case e.ReplaceExp != nil:
-		return fmt.Sprintf("${%s/%s/%s}", e.Var, e.ReplaceExp.Old, e.ReplaceExp.New)
-	case e.ReplacePrefixExp != nil:
-		return fmt.Sprintf("${%s/#%s/%s}", e.Var, e.ReplacePrefixExp.Old, e.ReplacePrefixExp.New)
-	case e.ReplaceSuffixExp != nil:
-		return fmt.Sprintf("${%s/%%%s/%s}", e.Var, e.ReplaceSuffixExp.Old, e.ReplaceSuffixExp.New)
-	case e.CaseConversionExp != nil:
-		if e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
-			return fmt.Sprintf("${%s^}", e.Var)
-		} else if !e.CaseConversionExp.FirstChar && e.CaseConversionExp.ToUpper {
-			return fmt.Sprintf("${%s^^}", e.Var)
-		} else if e.CaseConversionExp.FirstChar && !e.CaseConversionExp.ToUpper {
-			return fmt.Sprintf("${%s,}", e.Var)
-		} else {
-			return fmt.Sprintf("${%s,,}", e.Var)
-		}
-	case e.OperatorExp != nil:
-		return fmt.Sprintf("${%s@%s}", e.Var, e.OperatorExp.Op)
-	}
-	return fmt.Sprintf("${%s}", e.Var)
-}
-
-func (e *IndexExpr) String() string {
-	return fmt.Sprintf("%s[%s]", e.X, e.Y)
-}
-
-func (e *ArrExpr) String() string {
-	vars := []string{}
-	for _, v := range e.Vars {
-		vars = append(vars, v.String())
-	}
-	return fmt.Sprintf("(%s)", strings.Join(vars, " "))
-}
-
-func (e *UnaryExpr) String() string {
-	return fmt.Sprintf("%s%s", e.Op, e.X)
-}
 
 type ExpOperator string
 
@@ -755,7 +605,6 @@ type File struct {
 	Doc *CommentGroup
 
 	Stmts []Stmt
-	Decls []Decl
 }
 
 func (*File) Pos() token.Pos { return token.NoPos }
