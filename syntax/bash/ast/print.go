@@ -31,19 +31,6 @@ func (p *prettyPrinter) indentWrite(s string) {
 	fmt.Fprint(p.output, s)
 }
 
-func (p *prettyPrinter) print(a ...any) {
-	fmt.Fprint(p.output, a...)
-}
-
-func (p *prettyPrinter) printf(format string, a ...any) {
-	fmt.Fprintf(p.output, strings.Repeat("  ", p.indent)+format, a...)
-}
-
-func (p *prettyPrinter) println(a ...any) {
-	fmt.Fprint(p.output, strings.Repeat("  ", p.indent))
-	fmt.Fprintln(p.output, a...)
-}
-
 func (p *prettyPrinter) Visit(node Node) Visitor {
 	switch node := node.(type) {
 	case *File:
@@ -51,13 +38,11 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 			Walk(p, s)
 		}
 	case *FuncDecl:
-		p.write("function ")
+		p.indentWrite("function ")
 		Walk(p, node.Name)
 		p.write("() {\n")
-
 		Walk(p, node.Body)
-
-		p.write("}\n")
+		p.indentWrite("}\n")
 
 	case *ExprStmt:
 		p.indentWrite("")
@@ -73,113 +58,137 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		p.indent--
 
 	case *WhileStmt:
-		p.printf("while %s; do\n", node.Cond)
-		p.indent++
+		p.indentWrite("while ")
+		Walk(p, node.Cond)
+		p.write("; do\n")
 		Walk(p, node.Body)
-		p.indent--
-		p.println("done")
+		p.indentWrite("done\n")
 
 	case *UntilStmt:
-		p.printf("until %s; do\n", node.Cond)
-		p.indent++
+		p.indentWrite("until ")
+		Walk(p, node.Cond)
+		p.write("; do\n")
 		Walk(p, node.Body)
-		p.indent--
-		p.println("done")
+		p.indentWrite("done\n")
 
 	case *ForStmt:
-		p.print("for (( ")
+		p.indentWrite("for (( ")
 		if node.Init != nil {
 			if init, ok := node.Init.(*AssignStmt); ok {
-				p.printf("%s=%s", init.Lhs, init.Rhs)
+				Walk(p, init.Lhs)
+				p.write("=")
+				Walk(p, init.Rhs)
 			} else {
-				p.printf("%s", node.Init)
+				Walk(p, node.Init)
 			}
 		}
-		p.printf("; ")
+		p.write("; ")
 		if node.Cond != nil {
-			p.printf("%s", node.Cond)
+			Walk(p, node.Cond)
 		}
-		p.printf("; ")
+		p.write("; ")
 		if node.Post != nil {
 			if post, ok := node.Post.(*AssignStmt); ok {
-				p.printf("%s=%s", post.Lhs, post.Rhs)
+				Walk(p, post.Lhs)
+				p.write("=")
+				Walk(p, post.Rhs)
 			} else {
-				p.printf("%s", node.Post)
+				Walk(p, node.Post)
 			}
 		}
-		p.println(")); do")
-		p.indent++
+		p.write(")); do\n")
+
 		Walk(p, node.Body)
-		p.indent--
-		p.println("done")
+
+		p.indentWrite("done\n")
 
 	case *ForInStmt:
-		p.printf("for %s in %s; do\n", node.Var, node.List)
-		p.indent++
+		p.indentWrite("for ")
+		Walk(p, node.Var)
+		p.write(" in ")
+		Walk(p, node.List)
+		p.write("; do\n")
+
 		Walk(p, node.Body)
-		p.indent--
-		p.println("done")
+		p.indentWrite("done\n")
 
 	case *SelectStmt:
-		p.printf("select %s in %s; do\n", node.Var, node.List)
-		p.indent++
+		p.indentWrite("select ")
+		Walk(p, node.Var)
+		p.write(" in ")
+		Walk(p, node.List)
+		p.write("; do\n")
+
 		Walk(p, node.Body)
-		p.indent--
-		p.println("done")
+		p.indentWrite("done\n")
 
 	case *IfStmt:
-		p.printf("if %s; then\n", node.Cond)
-		p.indent++
+		p.indentWrite("if ")
+		Walk(p, node.Cond)
+		p.write("; then\n")
+
 		Walk(p, node.Body)
-		p.indent--
+
 		for node.Else != nil {
 			switch el := node.Else.(type) {
 			case *IfStmt:
-				p.printf("elif %s; then\n", el.Cond)
-				p.indent++
+				p.indentWrite("elif ")
+				Walk(p, el.Cond)
+				p.write("; then\n")
+
 				Walk(p, el.Body)
-				p.indent--
+
 				node.Else = el.Else
 			case *BlockStmt:
-				p.println("else")
+				p.write("else\n")
 				Walk(p, el)
 				node.Else = nil
 			}
 		}
 
-		p.println("fi")
+		p.indentWrite("fi\n")
 
 	case *CaseStmt:
-		p.printf("case %s in\n", node.X)
+		p.indentWrite("case ")
+		Walk(p, node.X)
+		p.write(" in\n")
 
 		for _, pattern := range node.Patterns {
-			p.printf("  %s)\n", pattern.Conds)
-			p.indent += 2
+			p.indentWrite("  ")
+			p.visitExprs(pattern.Conds, "|")
+			p.write(")\n")
+			p.indent++
 			Walk(p, pattern.Body)
-			p.indent -= 2
-			p.println(";;")
+			p.indent--
+			p.indentWrite("  ;;\n")
 		}
 
 		if node.Else != nil {
-			p.println("  *)")
-			p.indent += 2
+			p.indentWrite("  *)\n")
+			p.indent++
 			Walk(p, node.Else)
-			p.indent -= 2
+			p.indent--
+			p.indentWrite("  ;;\n")
 		}
 
-		p.println("esac")
+		p.indentWrite("esac\n")
 
 	case *AssignStmt:
+		p.indentWrite("")
 		if node.Local.IsValid() {
-			p.printf("local %s=%s\n", node.Lhs, node.Rhs)
-		} else {
-			p.printf("%s=%s\n", node.Lhs, node.Rhs)
+			p.write("local ")
 		}
+		Walk(p, node.Lhs)
+		p.write("=")
+		Walk(p, node.Rhs)
+		p.write("\n")
+		return nil
 	case *BreakStmt:
-		p.println("break")
+		p.indentWrite("break\n")
+		return nil
 	case *ContinueStmt:
-		p.println("continue")
-
+		p.indentWrite("continue\n")
+		return nil
 	/// Expressions
 	case *Lit:
 		p.write(node.Val)
@@ -414,19 +423,25 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitExprs(exprs []Expr) {
+func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
+	sepStr := " "
+	if len(sep) > 0 {
+		sepStr = sep[0]
+	}
 	for i, e := range exprs {
 		Walk(p, e)
 		if i < len(exprs)-1 {
-			p.write(" ")
+			p.write(sepStr)
 		}
 	}
 }
 
+// Print prints the AST to the standard output.
 func Print(node Node) {
 	Walk(&prettyPrinter{indent: 0, output: os.Stdout, indentSpace: "  "}, node)
 }
 
+// String returns the AST as a string.
 func String(node Node) string {
 	buf := &strings.Builder{}
 	Walk(&prettyPrinter{indent: 0, output: buf, indentSpace: "  "}, node)

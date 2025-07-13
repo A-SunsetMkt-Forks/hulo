@@ -32,7 +32,7 @@ func TestIfStmt(t *testing.T) {
 	nestedIf := &ast.IfStmt{
 		Cond: &ast.TestExpr{
 			X: &ast.BinaryExpr{
-				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
+				X:  &ast.VarExpExpr{X: ast.Identifier("count")},
 				Op: token.Assgn,
 				Y:  ast.Literal(`""`),
 			},
@@ -72,14 +72,11 @@ func TestIfStmt(t *testing.T) {
 
 func TestFuncDecl(t *testing.T) {
 	ast.Print(&ast.FuncDecl{
-		Name: &ast.Ident{Name: "myecho"},
+		Name: ast.Identifier("myecho"),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Func: &ast.Ident{Name: "echo"},
-						Recv: []ast.Expr{ast.Literal(`"Hello, World!"`)},
-					},
+					X: ast.CallExpression("echo", ast.Literal(`"Hello, World!"`)),
 				},
 			},
 		},
@@ -89,17 +86,17 @@ func TestFuncDecl(t *testing.T) {
 func TestForStmt(t *testing.T) {
 	ast.Print(&ast.ForStmt{
 		Init: &ast.AssignStmt{
-			Lhs: &ast.Ident{Name: "i"},
+			Lhs: ast.Identifier("i"),
 			Rhs: ast.Literal("0"),
 		},
 		Cond: &ast.BinaryExpr{
-			X:  &ast.Ident{Name: "i"},
+			X:  ast.Identifier("i"),
 			Op: token.TsLss,
 			Y:  ast.Literal("10"),
 		},
 		Post: &ast.AssignStmt{
-			Lhs: &ast.Ident{Name: "i"},
-			Rhs: &ast.BinaryExpr{X: &ast.Ident{Name: "i"}, Op: token.Plus, Y: ast.Literal("1")},
+			Lhs: ast.Identifier("i"),
+			Rhs: ast.BinaryExpression(ast.Identifier("i"), token.Plus, ast.Literal("1")),
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
