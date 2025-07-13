@@ -11,5 +11,5 @@ if $a > 10 {
 } else if $a < 0 {
 	MsgBox "a is less than 0"
 } else {
-	MsgBox "a is 0"
+	MsgBox "a is between 0 and 10"
 }

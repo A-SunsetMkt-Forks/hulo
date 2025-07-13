@@ -17,7 +17,6 @@
 
 从 [GitHub Releases](https://github.com/hulo-lang/hulo/releases) 直接下载预构建的二进制文件：
 
-Ps. 即将推出
 ```sh
 # Linux/macOS
 curl -L https://github.com/hulo-lang/hulo/releases/latest/download/install.sh | bash

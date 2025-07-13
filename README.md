@@ -13,11 +13,10 @@ English | [简体中文](README.zh-CN.md)
 
 ## 📦 Install
 
-#### **Direct Downloads**
+### **Direct Downloads**
 
 Download pre-built binaries directly from [GitHub Releases](https://github.com/hulo-lang/hulo/releases):
 
-Ps. comming soon
 ```sh
 # Linux/macOS
 curl -L https://github.com/hulo-lang/hulo/releases/latest/download/install.sh | bash
@@ -26,7 +25,7 @@ curl -L https://github.com/hulo-lang/hulo/releases/latest/download/install.sh | 
 irm https://github.com/hulo-lang/hulo/releases/latest/download/install.ps1 | iex
 ```
 
-#### **From Source**
+### **From Source**
 ```sh
 # Clone repository
 git clone https://github.com/hulo-lang/hulo.git
@@ -41,7 +40,7 @@ tools/scripts/setup.sh
 mage build
 ```
 
-#### **Package Managers**
+### **Package Managers**
 
 | Package Manager | HomePage | Repository |
 |----------------|------------|--------|
