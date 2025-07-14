@@ -4,9 +4,6 @@
 package ast
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/hulo-lang/hulo/syntax/batch/token"
 )
 
@@ -22,7 +19,6 @@ type Node interface {
 type Expr interface {
 	Node
 	exprNode() // dummy method to distinguish Expr from other Node types
-	String() string
 }
 
 // Stmt represents a statement node in the AST.
@@ -108,13 +104,6 @@ type (
 		Colon token.Pos     // position of ":"
 		Name  string        // label name
 	}
-
-	// Command represents a command statement.
-	Command struct {
-		Docs *CommentGroup // associated documentation; or nil
-		Name Expr          // command name
-		Recv []Expr        // command arguments
-	}
 )
 
 func (s *FuncDecl) Pos() token.Pos   { return s.Colon }
@@ -177,16 +166,15 @@ func (s *AssignStmt) End() token.Pos {
 	return s.Rhs.End()
 }
 
-func (*IfStmt) stmtNode()      {}
-func (*ForStmt) stmtNode()     {}
-func (*ExprStmt) stmtNode()    {}
-func (*AssignStmt) stmtNode()  {}
-func (*FuncDecl) stmtNode()    {}
-func (*BlockStmt) stmtNode()   {}
-func (*CallStmt) stmtNode()    {}
-func (*Command) stmtNode()     {}
-func (*GotoStmt) stmtNode()  {}
-func (*LabelStmt) stmtNode() {}
+func (*IfStmt) stmtNode()     {}
+func (*ForStmt) stmtNode()    {}
+func (*ExprStmt) stmtNode()   {}
+func (*AssignStmt) stmtNode() {}
+func (*FuncDecl) stmtNode()   {}
+func (*BlockStmt) stmtNode()  {}
+func (*CallStmt) stmtNode()   {}
+func (*GotoStmt) stmtNode()   {}
+func (*LabelStmt) stmtNode()  {}
 
 type (
 	// Word represents a word expression, which is a sequence of expressions.
@@ -231,6 +219,13 @@ type (
 		Left             token.Pos // position of "%"
 		Val              Expr      // quoted expression
 		Right            token.Pos // position of "%"
+	}
+
+	// Command represents a command statement.
+	Command struct {
+		Docs *CommentGroup // associated documentation; or nil
+		Name Expr          // command name
+		Recv []Expr        // command arguments
 	}
 )
 
@@ -294,45 +289,7 @@ func (*Word) exprNode()       {}
 func (*Lit) exprNode()        {}
 func (*SglQuote) exprNode()   {}
 func (*DblQuote) exprNode()   {}
-
-func (w *Word) String() string {
-	parts := make([]string, len(w.Parts))
-	for i, part := range w.Parts {
-		parts[i] = part.String()
-	}
-	return strings.Join(parts, " ")
-}
-func (u *UnaryExpr) String() string {
-	return fmt.Sprintf("%s%s", u.Op, u.X)
-}
-func (b *BinaryExpr) String() string {
-	switch b.Op {
-	case token.EQU, token.NEQ, token.LSS,
-		token.LEQ, token.GTR, token.GEQ,
-		token.AND, token.OR, token.NOT:
-		return fmt.Sprintf("%s %s %s", b.X, b.Op, b.Y)
-	}
-	return fmt.Sprintf("%s%s%s", b.X, b.Op, b.Y)
-}
-func (c *CallExpr) String() string {
-	recv := make([]string, len(c.Recv))
-	for i, r := range c.Recv {
-		recv[i] = r.String()
-	}
-	return fmt.Sprintf("%s %s", c.Fun, strings.Join(recv, " "))
-}
-func (l *Lit) String() string {
-	return l.Val
-}
-func (s *SglQuote) String() string {
-	return fmt.Sprintf("%%%s", s.Val)
-}
-func (d *DblQuote) String() string {
-	if d.DelayedExpansion {
-		return fmt.Sprintf("!%s!", d.Val)
-	}
-	return fmt.Sprintf("%%%s%%", d.Val)
-}
+func (*Command) exprNode()    {}
 
 // Comment represents a single comment.
 type Comment struct {

@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+var _ Visitor = (*prettyPrinter)(nil)
+
 type prettyPrinter struct {
 	output      io.Writer
 	indent      int

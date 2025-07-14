@@ -73,45 +73,51 @@ func TestAssign(t *testing.T) {
 				Name: "Display",
 				Body: &BlockStmt{
 					List: []Stmt{
-						&Command{
-							Name: &Lit{
-								Val: "echo",
-							},
-							Recv: []Expr{
-								&Lit{Val: "The value of parameter 1 is"},
-								&SglQuote{
-									Val: &Lit{
-										Val: "~1",
+						&ExprStmt{
+							X: &Command{
+								Name: &Lit{
+									Val: "echo",
+								},
+								Recv: []Expr{
+									&Lit{Val: "The value of parameter 1 is"},
+									&SglQuote{
+										Val: &Lit{
+											Val: "~1",
+										},
 									},
 								},
 							},
 						},
-						&Command{
-							Name: &Lit{
-								Val: "echo",
-							},
-							Recv: []Expr{
-								&Lit{Val: "The value of parameter 1 is"},
-								&SglQuote{
-									Val: &Lit{
-										Val: "~2",
+						&ExprStmt{
+							X: &Command{
+								Name: &Lit{
+									Val: "echo",
+								},
+								Recv: []Expr{
+									&Lit{Val: "The value of parameter 1 is"},
+									&SglQuote{
+										Val: &Lit{
+											Val: "~2",
+										},
 									},
 								},
 							},
 						},
-						&Command{
-							Name: &Lit{
-								Val: "EXIT",
-							},
-							Recv: []Expr{
-								&UnaryExpr{
-									Op: token.DIV,
-									X: &Lit{
-										Val: "B",
-									},
+						&ExprStmt{
+							X: &Command{
+								Name: &Lit{
+									Val: "EXIT",
 								},
-								&Lit{
-									Val: "0",
+								Recv: []Expr{
+									&UnaryExpr{
+										Op: token.DIV,
+										X: &Lit{
+											Val: "B",
+										},
+									},
+									&Lit{
+										Val: "0",
+									},
 								},
 							},
 						},
@@ -139,17 +145,21 @@ func TestBatchFeatures(t *testing.T) {
 						},
 						Body: &BlockStmt{
 							List: []Stmt{
-								&Command{
-									Name: &Lit{Val: "ECHO"},
-									Recv: []Expr{&Lit{Val: "Match"}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "ECHO"},
+										Recv: []Expr{&Lit{Val: "Match"}},
+									},
 								},
 							},
 						},
 						Else: &BlockStmt{
 							List: []Stmt{
-								&Command{
-									Name: &Lit{Val: "ECHO"},
-									Recv: []Expr{&Lit{Val: "No Match"}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "ECHO"},
+										Recv: []Expr{&Lit{Val: "No Match"}},
+									},
 								},
 							},
 						},
@@ -166,9 +176,11 @@ func TestBatchFeatures(t *testing.T) {
 						List: &Lit{Val: "(*.txt)"},
 						Body: &BlockStmt{
 							List: []Stmt{
-								&Command{
-									Name: &Lit{Val: "echo"},
-									Recv: []Expr{&SglQuote{Val: &SglQuote{Val: &Lit{Val: "f"}}}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "echo"},
+										Recv: []Expr{&SglQuote{Val: &SglQuote{Val: &Lit{Val: "f"}}}},
+									},
 								},
 							},
 						},
@@ -193,9 +205,11 @@ func TestBatchFeatures(t *testing.T) {
 						},
 					},
 					&LabelStmt{Name: "start"},
-					&Command{
-						Name: &Lit{Val: "ECHO"},
-						Recv: []Expr{&Lit{Val: "Started"}},
+					&ExprStmt{
+						X: &Command{
+							Name: &Lit{Val: "ECHO"},
+							Recv: []Expr{&Lit{Val: "Started"}},
+						},
 					},
 					&GotoStmt{Label: "EOF"},
 				},
@@ -217,9 +231,11 @@ func TestBatchFeatures(t *testing.T) {
 						Name: "myFunction",
 						Body: &BlockStmt{
 							List: []Stmt{
-								&Command{
-									Name: &Lit{Val: "ECHO"},
-									Recv: []Expr{&Lit{Val: "Argument1: "}, &SglQuote{Val: &Lit{Val: "1"}}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "ECHO"},
+										Recv: []Expr{&Lit{Val: "Argument1: "}, &SglQuote{Val: &Lit{Val: "1"}}},
+									},
 								},
 								&GotoStmt{Label: "EOF"},
 							},
@@ -266,7 +282,8 @@ func TestBatchFeatures(t *testing.T) {
 									List: &Lit{Val: "(1 2 3)"},
 									Body: &BlockStmt{
 										List: []Stmt{
-											&Command{
+											&ExprStmt{
+												X: &Command{
 												Name: &Lit{Val: "ECHO"},
 												Recv: []Expr{
 													&Lit{Val: "Inside Loop "},
@@ -280,9 +297,11 @@ func TestBatchFeatures(t *testing.T) {
 						},
 						Else: &BlockStmt{
 							List: []Stmt{
-								&Command{
-									Name: &Lit{Val: "ECHO"},
-									Recv: []Expr{&Lit{Val: "Not Matched"}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "ECHO"},
+										Recv: []Expr{&Lit{Val: "Not Matched"}},
+									},
 								},
 							},
 						},
@@ -294,9 +313,11 @@ func TestBatchFeatures(t *testing.T) {
 			name: "Delayed expansion",
 			file: &File{
 				Stmts: []Stmt{
-					&Command{
-						Name: &Lit{Val: "setlocal"},
-						Recv: []Expr{&Lit{Val: "enabledelayedexpansion"}},
+					&ExprStmt{
+						X: &Command{
+							Name: &Lit{Val: "setlocal"},
+							Recv: []Expr{&Lit{Val: "enabledelayedexpansion"}},
+						},
 					},
 					&AssignStmt{
 						Lhs: &Lit{Val: "VAR"},
@@ -313,12 +334,14 @@ func TestBatchFeatures(t *testing.T) {
 									Lhs: &Lit{Val: "VAR"},
 									Rhs: &SglQuote{Val: &SglQuote{Val: &Lit{Val: "i"}}},
 								},
-								&Command{
-									Name: &Lit{Val: "echo"},
-									Recv: []Expr{&DblQuote{
-										DelayedExpansion: true,
-										Val:              &Lit{Val: "VAR"},
-									}},
+								&ExprStmt{
+									X: &Command{
+										Name: &Lit{Val: "echo"},
+										Recv: []Expr{&DblQuote{
+											DelayedExpansion: true,
+											Val:              &Lit{Val: "VAR"},
+										}},
+									},
 								},
 							},
 						},
@@ -326,11 +349,41 @@ func TestBatchFeatures(t *testing.T) {
 				},
 			},
 		},
-	}
+	}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			Print(tt.file)
 		})
 	}
+}
+
+func TestIfStmt(t *testing.T) {
+	Print(&IfStmt{
+		Cond: &BinaryExpr{
+			X:  &DblQuote{Val: &Lit{Val: "1"}},
+			Op: token.DOUBLE_ASSIGN,
+			Y:  &Lit{Val: "start"},
+		},
+		Body: &IfStmt{
+			Body: &BlockStmt{
+				List: []Stmt{
+					&ExprStmt{
+						X: &Command{
+							Name: &Lit{Val: "echo"},
+						},
+					},
+				},
+			},
+			Else: &BlockStmt{
+				List: []Stmt{
+					&ExprStmt{
+						X: &Command{
+							Name: &Lit{Val: "echo"},
+						},
+					},
+				},
+			},
+		},
+	})
 }
