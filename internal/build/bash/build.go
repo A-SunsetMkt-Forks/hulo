@@ -62,7 +62,7 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			Name: node.Name,
 		}
 	case *hast.BasicLit:
-		return &bast.Lit{
+		return &bast.Word{
 			Val: node.Value,
 		}
 	case *hast.ExprStmt:
@@ -77,8 +77,8 @@ func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
 			recv = append(recv, translate2Bash(opts, r).(bast.Expr))
 		}
 
-		return &bast.CallExpr{
-			Func: fun,
+		return &bast.CmdExpr{
+			Name: fun,
 			Recv: recv,
 		}
 	default:

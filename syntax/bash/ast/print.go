@@ -31,377 +31,66 @@ func (p *prettyPrinter) indentWrite(s string) {
 	fmt.Fprint(p.output, s)
 }
 
+// Visit visits the AST node.
 func (p *prettyPrinter) Visit(node Node) Visitor {
 	switch node := node.(type) {
 	case *File:
-		for _, s := range node.Stmts {
-			Walk(p, s)
-		}
+		return p.visitFile(node)
 	case *FuncDecl:
-		p.indentWrite("function ")
-		Walk(p, node.Name)
-		p.write("() {\n")
-		Walk(p, node.Body)
-		p.indentWrite("}\n")
-
+		return p.visitFuncDecl(node)
 	case *ExprStmt:
-		p.indentWrite("")
-		Walk(p, node.X)
-		p.write("\n")
-		return nil
-
+		return p.visitExprStmt(node)
 	case *BlockStmt:
-		p.indent++
-		for _, s := range node.List {
-			Walk(p, s)
-		}
-		p.indent--
-
+		return p.visitBlockStmt(node)
 	case *WhileStmt:
-		p.indentWrite("while ")
-		Walk(p, node.Cond)
-		p.write("; do\n")
-		Walk(p, node.Body)
-		p.indentWrite("done\n")
-
+		return p.visitWhileStmt(node)
 	case *UntilStmt:
-		p.indentWrite("until ")
-		Walk(p, node.Cond)
-		p.write("; do\n")
-		Walk(p, node.Body)
-		p.indentWrite("done\n")
-
+		return p.visitUntilStmt(node)
 	case *ForStmt:
-		p.indentWrite("for (( ")
-		if node.Init != nil {
-			if init, ok := node.Init.(*AssignStmt); ok {
-				Walk(p, init.Lhs)
-				p.write("=")
-				Walk(p, init.Rhs)
-			} else {
-				Walk(p, node.Init)
-			}
-		}
-		p.write("; ")
-		if node.Cond != nil {
-			Walk(p, node.Cond)
-		}
-		p.write("; ")
-		if node.Post != nil {
-			if post, ok := node.Post.(*AssignStmt); ok {
-				Walk(p, post.Lhs)
-				p.write("=")
-				Walk(p, post.Rhs)
-			} else {
-				Walk(p, node.Post)
-			}
-		}
-		p.write(")); do\n")
-
-		Walk(p, node.Body)
-
-		p.indentWrite("done\n")
-
+		return p.visitForStmt(node)
 	case *ForInStmt:
-		p.indentWrite("for ")
-		Walk(p, node.Var)
-		p.write(" in ")
-		Walk(p, node.List)
-		p.write("; do\n")
-
-		Walk(p, node.Body)
-		p.indentWrite("done\n")
-
+		return p.visitForInStmt(node)
 	case *SelectStmt:
-		p.indentWrite("select ")
-		Walk(p, node.Var)
-		p.write(" in ")
-		Walk(p, node.List)
-		p.write("; do\n")
-
-		Walk(p, node.Body)
-		p.indentWrite("done\n")
-
+		return p.visitSelectStmt(node)
 	case *IfStmt:
-		p.indentWrite("if ")
-		Walk(p, node.Cond)
-		p.write("; then\n")
-
-		Walk(p, node.Body)
-
-		for node.Else != nil {
-			switch el := node.Else.(type) {
-			case *IfStmt:
-				p.indentWrite("elif ")
-				Walk(p, el.Cond)
-				p.write("; then\n")
-
-				Walk(p, el.Body)
-
-				node.Else = el.Else
-			case *BlockStmt:
-				p.write("else\n")
-				Walk(p, el)
-				node.Else = nil
-			}
-		}
-
-		p.indentWrite("fi\n")
-
+		return p.visitIfStmt(node)
 	case *CaseStmt:
-		p.indentWrite("case ")
-		Walk(p, node.X)
-		p.write(" in\n")
-
-		for _, pattern := range node.Patterns {
-			p.indentWrite("  ")
-			p.visitExprs(pattern.Conds, "|")
-			p.write(")\n")
-			p.indent++
-			Walk(p, pattern.Body)
-			p.indent--
-			p.indentWrite("  ;;\n")
-		}
-
-		if node.Else != nil {
-			p.indentWrite("  *)\n")
-			p.indent++
-			Walk(p, node.Else)
-			p.indent--
-			p.indentWrite("  ;;\n")
-		}
-
-		p.indentWrite("esac\n")
-
+		return p.visitCaseStmt(node)
 	case *AssignStmt:
-		p.indentWrite("")
-		if node.Local.IsValid() {
-			p.write("local ")
-		}
-		Walk(p, node.Lhs)
-		p.write("=")
-		Walk(p, node.Rhs)
-		p.write("\n")
-		return nil
-	case *BreakStmt:
-		p.indentWrite("break\n")
-		return nil
-	case *ContinueStmt:
-		p.indentWrite("continue\n")
-		return nil
+		return p.visitAssignStmt(node)
+	case *PipelineExpr:
+		return p.visitPipelineExpr(node)
+	case *Redirect:
+		return p.visitRedirect(node)
 	/// Expressions
-	case *Lit:
+	case *Word:
 		p.write(node.Val)
 		return nil
 	case *Ident:
 		p.write(node.Name)
 		return nil
 	case *BinaryExpr:
-		Walk(p, node.X)
-
-		switch node.Op {
-		case token.TsLss, token.TsGtr:
-			p.write(fmt.Sprintf(" %s ", node.Op))
-		default:
-			p.write(node.Op.String())
-		}
-		Walk(p, node.Y)
-		return nil
-	case *CallExpr:
-		Walk(p, node.Func)
-
-		if len(node.Recv) > 0 {
-			p.write(" ")
-			p.visitExprs(node.Recv)
-		}
-		return nil
+		return p.visitBinaryExpr(node)
+	case *CmdExpr:
+		return p.visitCallExpr(node)
 	case *TestExpr:
-		p.write("[ ")
-		Walk(p, node.X)
-		p.write(" ]")
-		return nil
+		return p.visitTestExpr(node)
 	case *ExtendedTestExpr:
-		p.write("[[ ")
-		Walk(p, node.X)
-		p.write(" ]]")
-		return nil
+		return p.visitExtendedTestExpr(node)
 	case *ArithEvalExpr:
-		p.write("(( ")
-		Walk(p, node.X)
-		p.write(" ))")
-		return nil
+		return p.visitArithEvalExpr(node)
 	case *CmdSubst:
-		if node.Tok == token.LeftParen {
-			p.write("$( ")
-		} else {
-			p.write("` ")
-		}
-		Walk(p, node.X)
-		if node.Tok == token.LeftParen {
-			p.write(" )")
-		} else {
-			p.write(" `")
-		}
-		return nil
+		return p.visitCmdSubst(node)
 	case *ProcSubst:
-		if node.Tok == token.RdrIn {
-			p.write("<( ")
-		} else {
-			p.write(">( ")
-		}
-		Walk(p, node.X)
-		p.write(" )")
-		return nil
+		return p.visitProcSubst(node)
 	case *ArithExpr:
-		p.write("$(( ")
-		Walk(p, node.X)
-		p.write(" ))")
-		return nil
+		return p.visitArithExpr(node)
 	case *VarExpExpr:
 		p.write("$")
 		Walk(p, node.X)
 		return nil
 	case *ParamExpExpr:
-		switch {
-		case node.DefaultValExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write(":-")
-			Walk(p, node.DefaultValExp.Val)
-			p.write("}")
-			return nil
-		case node.DefaultValAssignExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write(":=")
-			Walk(p, node.DefaultValAssignExp.Val)
-			p.write("}")
-			return nil
-		case node.NonNullCheckExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write(":?")
-			Walk(p, node.NonNullCheckExp.Val)
-			p.write("}")
-			return nil
-		case node.NonNullExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write(":+")
-			Walk(p, node.NonNullExp.Val)
-			p.write("}")
-			return nil
-		case node.PrefixExp != nil:
-			p.write("${!")
-			Walk(p, node.Var)
-			p.write("*}")
-			return nil
-		case node.PrefixArrayExp != nil:
-			p.write("${!")
-			Walk(p, node.Var)
-			p.write("@}")
-			return nil
-		case node.ArrayIndexExp != nil:
-			p.write("${!")
-			Walk(p, node.Var)
-			if node.Tok == token.Star {
-				p.write("[*]}")
-			} else {
-				p.write("[@]}")
-			}
-			return nil
-		case node.LengthExp != nil:
-			p.write("${#")
-			Walk(p, node.Var)
-			p.write("}")
-			return nil
-		case node.DelPrefix != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			if node.DelPrefix.Longest {
-				p.write("##")
-			} else {
-				p.write("#")
-			}
-			Walk(p, node.DelPrefix.Val)
-			p.write("}")
-			return nil
-		case node.DelSuffix != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			if node.DelSuffix.Longest {
-				p.write("%%%%")
-			} else {
-				p.write("%%")
-			}
-			Walk(p, node.DelSuffix.Val)
-			p.write("}")
-			return nil
-		case node.SubstringExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write(":")
-			if node.SubstringExp.Offset != node.SubstringExp.Length {
-				p.write(fmt.Sprintf("%d:%d", node.SubstringExp.Offset, node.SubstringExp.Length))
-			} else {
-				p.write(fmt.Sprintf("%d", node.SubstringExp.Offset))
-			}
-			p.write("}")
-			return nil
-		case node.ReplaceExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write("/")
-			p.write(node.ReplaceExp.Old)
-			p.write("/")
-			p.write(node.ReplaceExp.New)
-			p.write("}")
-			return nil
-		case node.ReplacePrefixExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write("/#")
-			p.write(node.ReplacePrefixExp.Old)
-			p.write("/")
-			p.write(node.ReplacePrefixExp.New)
-			p.write("}")
-			return nil
-		case node.ReplaceSuffixExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write("/%%")
-			p.write(node.ReplaceSuffixExp.Old)
-			p.write("/")
-			p.write(node.ReplaceSuffixExp.New)
-			p.write("}")
-			return nil
-		case node.CaseConversionExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			if node.CaseConversionExp.FirstChar && node.CaseConversionExp.ToUpper {
-				p.write("^")
-			} else if !node.CaseConversionExp.FirstChar && node.CaseConversionExp.ToUpper {
-				p.write("^^")
-			} else if node.CaseConversionExp.FirstChar && !node.CaseConversionExp.ToUpper {
-				p.write(",")
-			} else {
-				p.write(",,")
-			}
-			p.write("}")
-			return nil
-		case node.OperatorExp != nil:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write("@")
-			p.write(string(node.OperatorExp.Op))
-			p.write("}")
-			return nil
-		default:
-			p.write("${")
-			Walk(p, node.Var)
-			p.write("}")
-			return nil
-		}
+		return p.visitParamExpExpr(node)
 	case *IndexExpr:
 		Walk(p, node.X)
 		p.write("[")
@@ -417,8 +106,420 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		p.write(node.Op.String())
 		Walk(p, node.X)
 		return nil
+	case *CmdListExpr:
+		return p.visitCmdListExpr(node)
+	case *CmdGroup:
+		return p.visitCmdGroup(node)
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
+	}
+}
+
+func (p *prettyPrinter) visitRedirect(node *Redirect) Visitor {
+	if node.N != nil {
+		Walk(p, node.N)
+	}
+	p.write(node.CtrOp.String())
+	Walk(p, node.Word)
+	return nil
+}
+
+func (p *prettyPrinter) visitCmdGroup(node *CmdGroup) Visitor {
+	p.indentWrite("")
+	if node.Op == token.LeftBrace {
+		p.write("{")
+	} else {
+		p.write("(")
+	}
+	p.visitExprs(node.List)
+	if node.Op == token.LeftBrace {
+		p.write("}")
+	} else {
+		p.write(")")
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitCmdListExpr(node *CmdListExpr) Visitor {
+	p.indentWrite("")
+	for i, cmd := range node.Cmds {
+		Walk(p, cmd)
+		if i < len(node.Cmds)-1 {
+			p.write(fmt.Sprintf(" %s ", node.CtrOp))
+		}
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitFile(node *File) Visitor {
+	for _, s := range node.Stmts {
+		Walk(p, s)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitFuncDecl(node *FuncDecl) Visitor {
+	p.indentWrite("function ")
+	Walk(p, node.Name)
+	p.write("() {\n")
+	Walk(p, node.Body)
+	p.indentWrite("}\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitExprStmt(node *ExprStmt) Visitor {
+	p.indentWrite("")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitBlockStmt(node *BlockStmt) Visitor {
+	p.indent++
+	for _, s := range node.List {
+		Walk(p, s)
+	}
+	p.indent--
+	return nil
+}
+
+func (p *prettyPrinter) visitWhileStmt(node *WhileStmt) Visitor {
+	p.indentWrite("while ")
+	Walk(p, node.Cond)
+	p.write("; do\n")
+	Walk(p, node.Body)
+	p.indentWrite("done\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitUntilStmt(node *UntilStmt) Visitor {
+	p.indentWrite("until ")
+	Walk(p, node.Cond)
+	p.write("; do\n")
+	Walk(p, node.Body)
+	p.indentWrite("done\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitForStmt(node *ForStmt) Visitor {
+	p.indentWrite("for (( ")
+	if node.Init != nil {
+		if init, ok := node.Init.(*AssignStmt); ok {
+			Walk(p, init.Lhs)
+			p.write("=")
+			Walk(p, init.Rhs)
+		} else {
+			Walk(p, node.Init)
+		}
+	}
+	p.write("; ")
+	if node.Cond != nil {
+		Walk(p, node.Cond)
+	}
+	p.write("; ")
+	if node.Post != nil {
+		if post, ok := node.Post.(*AssignStmt); ok {
+			Walk(p, post.Lhs)
+			p.write("=")
+			Walk(p, post.Rhs)
+		} else {
+			Walk(p, node.Post)
+		}
+	}
+	p.write(")); do\n")
+
+	Walk(p, node.Body)
+
+	p.indentWrite("done\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitForInStmt(node *ForInStmt) Visitor {
+	p.indentWrite("for ")
+	Walk(p, node.Var)
+	p.write(" in ")
+	Walk(p, node.List)
+	p.write("; do\n")
+
+	Walk(p, node.Body)
+	p.indentWrite("done\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitSelectStmt(node *SelectStmt) Visitor {
+	p.indentWrite("select ")
+	Walk(p, node.Var)
+	p.write(" in ")
+	Walk(p, node.List)
+	p.write("; do\n")
+
+	Walk(p, node.Body)
+	p.indentWrite("done\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitCaseStmt(node *CaseStmt) Visitor {
+	p.indentWrite("case ")
+	Walk(p, node.X)
+	p.write(" in\n")
+
+	for _, pattern := range node.Patterns {
+		p.indentWrite("  ")
+		p.visitExprs(pattern.Conds, "|")
+		p.write(")\n")
+		p.indent++
+		Walk(p, pattern.Body)
+		p.indent--
+		p.indentWrite("  ;;\n")
+	}
+
+	if node.Else != nil {
+		p.indentWrite("  *)\n")
+		p.indent++
+		Walk(p, node.Else)
+		p.indent--
+		p.indentWrite("  ;;\n")
+	}
+
+	p.indentWrite("esac\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
+	p.indentWrite("")
+	if node.Local.IsValid() {
+		p.write("local ")
+	}
+	Walk(p, node.Lhs)
+	p.write("=")
+	Walk(p, node.Rhs)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitArithExpr(node *ArithExpr) Visitor {
+	p.write("$(( ")
+	Walk(p, node.X)
+	p.write(" ))")
+	return nil
+}
+
+func (p *prettyPrinter) visitProcSubst(node *ProcSubst) Visitor {
+	p.write(node.CtrOp.String())
+	Walk(p, node.X)
+	p.write(")")
+	return nil
+}
+
+func (p *prettyPrinter) visitCmdSubst(node *CmdSubst) Visitor {
+	p.write(node.Tok.String())
+	Walk(p, node.X)
+	switch node.Tok {
+	case token.DollParen:
+		p.write(")")
+	case token.BckQuote:
+		p.write("`")
+	case token.DollBrace:
+		p.write("}")
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitArithEvalExpr(node *ArithEvalExpr) Visitor {
+	p.write("(( ")
+	Walk(p, node.X)
+	p.write(" ))")
+	return nil
+}
+
+func (p *prettyPrinter) visitExtendedTestExpr(node *ExtendedTestExpr) Visitor {
+	p.write("[[ ")
+	Walk(p, node.X)
+	p.write(" ]]")
+	return nil
+}
+
+func (p *prettyPrinter) visitBinaryExpr(node *BinaryExpr) Visitor {
+	Walk(p, node.X)
+
+	switch node.Op {
+	case token.TsLss, token.TsGtr:
+		p.write(fmt.Sprintf(" %s ", node.Op))
+	default:
+		p.write(node.Op.String())
+	}
+	Walk(p, node.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitTestExpr(node *TestExpr) Visitor {
+	p.write("[ ")
+	Walk(p, node.X)
+	p.write(" ]")
+	return nil
+}
+
+func (p *prettyPrinter) visitCallExpr(node *CmdExpr) Visitor {
+	Walk(p, node.Name)
+
+	if len(node.Recv) > 0 {
+		p.write(" ")
+		p.visitExprs(node.Recv)
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
+	p.indentWrite("if ")
+	Walk(p, node.Cond)
+	p.write("; then\n")
+
+	Walk(p, node.Body)
+
+	for node.Else != nil {
+		switch el := node.Else.(type) {
+		case *IfStmt:
+			p.indentWrite("elif ")
+			Walk(p, el.Cond)
+			p.write("; then\n")
+
+			Walk(p, el.Body)
+
+			node.Else = el.Else
+		case *BlockStmt:
+			p.write("else\n")
+			Walk(p, el)
+			node.Else = nil
+		}
+	}
+
+	p.indentWrite("fi\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitParamExpExpr(node *ParamExpExpr) Visitor {
+	switch exp := node.ParamExp.(type) {
+	case *DefaultValExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write(":-")
+		Walk(p, exp.Val)
+		p.write("}")
+	case *DefaultValAssignExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write(":=")
+		Walk(p, exp.Val)
+		p.write("}")
+	case *NonNullCheckExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write(":?")
+		Walk(p, exp.Val)
+		p.write("}")
+	case *NonNullExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write(":+")
+		Walk(p, exp.Val)
+		p.write("}")
+	case *PrefixExp:
+		p.write("${!")
+		Walk(p, node.Var)
+		p.write("*}")
+	case *PrefixArrayExp:
+		p.write("${!")
+		Walk(p, node.Var)
+		p.write("@}")
+	case *ArrayIndexExp:
+		p.write("${!")
+		Walk(p, node.Var)
+		if exp.Tok == token.Star {
+			p.write("[*]}")
+		} else {
+			p.write("[@]}")
+		}
+	case *LengthExp:
+		p.write("${#")
+		Walk(p, node.Var)
+		p.write("}")
+	case *DelPrefix:
+		p.write("${")
+		Walk(p, node.Var)
+		if exp.Longest {
+			p.write("##")
+		} else {
+			p.write("#")
+		}
+		Walk(p, exp.Val)
+		p.write("}")
+	case *DelSuffix:
+		p.write("${")
+		Walk(p, node.Var)
+		if exp.Longest {
+			p.write("%%%%")
+		} else {
+			p.write("%%")
+		}
+		Walk(p, exp.Val)
+		p.write("}")
+	case *SubstringExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write(":")
+		if exp.Offset != exp.Length {
+			p.write(fmt.Sprintf("%d:%d", exp.Offset, exp.Length))
+		} else {
+			p.write(fmt.Sprintf("%d", exp.Offset))
+		}
+		p.write("}")
+	case *ReplaceExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write("/")
+		p.write(exp.Old)
+		p.write("/")
+		p.write(exp.New)
+		p.write("}")
+	case *ReplacePrefixExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write("/#")
+		p.write(exp.Old)
+		p.write("/")
+		p.write(exp.New)
+		p.write("}")
+	case *ReplaceSuffixExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write("/%%")
+		p.write(exp.Old)
+		p.write("/")
+		p.write(exp.New)
+		p.write("}")
+	case *CaseConversionExp:
+		p.write("${")
+		Walk(p, node.Var)
+		if exp.FirstChar && exp.ToUpper {
+			p.write("^")
+		} else if !exp.FirstChar && exp.ToUpper {
+			p.write("^^")
+		} else if exp.FirstChar && !exp.ToUpper {
+			p.write(",")
+		} else {
+			p.write(",,")
+		}
+		p.write("}")
+	case *OperatorExp:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write("@")
+		p.write(string(exp.Op))
+		p.write("}")
+	default:
+		p.write("${")
+		Walk(p, node.Var)
+		p.write("}")
 	}
 	return nil
 }
@@ -434,6 +535,17 @@ func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
 			p.write(sepStr)
 		}
 	}
+}
+
+func (p *prettyPrinter) visitPipelineExpr(node *PipelineExpr) Visitor {
+	p.indentWrite("")
+	for i, cmd := range node.Cmds {
+		Walk(p, cmd)
+		if i < len(node.Cmds)-1 {
+			p.write(fmt.Sprintf(" %s ", node.CtrOp))
+		}
+	}
+	return nil
 }
 
 // Print prints the AST to the standard output.

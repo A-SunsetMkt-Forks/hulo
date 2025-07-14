@@ -17,8 +17,7 @@ import (
 )
 
 var (
-	name = "hulo"
-	// TODO build as tag to inject cmd/hulo.go
+	name        = "hulo"
 	version     = release.GitVersion{}
 	description = "Hulo is a batch-oriented programming language."
 	homepage    = "https://hulo-lang.github.io/docs/"
@@ -32,17 +31,7 @@ type Release mg.Namespace
 
 // builds and publishes releases to all targets (npm, pypi, homebrew, etc).
 func (r Release) All() {
-	mg.Deps(r.Npm, r.Pypi, r.Gofish)
-}
-
-// builds and publishes the PyPI package.
-func (r Release) Pypi() {
-	mg.Deps(r.setup)
-}
-
-// builds and publishes the npm package.
-func (r Release) Npm() {
-	mg.Deps(r.setup)
+	mg.Deps(r.Gofish)
 }
 
 // generates and publishes GoFish manifest files.

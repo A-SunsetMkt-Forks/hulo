@@ -40,6 +40,7 @@ const (
 	DollParen    // $(
 	DollDblParen // $((
 
+	LeftBrace    // {
 	LeftBrack    // [
 	DblLeftBrack // [[
 	LeftParen    // (
@@ -158,8 +159,4 @@ const (
 	GlobExcl  // !(
 
 	EOF // EOF
-
-	// compitable with old version
-	STRING
-	NUMBER
 )

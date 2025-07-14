@@ -76,7 +76,7 @@ func TestFuncDecl(t *testing.T) {
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ExprStmt{
-					X: ast.CallExpression("echo", ast.Literal(`"Hello, World!"`)),
+					X: ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
 				},
 			},
 		},
@@ -100,8 +100,8 @@ func TestForStmt(t *testing.T) {
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				&ast.ExprStmt{X: &ast.CallExpr{
-					Func: &ast.Ident{Name: "echo"},
+				&ast.ExprStmt{X: &ast.CmdExpr{
+					Name: &ast.Ident{Name: "echo"},
 					Recv: []ast.Expr{&ast.Ident{Name: "i"}},
 				}},
 			},
@@ -112,8 +112,8 @@ func TestForStmt(t *testing.T) {
 	ast.Print(&ast.ForStmt{
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				&ast.ExprStmt{X: &ast.CallExpr{
-					Func: &ast.Ident{Name: "read"},
+				&ast.ExprStmt{X: &ast.CmdExpr{
+					Name: &ast.Ident{Name: "read"},
 					Recv: []ast.Expr{&ast.Ident{Name: "var"}},
 				}},
 				&ast.IfStmt{
@@ -126,8 +126,69 @@ func TestForStmt(t *testing.T) {
 						},
 					},
 					Body: &ast.BlockStmt{
-						List: []ast.Stmt{&ast.BreakStmt{}},
+						List: []ast.Stmt{&ast.ExprStmt{X: ast.Break()}},
 					},
+				},
+			},
+		},
+	})
+}
+
+func TestPipelineExpr(t *testing.T) {
+	ast.Print(&ast.ExprStmt{
+		X: &ast.PipelineExpr{
+			CtrOp: token.OrAnd,
+			Cmds: []ast.Expr{
+				ast.CmdExpression("echo", ast.Option("-n"), ast.Literal(`"Hello, World!"`)),
+				&ast.PipelineExpr{
+					CtrOp: token.Or,
+					Cmds: []ast.Expr{
+						ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+						ast.CmdExpression("echo", ast.Option("-n"), ast.Literal(`"Hello, World!"`)),
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestCmdListExpr(t *testing.T) {
+	ast.Print(&ast.CmdListExpr{
+		CtrOp: token.OrOr,
+		Cmds: []ast.Expr{
+			ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+			&ast.CmdListExpr{
+				CtrOp: token.AndAnd,
+				Cmds: []ast.Expr{
+					ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+					&ast.CmdListExpr{
+						CtrOp: token.OrOr,
+						Cmds: []ast.Expr{
+							ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+							ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+func TestRedirect(t *testing.T) {
+	ast.Print(&ast.File{
+		Stmts: []ast.Stmt{
+			&ast.ExprStmt{
+				X: &ast.Redirect{
+					N:     ast.Literal(`"Hello, World!"`),
+					CtrOp: token.RdrOut,
+					Word:  ast.Literal("a.txt"),
+				},
+			},
+			&ast.ExprStmt{
+				X: &ast.Redirect{
+					N:     &ast.Word{Val: "2"},
+					CtrOp: token.ClbOut,
+					Word:  ast.Literal("1"),
 				},
 			},
 		},
@@ -141,8 +202,8 @@ func TestForInStmt(t *testing.T) {
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Func: &ast.Ident{Name: "ls"},
+					X: &ast.CmdExpr{
+						Name: &ast.Ident{Name: "ls"},
 						Recv: []ast.Expr{&ast.Ident{Name: "-l"}, &ast.VarExpExpr{X: &ast.Ident{Name: "i"}}},
 					},
 				},
@@ -157,7 +218,7 @@ func TestWhileStmt(t *testing.T) {
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
 				Op: token.TsLss,
-				Y:  &ast.Lit{Val: "10"},
+				Y:  &ast.Word{Val: "10"},
 			},
 		},
 		Body: &ast.BlockStmt{
@@ -168,7 +229,7 @@ func TestWhileStmt(t *testing.T) {
 						X: &ast.BinaryExpr{
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "number"}},
 							Op: token.Plus,
-							Y:  &ast.Lit{Val: "1"},
+							Y:  &ast.Word{Val: "1"},
 						},
 					},
 				},
@@ -190,10 +251,7 @@ func TestStmt(t *testing.T) {
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Func: &ast.Ident{Name: "echo"},
-								Recv: []ast.Expr{},
-							},
+							X: ast.CmdExpression("echo"),
 						},
 					},
 				},
@@ -201,14 +259,10 @@ func TestStmt(t *testing.T) {
 			&ast.AssignStmt{
 				Lhs: &ast.Ident{Name: "reversed"},
 				Rhs: &ast.CmdSubst{
-					X: &ast.BinaryExpr{
-						X: &ast.CallExpr{
-							Func: &ast.Ident{Name: "echo"},
-							Recv: []ast.Expr{&ast.Ident{Name: "-e"}, ast.Literal(`"${string}"`)},
-						},
-						Op: token.Or,
-						Y: &ast.CallExpr{
-							Func: &ast.Ident{Name: "rev"},
+					X: &ast.PipelineExpr{
+						Cmds: []ast.Expr{
+							ast.CmdExpression("echo", ast.Literal("-e"), ast.Literal(`"${string}"`)),
+							ast.CmdExpression("rev"),
 						},
 					},
 				},
@@ -231,8 +285,8 @@ func TestPrint(t *testing.T) {
 									Body: &ast.BlockStmt{
 										List: []ast.Stmt{
 											&ast.ExprStmt{
-												&ast.CallExpr{
-													Func: &ast.Ident{Name: "echo"},
+												&ast.CmdExpr{
+													Name: &ast.Ident{Name: "echo"},
 													Recv: []ast.Expr{ast.Literal(`"string"`)},
 												},
 											},
@@ -242,8 +296,8 @@ func TestPrint(t *testing.T) {
 							Else: &ast.BlockStmt{
 								List: []ast.Stmt{
 									&ast.ExprStmt{
-										&ast.CallExpr{
-											Func: &ast.Ident{Name: "echo"},
+										&ast.CmdExpr{
+											Name: &ast.Ident{Name: "echo"},
 											Recv: []ast.Expr{ast.Literal(`"string"`)},
 										},
 									},
@@ -263,8 +317,8 @@ func TestPrint(t *testing.T) {
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Func: &ast.Ident{Name: "echo"},
+							X: &ast.CmdExpr{
+								Name: &ast.Ident{Name: "echo"},
 								Recv: []ast.Expr{},
 							},
 						},
@@ -282,8 +336,8 @@ func TestPrint(t *testing.T) {
 				}, Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Func: &ast.Ident{Name: "echo"},
+							X: &ast.CmdExpr{
+								Name: &ast.Ident{Name: "echo"},
 								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
 							},
 						},
@@ -300,8 +354,8 @@ func TestPrint(t *testing.T) {
 				}, Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Func: &ast.Ident{Name: "echo"},
+							X: &ast.CmdExpr{
+								Name: &ast.Ident{Name: "echo"},
 								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
 							},
 						},
@@ -309,8 +363,8 @@ func TestPrint(t *testing.T) {
 				}, Else: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Func: &ast.Ident{Name: "echo"},
+							X: &ast.CmdExpr{
+								Name: &ast.Ident{Name: "echo"},
 							},
 						},
 					},
