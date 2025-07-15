@@ -1,6 +1,9 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
+// Package ast declares the types used to represent syntax trees for batch scripts.
+// All node types implement the Node interface.
 package ast
 
 import (
@@ -28,19 +31,24 @@ type Stmt interface {
 	stmtNode() // dummy method to distinguish Stmt from other Node types
 }
 
+// ----------------------------------------------------------------------------
+// Statements
+
 type (
-	// IfStmt represents an if statement.
+	// An IfStmt node represents an if statement.
+	// if condition ( body ) else body
 	IfStmt struct {
 		Docs   *CommentGroup // associated documentation; or nil
 		If     token.Pos     // position of "if" keyword
-		Cond   Expr          // condition
+		Cond   Expr          // condition expression
 		Lparen token.Pos     // position of "("
 		Body   Stmt          // body of the if statement
 		Rparen token.Pos     // position of ")"
 		Else   Stmt          // else branch; or nil
 	}
 
-	// ForStmt represents a for statement.
+	// A ForStmt node represents a for statement.
+	// for variable in list do ( body )
 	ForStmt struct {
 		Docs   *CommentGroup // associated documentation; or nil
 		For    token.Pos     // position of "for" keyword
@@ -53,13 +61,15 @@ type (
 		Rparen token.Pos     // position of ")"
 	}
 
-	// ExprStmt represents an expression statement.
+	// An ExprStmt node represents a (stand-alone) expression
+	// in a statement list.
 	ExprStmt struct {
 		Docs *CommentGroup // associated documentation; or nil
 		X    Expr          // expression
 	}
 
-	// AssignStmt represents an assignment statement.
+	// An AssignStmt node represents an assignment statement.
+	// set variable = value
 	AssignStmt struct {
 		Docs   *CommentGroup // associated documentation; or nil
 		Set    token.Pos     // position of "set" keyword
@@ -68,7 +78,8 @@ type (
 		Rhs    Expr          // right-hand side of assignment
 	}
 
-	// CallStmt represents a call statement.
+	// A CallStmt node represents a call statement.
+	// call :label arguments
 	CallStmt struct {
 		Docs  *CommentGroup // associated documentation; or nil
 		Call  token.Pos     // position of "call" keyword
@@ -77,7 +88,8 @@ type (
 		Recv  []Expr        // arguments to the function
 	}
 
-	// FuncDecl represents a function declaration.
+	// A FuncDecl node represents a function declaration.
+	// :label body
 	FuncDecl struct {
 		Docs  *CommentGroup // associated documentation; or nil
 		Colon token.Pos     // position of ":"
@@ -85,12 +97,13 @@ type (
 		Body  *BlockStmt    // function body
 	}
 
-	// BlockStmt represents a block of statements.
+	// A BlockStmt node represents a block of statements.
 	BlockStmt struct {
 		List []Stmt // list of statements
 	}
 
-	// GotoStmt represents a goto statement.
+	// A GotoStmt node represents a goto statement.
+	// goto :label
 	GotoStmt struct {
 		Docs  *CommentGroup // associated documentation; or nil
 		GoTo  token.Pos     // position of "goto" keyword
@@ -98,7 +111,8 @@ type (
 		Label string        // label to jump to
 	}
 
-	// LabelStmt represents a label statement.
+	// A LabelStmt node represents a label statement.
+	// :label
 	LabelStmt struct {
 		Docs  *CommentGroup // associated documentation; or nil
 		Colon token.Pos     // position of ":"
@@ -106,6 +120,7 @@ type (
 	}
 )
 
+// Position methods for statements
 func (s *FuncDecl) Pos() token.Pos   { return s.Colon }
 func (s *IfStmt) Pos() token.Pos     { return s.If }
 func (s *ForStmt) Pos() token.Pos    { return s.For }
@@ -122,10 +137,11 @@ func (s *BlockStmt) Pos() token.Pos {
 func (s *CallStmt) Pos() token.Pos {
 	return s.Call
 }
-func (s *Command) Pos() token.Pos {
+func (s *CmdExpr) Pos() token.Pos {
 	return s.Name.Pos()
 }
 
+// End position methods for statements
 func (s *FuncDecl) End() token.Pos {
 	if s.Body == nil {
 		return token.NoPos
@@ -156,7 +172,7 @@ func (s *ExprStmt) End() token.Pos {
 func (s *CallStmt) End() token.Pos {
 	return token.Pos(int(s.Call) + len(s.Name))
 }
-func (s *Command) End() token.Pos {
+func (s *CmdExpr) End() token.Pos {
 	if len(s.Recv) == 0 {
 		return s.Name.End()
 	}
@@ -166,6 +182,7 @@ func (s *AssignStmt) End() token.Pos {
 	return s.Rhs.End()
 }
 
+// Statement type assertions
 func (*IfStmt) stmtNode()     {}
 func (*ForStmt) stmtNode()    {}
 func (*ExprStmt) stmtNode()   {}
@@ -176,44 +193,54 @@ func (*CallStmt) stmtNode()   {}
 func (*GotoStmt) stmtNode()   {}
 func (*LabelStmt) stmtNode()  {}
 
+// ----------------------------------------------------------------------------
+// Expressions
+
 type (
-	// Word represents a word expression, which is a sequence of expressions.
+	// A Word node represents a word expression, which is a sequence of expressions.
+	// Words are the basic building blocks of batch commands and arguments.
 	Word struct {
 		Parts []Expr // parts of the word
 	}
 
-	// UnaryExpr represents a unary expression.
+	// A UnaryExpr node represents a unary expression.
+	// Unary expressions include operators like ! (logical NOT)
 	UnaryExpr struct {
 		Op token.Token // operator
 		X  Expr        // operand
 	}
 
-	// BinaryExpr represents a binary expression.
+	// A BinaryExpr node represents a binary expression.
+	// Binary expressions include operators like ==, !=, <, >, etc.
 	BinaryExpr struct {
 		X  Expr        // left operand
 		Op token.Token // operator
 		Y  Expr        // right operand
 	}
 
-	// CallExpr represents a function call expression.
+	// A CallExpr node represents a function call expression.
+	// Function calls in batch scripts
 	CallExpr struct {
 		Fun  Expr   // function expression
 		Recv []Expr // arguments
 	}
 
-	// Lit represents a literal expression.
+	// A Lit node represents a literal expression.
+	// Literals include strings, numbers, and other constant values
 	Lit struct {
 		ValPos token.Pos // position of value
 		Val    string    // literal value
 	}
 
-	// SglQuote represents a single quote expression.
+	// A SglQuote node represents a single quote expression.
+	// Single quotes are used for literal strings in batch scripts
 	SglQuote struct {
 		ModPos token.Pos // position of "%"
 		Val    Expr      // quoted expression
 	}
 
-	// DblQuote represents a double quote expression.
+	// A DblQuote node represents a double quote expression.
+	// Double quotes are used for variable expansion in batch scripts
 	DblQuote struct {
 		DelayedExpansion bool      // whether to use delayed expansion (!var!)
 		Left             token.Pos // position of "%"
@@ -221,14 +248,16 @@ type (
 		Right            token.Pos // position of "%"
 	}
 
-	// Command represents a command statement.
-	Command struct {
+	// A CmdExpr node represents a command statement.
+	// Command expressions represent executable commands in batch scripts
+	CmdExpr struct {
 		Docs *CommentGroup // associated documentation; or nil
 		Name Expr          // command name
 		Recv []Expr        // command arguments
 	}
 )
 
+// Position methods for expressions
 func (e *UnaryExpr) Pos() token.Pos {
 	return e.X.Pos()
 }
@@ -254,6 +283,7 @@ func (b *BinaryExpr) Pos() token.Pos {
 	return b.X.Pos()
 }
 
+// End position methods for expressions
 func (e *UnaryExpr) End() token.Pos {
 	return e.X.End()
 }
@@ -282,6 +312,7 @@ func (b *BinaryExpr) End() token.Pos {
 	return b.Y.End()
 }
 
+// Expression type assertions
 func (*UnaryExpr) exprNode()  {}
 func (*BinaryExpr) exprNode() {}
 func (*CallExpr) exprNode()   {}
@@ -289,9 +320,13 @@ func (*Word) exprNode()       {}
 func (*Lit) exprNode()        {}
 func (*SglQuote) exprNode()   {}
 func (*DblQuote) exprNode()   {}
-func (*Command) exprNode()    {}
+func (*CmdExpr) exprNode()    {}
 
-// Comment represents a single comment.
+// ----------------------------------------------------------------------------
+// Comments
+
+// A Comment node represents a single comment.
+// Comments in batch scripts start with :: or REM
 type Comment struct {
 	TokPos token.Pos   // position of comment token
 	Tok    token.Token // token.DOUBLE_COLON | token.REM
@@ -301,7 +336,8 @@ type Comment struct {
 func (c *Comment) Pos() token.Pos { return c.TokPos }
 func (c *Comment) End() token.Pos { return c.TokPos + token.Pos(len(c.Text)) }
 
-// CommentGroup represents a sequence of comments.
+// A CommentGroup represents a sequence of comments.
+// Comment groups are used to associate documentation with AST nodes
 type CommentGroup struct {
 	Comments []*Comment // list of comments
 }
@@ -309,7 +345,11 @@ type CommentGroup struct {
 func (c *CommentGroup) Pos() token.Pos { return c.Comments[0].Pos() }
 func (c *CommentGroup) End() token.Pos { return c.Comments[len(c.Comments)-1].End() }
 
-// File represents a batch script file.
+// ----------------------------------------------------------------------------
+// File
+
+// A File node represents a batch script file.
+// Files contain the complete AST for a batch script
 type File struct {
 	Docs  []*CommentGroup // list of documentation comments
 	Stmts []Stmt          // list of statements

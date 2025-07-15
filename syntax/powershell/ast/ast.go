@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 //
 // PowerShell reference: https://learn.microsoft.com/en-us/powershell/scripting/lang-spec/chapter-01?view=powershell-7.5
+// And https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about?view=powershell-7.5
 package ast
 
 import "github.com/hulo-lang/hulo/syntax/powershell/token"
@@ -63,7 +64,7 @@ func (*SingleLineComment) commentNode() {}
 // <help-directive-1>
 // <help-content-1>
 // ...
-
+//
 // <help-directive-n>
 // <help-content-n>
 // #>
@@ -78,6 +79,12 @@ func (c *DelimitedComment) End() token.Pos { return c.Closing }
 
 func (*DelimitedComment) stmtNode()    {}
 func (*DelimitedComment) commentNode() {}
+
+// TODO: add help directive
+// https://learn.microsoft.com/en-us/powershell/scripting/lang-spec/chapter-14?view=powershell-7.5
+type HelpDirective interface {
+	helpDirectiveNode()
+}
 
 type (
 	UsingDecl struct {
@@ -102,18 +109,43 @@ type (
 		Path     string
 	}
 
+	ClassDecl struct {
+		Class token.Pos // position of class keyword
+		Name  *Ident
+		Body  *BlcokStmt
+	}
+
+	EnumDecl struct {
+		Enum token.Pos // position of enum keyword
+		Name *Ident
+		Body *BlcokStmt
+	}
+
 	FuncDecl struct {
-		Function   token.Pos // position of function keyword
-		Name       *Ident
-		Attributes []*Attribute
-		Params     []Expr
-		Body       *BlcokStmt
+		Function token.Pos // position of function keyword
+		Name     *Ident
+		Body     *BlcokStmt
 	}
 
 	WorkflowDecl struct {
 		Workflow token.Pos // position of workflow keyword
 		Name     *Ident
 		Body     *BlcokStmt
+	}
+
+	ParallelDecl struct {
+		Parallel token.Pos // position of parallel keyword
+		Body     *BlcokStmt
+	}
+
+	SequenceDecl struct {
+		Sequence token.Pos // position of sequence keyword
+		Body     *BlcokStmt
+	}
+
+	InlinescriptDecl struct {
+		Inlinescript token.Pos // position of inlinescript keyword
+		Body         *BlcokStmt
 	}
 
 	ProcessDecl struct {
@@ -129,15 +161,21 @@ type (
 	}
 )
 
-func (d *FuncDecl) Pos() token.Pos     { return d.Function }
-func (d *WorkflowDecl) Pos() token.Pos { return d.Workflow }
-func (d *ProcessDecl) Pos() token.Pos  { return d.Process }
-func (d *Attribute) Pos() token.Pos    { return d.Lparen }
+func (d *FuncDecl) Pos() token.Pos         { return d.Function }
+func (d *WorkflowDecl) Pos() token.Pos     { return d.Workflow }
+func (d *ParallelDecl) Pos() token.Pos     { return d.Parallel }
+func (d *SequenceDecl) Pos() token.Pos     { return d.Sequence }
+func (d *InlinescriptDecl) Pos() token.Pos { return d.Inlinescript }
+func (d *ProcessDecl) Pos() token.Pos      { return d.Process }
+func (d *Attribute) Pos() token.Pos        { return d.Lparen }
 
-func (d *FuncDecl) End() token.Pos     { return d.Body.End() }
-func (d *WorkflowDecl) End() token.Pos { return d.Body.End() }
-func (d *ProcessDecl) End() token.Pos  { return d.Body.End() }
-func (d *Attribute) End() token.Pos    { return d.Rparen }
+func (d *FuncDecl) End() token.Pos         { return d.Body.End() }
+func (d *WorkflowDecl) End() token.Pos     { return d.Body.End() }
+func (d *ParallelDecl) End() token.Pos     { return d.Body.End() }
+func (d *SequenceDecl) End() token.Pos     { return d.Body.End() }
+func (d *InlinescriptDecl) End() token.Pos { return d.Body.End() }
+func (d *ProcessDecl) End() token.Pos      { return d.Body.End() }
+func (d *Attribute) End() token.Pos        { return d.Rparen }
 
 func (*FuncDecl) stmtNode()     {}
 func (*WorkflowDecl) stmtNode() {}
@@ -145,7 +183,13 @@ func (*ProcessDecl) stmtNode()  {}
 func (*Attribute) stmtNode()    {}
 
 type (
-	ConstrainedVarExpr struct {
+	TypeLit struct {
+		Lbrack token.Pos // position of '['
+		Name   Expr
+		Rbrack token.Pos // position of ']'
+	}
+
+	CastExpr struct {
 		Lbrack token.Pos // position of '['
 		Type   Expr
 		Rbrack token.Pos // position of ']'
@@ -181,22 +225,13 @@ type (
 		ValPos token.Pos
 	}
 
-	List []Expr
-
-	BasicLit struct {
-		Kind  token.Token
-		Value string
-	}
-
 	// [attribute-1] [attribute-2] ...
 	// [type]$name
 	Parameter struct {
 		Attributes []*Attribute
 		X          Expr
-	}
-
-	Fields struct {
-		Sep string // " " "," ";"
+		Assign     token.Pos // position of '='
+		Value      Expr
 	}
 
 	VarExpr struct {
@@ -204,12 +239,20 @@ type (
 		X      Expr
 	}
 
+	// A BlockExpr node represents a script block expression.
+	// e.g., { "Hello there" } or { param($x) $x * 2 }
 	BlockExpr struct {
-		List []Expr
+		Lbrace token.Pos // position of '{'
+		List   []Expr    // list of expressions in the block
+		Rbrace token.Pos // position of '}'
 	}
 
+	// $( ... )
 	SubExpr struct {
-		X Expr
+		Dollar token.Pos // position of '$'
+		Lparen token.Pos // position of '('
+		X      Expr
+		Rparen token.Pos // position of ')'
 	}
 
 	HashTable struct {
@@ -244,15 +287,6 @@ type (
 		Y Expr
 	}
 
-	// [module]::expr
-	ModExpr struct {
-		Lbrack   token.Pos // position of '['
-		X        Expr
-		Rbrack   token.Pos // position of ']'
-		DblColon token.Pos // position of '::'
-		Y        Expr
-	}
-
 	// ++$X --$X
 	IncDecExpr struct {
 		Pre    bool
@@ -272,11 +306,9 @@ type (
 		Rbrace token.Pos // position of '}'
 	}
 
-	// [X]::Y
+	// X::Y
 	StaticMemberAccess struct {
-		Lbrack   token.Pos // position of '['
 		X        Expr
-		Rbrack   token.Pos // position of ']'
 		DblColon token.Pos // position of '::'
 		Y        Expr
 	}
@@ -290,14 +322,60 @@ type (
 	}
 
 	// 10, "blue", 12.54e3, 16.30D
-	ArrayConstructor struct {
+	CommaExpr struct {
 		Elems []Expr
+	}
+
+	// 1>&2 or 1>>2
+	RedirectExpr struct {
+		X     Expr
+		CtrOp token.Token
+		OpPos token.Pos
+		Y     Expr
+	}
+
+	StringLit struct {
+		ValPos token.Pos
+		Val    string
+	}
+
+	// @" ... "@
+	MultiStringLit struct {
+		LAt    token.Pos // position of '@'
+		LQuote token.Pos // position of '"'
+		Val    string
+		Rquote token.Pos // position of '"'
+		RAt    token.Pos // position of '@'
+	}
+
+	NumericLit struct {
+		ValPos token.Pos
+		Val    string
+	}
+
+	BoolLit struct {
+		ValPos token.Pos
+		Val    bool
 	}
 
 	SelectExpr struct {
 		X   Expr
 		Dot token.Pos // position of '.'
 		Sel Expr
+	}
+
+	GroupExpr struct {
+		Sep    token.Token
+		Lparen token.Pos // position of '('
+		Elems  []Expr
+		Rparen token.Pos // position of ')'
+	}
+
+	// 1..10
+	RangeExpr struct {
+		X      Expr
+		DblDot token.Pos // position of '..'
+		Y      Expr
 	}
 )
 
@@ -310,39 +388,54 @@ func (x *Parameter) Pos() token.Pos {
 func (x *BinaryExpr) Pos() token.Pos         { return x.X.Pos() }
 func (x *Ident) Pos() token.Pos              { return x.NamePos }
 func (x *Lit) Pos() token.Pos                { return x.ValPos }
+func (x *StringLit) Pos() token.Pos          { return x.ValPos }
+func (x *MultiStringLit) Pos() token.Pos     { return x.LAt }
+func (x *NumericLit) Pos() token.Pos         { return x.ValPos }
 func (x *IncDecExpr) Pos() token.Pos         { return x.X.Pos() }
 func (x *HashTable) Pos() token.Pos          { return x.At }
 func (x *HashEntry) Pos() token.Pos          { return x.Key.Pos() }
 func (x *IndexExpr) Pos() token.Pos          { return x.X.Pos() }
 func (x *IndicesExpr) Pos() token.Pos        { return x.X.Pos() }
 func (x *VarExpr) Pos() token.Pos            { return x.Dollar }
+func (x *BlockExpr) Pos() token.Pos          { return x.Lbrace }
 func (x *CallExpr) Pos() token.Pos           { return x.Func.Pos() }
 func (x *CmdExpr) Pos() token.Pos            { return x.Cmd.Pos() }
 func (x *ArrayExpr) Pos() token.Pos          { return x.At }
-func (x *ArrayConstructor) Pos() token.Pos   { return x.Elems[0].Pos() }
-func (x *ConstrainedVarExpr) Pos() token.Pos { return x.Lbrack }
+func (x *CommaExpr) Pos() token.Pos          { return x.Elems[0].Pos() }
+func (x *CastExpr) Pos() token.Pos           { return x.Lbrack }
+func (x *TypeLit) Pos() token.Pos            { return x.Lbrack }
 func (x *SelectExpr) Pos() token.Pos         { return x.X.Pos() }
 func (x *MemberAccess) Pos() token.Pos       { return x.Dollar }
-func (x *StaticMemberAccess) Pos() token.Pos { return x.Lbrack }
+func (x *StaticMemberAccess) Pos() token.Pos { return x.X.Pos() }
+func (x *RangeExpr) Pos() token.Pos          { return x.X.Pos() }
+func (x *GroupExpr) Pos() token.Pos          { return x.Lparen }
+func (x *RedirectExpr) Pos() token.Pos       { return x.X.Pos() }
+func (x *BoolLit) Pos() token.Pos            { return x.ValPos }
+func (x *SubExpr) Pos() token.Pos            { return x.Dollar }
 
-func (x *Parameter) End() token.Pos  { return x.X.End() }
-func (x *BinaryExpr) End() token.Pos { return x.Y.End() }
-func (x *Ident) End() token.Pos      { return token.Pos(int(x.NamePos) + len(x.Name)) }
-func (x *Lit) End() token.Pos        { return token.Pos(int(x.ValPos) + len(x.Val)) }
+func (x *Parameter) End() token.Pos      { return x.X.End() }
+func (x *BinaryExpr) End() token.Pos     { return x.Y.End() }
+func (x *Ident) End() token.Pos          { return token.Pos(int(x.NamePos) + len(x.Name)) }
+func (x *Lit) End() token.Pos            { return token.Pos(int(x.ValPos) + len(x.Val)) }
+func (x *StringLit) End() token.Pos      { return token.Pos(int(x.ValPos) + len(x.Val)) }
+func (x *MultiStringLit) End() token.Pos { return x.RAt }
+func (x *NumericLit) End() token.Pos     { return token.Pos(int(x.ValPos) + len(x.Val)) }
 func (x *IncDecExpr) End() token.Pos {
 	return x.TokPos + 2
 }
-func (x *HashTable) End() token.Pos          { return x.Rbrace }
-func (x *HashEntry) End() token.Pos          { return x.Value.End() }
-func (x *IndexExpr) End() token.Pos          { return x.Rbrack }
-func (x *IndicesExpr) End() token.Pos        { return x.Rbrack }
-func (x *VarExpr) End() token.Pos            { return x.X.End() }
-func (x *CallExpr) End() token.Pos           { return x.Recv[len(x.Recv)-1].End() }
-func (x *CmdExpr) End() token.Pos            { return x.Args[len(x.Args)-1].End() }
-func (x *ArrayExpr) End() token.Pos          { return x.Rparen }
-func (x *ArrayConstructor) End() token.Pos   { return x.Elems[len(x.Elems)-1].End() }
-func (x *ConstrainedVarExpr) End() token.Pos { return x.Rbrack }
-func (x *SelectExpr) End() token.Pos         { return x.Sel.End() }
+func (x *HashTable) End() token.Pos   { return x.Rbrace }
+func (x *HashEntry) End() token.Pos   { return x.Value.End() }
+func (x *IndexExpr) End() token.Pos   { return x.Rbrack }
+func (x *IndicesExpr) End() token.Pos { return x.Rbrack }
+func (x *VarExpr) End() token.Pos     { return x.X.End() }
+func (x *BlockExpr) End() token.Pos   { return x.Rbrace }
+func (x *CallExpr) End() token.Pos    { return x.Recv[len(x.Recv)-1].End() }
+func (x *CmdExpr) End() token.Pos     { return x.Args[len(x.Args)-1].End() }
+func (x *ArrayExpr) End() token.Pos   { return x.Rparen }
+func (x *CommaExpr) End() token.Pos   { return x.Elems[len(x.Elems)-1].End() }
+func (x *CastExpr) End() token.Pos    { return x.Rbrack }
+func (x *TypeLit) End() token.Pos     { return x.Rbrack }
+func (x *SelectExpr) End() token.Pos  { return x.Sel.End() }
 func (x *MemberAccess) End() token.Pos {
 	if x.Long {
 		return x.Rbrace
@@ -350,15 +443,28 @@ func (x *MemberAccess) End() token.Pos {
 	return x.Y.End()
 }
 func (x *StaticMemberAccess) End() token.Pos { return x.Y.End() }
+func (x *RangeExpr) End() token.Pos          { return x.Y.End() }
+func (x *GroupExpr) End() token.Pos          { return x.Rparen }
+func (x *RedirectExpr) End() token.Pos       { return x.Y.End() }
+func (x *BoolLit) End() token.Pos {
+	if x.Val {
+		return token.Pos(int(x.ValPos) + 4)
+	}
+	return token.Pos(int(x.ValPos) + 5)
+}
+func (x *SubExpr) End() token.Pos { return x.Rparen }
 
 func (*Parameter) exprNode()          {}
-func (*ConstrainedVarExpr) exprNode() {}
+func (*CastExpr) exprNode()           {}
 func (*BinaryExpr) exprNode()         {}
 func (*CallExpr) exprNode()           {}
 func (*Ident) exprNode()              {}
-func (*List) exprNode()               {}
 func (*Lit) exprNode()                {}
-func (*BasicLit) exprNode()           {}
+func (*StringLit) exprNode()          {}
+func (*MultiStringLit) exprNode()     {}
+func (*NumericLit) exprNode()         {}
+func (*BoolLit) exprNode()            {}
+func (*TypeLit) exprNode()            {}
 func (*VarExpr) exprNode()            {}
 func (*BlockExpr) exprNode()          {}
 func (*SubExpr) exprNode()            {}
@@ -367,14 +473,16 @@ func (*HashEntry) exprNode()          {}
 func (*IndexExpr) exprNode()          {}
 func (*IndicesExpr) exprNode()        {}
 func (*ExplictExpr) exprNode()        {}
-func (*ModExpr) exprNode()            {}
 func (*IncDecExpr) exprNode()         {}
 func (*CmdExpr) exprNode()            {}
 func (*ArrayExpr) exprNode()          {}
-func (*ArrayConstructor) exprNode()   {}
+func (*CommaExpr) exprNode()          {}
 func (*SelectExpr) exprNode()         {}
 func (*MemberAccess) exprNode()       {}
 func (*StaticMemberAccess) exprNode() {}
+func (*RangeExpr) exprNode()          {}
+func (*GroupExpr) exprNode()          {}
+func (*RedirectExpr) exprNode()       {}
 
 type (
 	BlcokStmt struct {
@@ -387,7 +495,8 @@ type (
 
 	AssignStmt struct {
 		Lhs    Expr
-		Assign token.Pos // position of '='
+		TokPos token.Pos // position of '=' or '+=', '-=', '*=', etc.
+		Tok    token.Token
 		Rhs    Expr
 	}
 
@@ -419,10 +528,13 @@ type (
 	}
 
 	ForeachStmt struct {
-		Foreach token.Pos // position of 'foreach'
+		Foreach token.Pos   // position of 'foreach'
+		Opt     token.Token // TODO: -Parallel
+		Lparen  token.Pos   // position of '('
 		Elm     Expr
 		In      token.Pos // position of 'in'
-		Values  Expr
+		Elms    Expr
+		Rparen  token.Pos // position of ')'
 		Body    *BlcokStmt
 	}
 
@@ -469,6 +581,15 @@ type (
 		Rparen token.Pos // position of ')'
 	}
 
+	DoUntilStmt struct {
+		Do     token.Pos // position of 'do'
+		Body   *BlcokStmt
+		Until  token.Pos // position of 'until'
+		Lparen token.Pos // position of '('
+		Cond   Expr
+		Rparen token.Pos // position of ')'
+	}
+
 	WhileStmt struct {
 		While  token.Pos // position of 'while'
 		Lparen token.Pos // position of '('
@@ -477,7 +598,11 @@ type (
 		Body   *BlcokStmt
 	}
 
-	ContinueStmt struct{}
+	// continue [label]
+	ContinueStmt struct {
+		Continue token.Pos // position of 'continue'
+		Label    *Ident
+	}
 
 	SwitchStmt struct {
 		Switch        token.Pos // position of 'switch'
@@ -505,7 +630,6 @@ type (
 
 	BreakStmt struct {
 		Break token.Pos
-		Label *Ident
 	}
 
 	DynamicparamStmt struct {
@@ -514,10 +638,11 @@ type (
 	}
 
 	ParamBlock struct {
-		Param  token.Pos // position of 'param'
-		Lparen token.Pos // position of '('
-		Params []Expr
-		Rparen token.Pos // position of ')'
+		Attributes []*Attribute
+		Param      token.Pos // position of 'param'
+		Lparen     token.Pos // position of '('
+		Params     []*Parameter
+		Rparen     token.Pos // position of ')'
 	}
 )
 
@@ -546,6 +671,7 @@ func (x *IfStmt) Pos() token.Pos           { return x.If }
 func (x *LabelStmt) Pos() token.Pos        { return x.Colon }
 func (x *ForStmt) Pos() token.Pos          { return x.For }
 func (x *DoWhileStmt) Pos() token.Pos      { return x.Do }
+func (x *DoUntilStmt) Pos() token.Pos      { return x.Do }
 func (x *WhileStmt) Pos() token.Pos        { return x.While }
 func (x *ForeachStmt) Pos() token.Pos      { return x.Foreach }
 func (x *ThrowStmt) Pos() token.Pos        { return x.Throw }
@@ -556,6 +682,14 @@ func (x *CatchClause) Pos() token.Pos      { return x.Catch }
 func (x *TrapStmt) Pos() token.Pos         { return x.Trap }
 func (x *DataStmt) Pos() token.Pos         { return x.Data }
 func (x *DynamicparamStmt) Pos() token.Pos { return x.Dynamicparam }
+func (x *ParamBlock) Pos() token.Pos {
+	if len(x.Attributes) > 0 {
+		return x.Attributes[0].Pos()
+	}
+	return x.Param
+}
+func (x *ContinueStmt) Pos() token.Pos { return x.Continue }
+func (x *BreakStmt) Pos() token.Pos    { return x.Break }
 
 func (s *BlcokStmt) End() token.Pos  { return s.List[len(s.List)-1].End() }
 func (x *ExprStmt) End() token.Pos   { return x.X.End() }
@@ -569,6 +703,7 @@ func (x *IfStmt) End() token.Pos {
 func (x *LabelStmt) End() token.Pos        { return x.X.End() }
 func (x *ForStmt) End() token.Pos          { return x.Body.End() }
 func (x *DoWhileStmt) End() token.Pos      { return x.Rparen }
+func (x *DoUntilStmt) End() token.Pos      { return x.Rparen }
 func (x *WhileStmt) End() token.Pos        { return x.Body.End() }
 func (x *ForeachStmt) End() token.Pos      { return x.Body.End() }
 func (x *ThrowStmt) End() token.Pos        { return x.X.End() }
@@ -579,6 +714,9 @@ func (x *CatchClause) End() token.Pos      { return x.Body.End() }
 func (x *TrapStmt) End() token.Pos         { return x.Body.End() }
 func (x *DataStmt) End() token.Pos         { return x.Body.End() }
 func (x *DynamicparamStmt) End() token.Pos { return x.Body.End() }
+func (x *ParamBlock) End() token.Pos       { return x.Rparen }
+func (x *ContinueStmt) End() token.Pos     { return x.Label.End() }
+func (x *BreakStmt) End() token.Pos        { return x.Break + 5 }
 
 func (*BlcokStmt) stmtNode()        {}
 func (*ExprStmt) stmtNode()         {}
@@ -588,6 +726,7 @@ func (*IfStmt) stmtNode()           {}
 func (*ForStmt) stmtNode()          {}
 func (*ForeachStmt) stmtNode()      {}
 func (*DoWhileStmt) stmtNode()      {}
+func (*DoUntilStmt) stmtNode()      {}
 func (*WhileStmt) stmtNode()        {}
 func (*ReturnStmt) stmtNode()       {}
 func (*ThrowStmt) stmtNode()        {}
@@ -600,6 +739,11 @@ func (*TryStmt) stmtNode()          {}
 func (*CatchClause) stmtNode()      {}
 func (*TrapStmt) stmtNode()         {}
 func (*DynamicparamStmt) stmtNode() {}
+func (*ParamBlock) stmtNode()       {}
+func (*BreakStmt) stmtNode()        {}
+func (*ParallelDecl) stmtNode()     {}
+func (*SequenceDecl) stmtNode()     {}
+func (*InlinescriptDecl) stmtNode() {}
 
 type File struct {
 	Docs  *CommentGroup

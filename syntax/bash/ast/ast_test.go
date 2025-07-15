@@ -259,7 +259,9 @@ func TestStmt(t *testing.T) {
 			&ast.AssignStmt{
 				Lhs: &ast.Ident{Name: "reversed"},
 				Rhs: &ast.CmdSubst{
+					Tok: token.DollParen,
 					X: &ast.PipelineExpr{
+						CtrOp: token.Or,
 						Cmds: []ast.Expr{
 							ast.CmdExpression("echo", ast.Literal("-e"), ast.Literal(`"${string}"`)),
 							ast.CmdExpression("rev"),

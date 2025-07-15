@@ -248,7 +248,7 @@ const (
 	// Appends the specified stream to the file
 	APPEND // >>
 	// Redirects the specified stream to the Success stream
-	REDIRECT // >&1
+	REDIRECT // >&
 	// Redirects input from a file
 	REDIRECT_IN // <
 

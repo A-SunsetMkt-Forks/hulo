@@ -39,10 +39,24 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitCommentGroup(node)
 	case *Comment:
 		return p.visitComment(node)
+	case *ExprStmt:
+		return p.visitExprStmt(node)
 	case *IfStmt:
 		return p.visitIfStmt(node)
+	case *ForStmt:
+		return p.visitForStmt(node)
+	case *AssignStmt:
+		return p.visitAssignStmt(node)
+	case *CallStmt:
+		return p.visitCallStmt(node)
+	case *FuncDecl:
+		return p.visitFuncDecl(node)
 	case *BlockStmt:
 		return p.visitBlockStmt(node)
+	case *GotoStmt:
+		return p.visitGotoStmt(node)
+	case *LabelStmt:
+		return p.visitLabelStmt(node)
 	case *Word:
 		return p.visitWord(node)
 	case *UnaryExpr:
@@ -57,32 +71,84 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitSglQuote(node)
 	case *DblQuote:
 		return p.visitDblQuote(node)
-	case *Command:
+	case *CmdExpr:
 		return p.visitCommand(node)
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
 	}
 }
 
-func (p *prettyPrinter) visitCommand(node *Command) Visitor {
-	Walk(p, node.Name)
-	p.write(" ")
-	for i, recv := range node.Recv {
-		Walk(p, recv)
-		if i < len(node.Recv)-1 {
-			p.write(" ")
-		}
+func (p *prettyPrinter) visitGotoStmt(node *GotoStmt) Visitor {
+	p.indentWrite("goto :")
+	p.write(node.Label)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitLabelStmt(node *LabelStmt) Visitor {
+	p.indentWrite(":")
+	p.write(node.Name)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitFuncDecl(node *FuncDecl) Visitor {
+	p.indentWrite(":")
+	p.write(node.Name)
+	p.write("\n")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitCallStmt(node *CallStmt) Visitor {
+	p.indentWrite("call :")
+	p.write(node.Name)
+	if len(node.Recv) > 0 {
+		p.write(" ")
 	}
+	p.visitExprs(node.Recv)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitForStmt(node *ForStmt) Visitor {
+	p.indentWrite("for ")
+	Walk(p, node.X)
+	p.write(" in ")
+	Walk(p, node.List)
+	p.write(" do (\n")
+	Walk(p, node.Body)
+	p.indentWrite(")\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
+	p.indentWrite("set ")
+	Walk(p, node.Lhs)
+	p.write(" = ")
+	Walk(p, node.Rhs)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitExprStmt(node *ExprStmt) Visitor {
+	p.indentWrite("")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitCommand(node *CmdExpr) Visitor {
+	Walk(p, node.Name)
+	if len(node.Recv) > 0 {
+		p.write(" ")
+	}
+	p.visitExprs(node.Recv)
 	return nil
 }
 
 func (p *prettyPrinter) visitWord(node *Word) Visitor {
-	for i, part := range node.Parts {
-		Walk(p, part)
-		if i < len(node.Parts)-1 {
-			p.write(" ")
-		}
-	}
+	p.visitExprs(node.Parts)
 	return nil
 }
 
@@ -94,13 +160,10 @@ func (p *prettyPrinter) visitUnaryExpr(node *UnaryExpr) Visitor {
 
 func (p *prettyPrinter) visitCallExpr(node *CallExpr) Visitor {
 	Walk(p, node.Fun)
-	p.write(" ")
-	for i, recv := range node.Recv {
-		Walk(p, recv)
-		if i < len(node.Recv)-1 {
-			p.write(" ")
-		}
+	if len(node.Recv) > 0 {
+		p.write(" ")
 	}
+	p.visitExprs(node.Recv)
 	return nil
 }
 
@@ -131,10 +194,11 @@ func (p *prettyPrinter) visitDblQuote(node *DblQuote) Visitor {
 }
 
 func (p *prettyPrinter) visitBlockStmt(node *BlockStmt) Visitor {
+	p.indent++
 	for _, stmt := range node.List {
 		Walk(p, stmt)
-		p.write("\n")
 	}
+	p.indent--
 	return nil
 }
 
@@ -167,9 +231,9 @@ func (p *prettyPrinter) visitCommentGroup(node *CommentGroup) Visitor {
 
 func (p *prettyPrinter) visitComment(node *Comment) Visitor {
 	if node.Tok == token.DOUBLE_COLON {
-		p.write("::")
+		p.indentWrite("::")
 	} else {
-		p.write("REM ")
+		p.indentWrite("REM ")
 	}
 	p.write(node.Text)
 	return nil
@@ -203,92 +267,31 @@ func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
 	return nil
 }
 
+func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
+	sepStr := " "
+	if len(sep) > 0 {
+		sepStr = sep[0]
+	}
+	for i, expr := range exprs {
+		Walk(p, expr)
+		if i < len(exprs)-1 {
+			p.write(sepStr)
+		}
+	}
+}
+
 func Print(node Node) {
 	p := &prettyPrinter{output: os.Stdout, indentSpace: "  "}
 	Walk(p, node)
 }
 
 func Write(node Node, w io.Writer) {
-	print(node, "", w)
+	p := &prettyPrinter{output: w, indentSpace: "  "}
+	Walk(p, node)
 }
 
-func print(node Node, ident string, w io.Writer) {
-	switch n := node.(type) {
-	case *IfStmt:
-		fmt.Fprintf(w, "%sif %s (\n", ident, n.Cond)
-		print(n.Body, ident+"  ", w)
-		fmt.Print(ident + ")")
-		for n.Else != nil {
-			fmt.Print(" ")
-			switch el := n.Else.(type) {
-			case *IfStmt:
-				fmt.Fprintf(w, "%selse if %s (\n", ident, el.Cond)
-				print(el.Body, ident+"  ", w)
-				fmt.Fprintf(w, "%s)\n", ident)
-				n.Else = el.Else
-			case *BlockStmt:
-				fmt.Fprintf(w, "%selse (\n", ident)
-				print(el, ident+"  ", w)
-				fmt.Fprintf(w, "%s)\n", ident)
-				n.Else = nil
-			}
-		}
-		fmt.Fprintln(w)
-
-	case *ForStmt:
-		fmt.Fprintf(w, "%sfor %s in %s do (\n", ident, n.X, n.List)
-		print(n.Body, ident+"  ", w)
-		fmt.Fprintf(w, "%s)\n", ident)
-	case *ExprStmt:
-		fmt.Fprintf(w, "%s%s\n", ident, n.X)
-	case *AssignStmt:
-		fmt.Fprintf(w, "%sset %s=%s\n", ident, n.Lhs, n.Rhs)
-	case *CallStmt:
-		fmt.Fprintf(w, "%scall :%s", ident, n.Name)
-		if len(n.Recv) > 0 {
-			fmt.Print(" ")
-			for i, recv := range n.Recv {
-				if i > 0 {
-					fmt.Print(" ")
-				}
-				fmt.Print(recv)
-			}
-		}
-		fmt.Fprintln(w)
-	case *FuncDecl:
-		fmt.Fprintf(w, "%s:%s\n", ident, n.Name)
-		print(n.Body, ident+"  ", w)
-	case *BlockStmt:
-		for _, stmt := range n.List {
-			print(stmt, ident, w)
-		}
-	case *GotoStmt:
-		fmt.Fprintf(w, "%sgoto :%s\n", ident, n.Label)
-	case *LabelStmt:
-		fmt.Fprintf(w, "%s:%s\n", ident, n.Name)
-	case *Command:
-		fmt.Fprintf(w, "%s%s", ident, n.Name)
-		if len(n.Recv) > 0 {
-			fmt.Fprint(w, " ")
-			for i, recv := range n.Recv {
-				if i > 0 {
-					fmt.Fprint(w, " ")
-				}
-				fmt.Fprint(w, recv)
-			}
-		}
-		fmt.Fprintln(w)
-	case *Comment:
-		if n.Tok == token.DOUBLE_COLON {
-			fmt.Fprintf(w, "%s::%s\n", ident, n.Text)
-		} else {
-			fmt.Fprintf(w, "%sREM %s\n", ident, n.Text)
-		}
-	case *CommentGroup:
-		for _, comment := range n.Comments {
-			print(comment, ident, w)
-		}
-	default:
-		fmt.Fprintf(w, "%T\n", node)
-	}
+func String(node Node) string {
+	var buf strings.Builder
+	Write(node, &buf)
+	return buf.String()
 }

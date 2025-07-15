@@ -13,47 +13,20 @@ func TestAssign(t *testing.T) {
 	Print(&File{
 		Stmts: []Stmt{
 			&ExprStmt{
-				X: &Word{
-					Parts: []Expr{
-						&Lit{
-							Val: "@echo",
-						},
-						&Lit{
-							Val: "off",
-						},
-					},
-				},
+				X: Words(Literal("@echo"), Literal("off")),
 			},
 			&ExprStmt{
-				X: &CallExpr{
-					Fun: &Lit{
-						Val: "SETLOCAL",
-					},
-				},
+				X: CmdExpression("SETLOCAL"),
 			},
 			&CallStmt{
 				Name: "Display",
 				Recv: []Expr{
-					&Word{
-						Parts: []Expr{
-							&Lit{
-								Val: "5",
-							},
-							&Lit{
-								Val: ",",
-							},
-							&Lit{
-								Val: "10",
-							},
-						},
-					},
+					Words(Literal("5"), Literal(","), Literal("10")),
 				},
 			},
 			&ExprStmt{
 				X: &CallExpr{
-					Fun: &Lit{
-						Val: "EXIT",
-					},
+					Fun: Literal("EXIT"),
 					Recv: []Expr{
 						&UnaryExpr{
 							Op: token.DIV,
@@ -74,7 +47,7 @@ func TestAssign(t *testing.T) {
 				Body: &BlockStmt{
 					List: []Stmt{
 						&ExprStmt{
-							X: &Command{
+							X: &CmdExpr{
 								Name: &Lit{
 									Val: "echo",
 								},
@@ -89,7 +62,7 @@ func TestAssign(t *testing.T) {
 							},
 						},
 						&ExprStmt{
-							X: &Command{
+							X: &CmdExpr{
 								Name: &Lit{
 									Val: "echo",
 								},
@@ -104,10 +77,8 @@ func TestAssign(t *testing.T) {
 							},
 						},
 						&ExprStmt{
-							X: &Command{
-								Name: &Lit{
-									Val: "EXIT",
-								},
+							X: &CmdExpr{
+								Name: Literal("EXIT"),
 								Recv: []Expr{
 									&UnaryExpr{
 										Op: token.DIV,
@@ -115,9 +86,7 @@ func TestAssign(t *testing.T) {
 											Val: "B",
 										},
 									},
-									&Lit{
-										Val: "0",
-									},
+									Literal("0"),
 								},
 							},
 						},
@@ -146,7 +115,7 @@ func TestBatchFeatures(t *testing.T) {
 						Body: &BlockStmt{
 							List: []Stmt{
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "ECHO"},
 										Recv: []Expr{&Lit{Val: "Match"}},
 									},
@@ -156,7 +125,7 @@ func TestBatchFeatures(t *testing.T) {
 						Else: &BlockStmt{
 							List: []Stmt{
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "ECHO"},
 										Recv: []Expr{&Lit{Val: "No Match"}},
 									},
@@ -177,7 +146,7 @@ func TestBatchFeatures(t *testing.T) {
 						Body: &BlockStmt{
 							List: []Stmt{
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "echo"},
 										Recv: []Expr{&SglQuote{Val: &SglQuote{Val: &Lit{Val: "f"}}}},
 									},
@@ -206,7 +175,7 @@ func TestBatchFeatures(t *testing.T) {
 					},
 					&LabelStmt{Name: "start"},
 					&ExprStmt{
-						X: &Command{
+						X: &CmdExpr{
 							Name: &Lit{Val: "ECHO"},
 							Recv: []Expr{&Lit{Val: "Started"}},
 						},
@@ -232,7 +201,7 @@ func TestBatchFeatures(t *testing.T) {
 						Body: &BlockStmt{
 							List: []Stmt{
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "ECHO"},
 										Recv: []Expr{&Lit{Val: "Argument1: "}, &SglQuote{Val: &Lit{Val: "1"}}},
 									},
@@ -248,18 +217,22 @@ func TestBatchFeatures(t *testing.T) {
 			name: "EXIT commands",
 			file: &File{
 				Stmts: []Stmt{
-					&Command{
-						Name: &Lit{Val: "EXIT"},
-						Recv: []Expr{&Lit{Val: "1"}},
+					&ExprStmt{
+						X: &CmdExpr{
+							Name: &Lit{Val: "EXIT"},
+							Recv: []Expr{&Lit{Val: "1"}},
+						},
 					},
-					&Command{
-						Name: &Lit{Val: "EXIT"},
-						Recv: []Expr{
-							&UnaryExpr{
-								Op: token.DIV,
-								X:  &Lit{Val: "B"},
+					&ExprStmt{
+						X: &CmdExpr{
+							Name: &Lit{Val: "EXIT"},
+							Recv: []Expr{
+								&UnaryExpr{
+									Op: token.DIV,
+									X:  &Lit{Val: "B"},
+								},
+								&Lit{Val: "0"},
 							},
-							&Lit{Val: "0"},
 						},
 					},
 				},
@@ -283,11 +256,12 @@ func TestBatchFeatures(t *testing.T) {
 									Body: &BlockStmt{
 										List: []Stmt{
 											&ExprStmt{
-												X: &Command{
-												Name: &Lit{Val: "ECHO"},
-												Recv: []Expr{
-													&Lit{Val: "Inside Loop "},
-													&SglQuote{Val: &Lit{Val: "i"}},
+												X: &CmdExpr{
+													Name: &Lit{Val: "ECHO"},
+													Recv: []Expr{
+														&Lit{Val: "Inside Loop "},
+														&SglQuote{Val: &Lit{Val: "i"}},
+													},
 												},
 											},
 										},
@@ -298,7 +272,7 @@ func TestBatchFeatures(t *testing.T) {
 						Else: &BlockStmt{
 							List: []Stmt{
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "ECHO"},
 										Recv: []Expr{&Lit{Val: "Not Matched"}},
 									},
@@ -314,7 +288,7 @@ func TestBatchFeatures(t *testing.T) {
 			file: &File{
 				Stmts: []Stmt{
 					&ExprStmt{
-						X: &Command{
+						X: &CmdExpr{
 							Name: &Lit{Val: "setlocal"},
 							Recv: []Expr{&Lit{Val: "enabledelayedexpansion"}},
 						},
@@ -335,7 +309,7 @@ func TestBatchFeatures(t *testing.T) {
 									Rhs: &SglQuote{Val: &SglQuote{Val: &Lit{Val: "i"}}},
 								},
 								&ExprStmt{
-									X: &Command{
+									X: &CmdExpr{
 										Name: &Lit{Val: "echo"},
 										Recv: []Expr{&DblQuote{
 											DelayedExpansion: true,
@@ -349,7 +323,7 @@ func TestBatchFeatures(t *testing.T) {
 				},
 			},
 		},
-	}}
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -369,7 +343,7 @@ func TestIfStmt(t *testing.T) {
 			Body: &BlockStmt{
 				List: []Stmt{
 					&ExprStmt{
-						X: &Command{
+						X: &CmdExpr{
 							Name: &Lit{Val: "echo"},
 						},
 					},
@@ -378,7 +352,7 @@ func TestIfStmt(t *testing.T) {
 			Else: &BlockStmt{
 				List: []Stmt{
 					&ExprStmt{
-						X: &Command{
+						X: &CmdExpr{
 							Name: &Lit{Val: "echo"},
 						},
 					},

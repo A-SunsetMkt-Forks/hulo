@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/hulo-lang/hulo/syntax/powershell/token"
 )
 
 var _ Visitor = (*prettyPrinter)(nil)
@@ -31,6 +33,10 @@ func (p *prettyPrinter) indentWrite(s string) {
 
 // Visit visits the AST node.
 func (p *prettyPrinter) Visit(node Node) Visitor {
+	if node == nil {
+		return nil
+	}
+
 	switch node := node.(type) {
 	case *File:
 		return p.visitFile(node)
@@ -90,20 +96,258 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitStaticMemberAccess(node)
 	case *ArrayExpr:
 		return p.visitArrayExpr(node)
-	case *ArrayConstructor:
-		return p.visitArrayConstructor(node)
+	case *CommaExpr:
+		return p.visitCommaExpr(node)
+	case *BinaryExpr:
+		return p.visitBinaryExpr(node)
 	case *SelectExpr:
 		return p.visitSelectExpr(node)
-	case *ConstrainedVarExpr:
+	case *CastExpr:
 		return p.visitConstrainedVarExpr(node)
 	case *Lit:
 		return p.visitLit(node)
+	case *StringLit:
+		return p.visitStringLit(node)
+	case *MultiStringLit:
+		return p.visitMultiStringLit(node)
+	case *NumericLit:
+		return p.visitNumericLit(node)
 	case *Ident:
 		p.write(node.Name)
 		return nil
+	case *RangeExpr:
+		return p.visitRangeExpr(node)
+	case *GroupExpr:
+		return p.visitGroupExpr(node)
+	case *RedirectExpr:
+		return p.visitRedirectExpr(node)
+	case *BlockExpr:
+		return p.visitBlockExpr(node)
+	case *ParamBlock:
+		return p.visitParamBlock(node)
+	case *BoolLit:
+		return p.visitBoolLit(node)
+	case *SubExpr:
+		return p.visitSubExpr(node)
+	case *TypeLit:
+		return p.visitTypeLit(node)
+	case *ContinueStmt:
+		return p.visitContinueStmt(node)
+	case *BreakStmt:
+		return p.visitBreakStmt(node)
+	case *WhileStmt:
+		return p.visitWhileStmt(node)
+	case *ForStmt:
+		return p.visitForStmt(node)
+	case *ForeachStmt:
+		return p.visitForeachStmt(node)
+	case *DoWhileStmt:
+		return p.visitDoWhileStmt(node)
+	case *DoUntilStmt:
+		return p.visitDoUntilStmt(node)
+	case *LabelStmt:
+		return p.visitLabelStmt(node)
+	case *WorkflowDecl:
+		return p.visitWorkflowDecl(node)
+	case *ParallelDecl:
+		return p.visitParallelDecl(node)
+	case *SequenceDecl:
+		return p.visitSequenceDecl(node)
+	case *InlinescriptDecl:
+		return p.visitInlinescriptDecl(node)
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
 	}
+}
+
+func (p *prettyPrinter) visitParallelDecl(node *ParallelDecl) Visitor {
+	p.indentWrite("parallel ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitSequenceDecl(node *SequenceDecl) Visitor {
+	p.indentWrite("sequence ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitInlinescriptDecl(node *InlinescriptDecl) Visitor {
+	p.indentWrite("inlinescript ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitWorkflowDecl(node *WorkflowDecl) Visitor {
+	p.indentWrite("workflow ")
+	if node.Name != nil {
+		Walk(p, node.Name)
+		p.write(" ")
+	}
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitForeachStmt(node *ForeachStmt) Visitor {
+	p.indentWrite("foreach (")
+	Walk(p, node.Elm)
+	p.write(" in ")
+	Walk(p, node.Elms)
+	p.write(") ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitWhileStmt(node *WhileStmt) Visitor {
+	p.indentWrite("while (")
+	Walk(p, node.Cond)
+	p.write(") ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitDoUntilStmt(node *DoUntilStmt) Visitor {
+	p.indentWrite("do ")
+	Walk(p, node.Body)
+	p.write(" until (")
+	Walk(p, node.Cond)
+	p.write(")\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitDoWhileStmt(node *DoWhileStmt) Visitor {
+	p.indentWrite("do ")
+	Walk(p, node.Body)
+	p.write(" while (")
+	Walk(p, node.Cond)
+	p.write(")\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitForStmt(node *ForStmt) Visitor {
+	p.indentWrite("for (")
+	Walk(p, node.Init)
+	p.write("; ")
+	Walk(p, node.Cond)
+	p.write("; ")
+	Walk(p, node.Post)
+	p.write(") ")
+
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitLabelStmt(node *LabelStmt) Visitor {
+	p.indentWrite(":")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitBreakStmt(*BreakStmt) Visitor {
+	p.indentWrite("break\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitContinueStmt(node *ContinueStmt) Visitor {
+	p.indentWrite("continue")
+	if node.Label != nil {
+		p.write(" ")
+		Walk(p, node.Label)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitTypeLit(node *TypeLit) Visitor {
+	p.write("[")
+	Walk(p, node.Name)
+	p.write("]")
+	return nil
+}
+
+func (p *prettyPrinter) visitSubExpr(node *SubExpr) Visitor {
+	p.write("$( ")
+	Walk(p, node.X)
+	p.write(" )")
+	return nil
+}
+
+func (p *prettyPrinter) visitBoolLit(node *BoolLit) Visitor {
+	if node.Val {
+		p.write("$true")
+	} else {
+		p.write("$false")
+	}
+	return nil
+}
+
+func (p *prettyPrinter) visitBlockExpr(node *BlockExpr) Visitor {
+	p.write("{")
+	if len(node.List) > 0 {
+		p.write(" ")
+	}
+	p.visitExprs(node.List)
+	if len(node.List) > 0 {
+		p.write(" ")
+	}
+	p.write("}")
+	return nil
+}
+
+func (p *prettyPrinter) visitRedirectExpr(node *RedirectExpr) Visitor {
+	Walk(p, node.X)
+	p.write(" ")
+	p.write(node.CtrOp.String())
+	p.write(" ")
+	Walk(p, node.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitGroupExpr(node *GroupExpr) Visitor {
+	if node.Sep == token.Illegal {
+		node.Sep = token.COMMA
+	}
+	sep := node.Sep.String() + " "
+	p.write("(")
+	p.visitExprs(node.Elems, sep)
+	p.write(")")
+	return nil
+}
+
+func (p *prettyPrinter) visitBinaryExpr(node *BinaryExpr) Visitor {
+	Walk(p, node.X)
+	p.write(" ")
+	p.write(node.Op.String())
+	p.write(" ")
+	Walk(p, node.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitRangeExpr(node *RangeExpr) Visitor {
+	Walk(p, node.X)
+	p.write("..")
+	Walk(p, node.Y)
+	return nil
+}
+
+func (p *prettyPrinter) visitStringLit(node *StringLit) Visitor {
+	p.write("\"")
+	p.write(node.Val)
+	p.write("\"")
+	return nil
+}
+
+func (p *prettyPrinter) visitMultiStringLit(node *MultiStringLit) Visitor {
+	p.write("@\"")
+	p.write(node.Val)
+	p.write("\"@")
+	return nil
+}
+
+func (p *prettyPrinter) visitNumericLit(node *NumericLit) Visitor {
+	p.write(node.Val)
+	return nil
 }
 
 func (p *prettyPrinter) visitMemberAccess(node *MemberAccess) Visitor {
@@ -121,9 +365,7 @@ func (p *prettyPrinter) visitMemberAccess(node *MemberAccess) Visitor {
 }
 
 func (p *prettyPrinter) visitStaticMemberAccess(node *StaticMemberAccess) Visitor {
-	p.write("[")
 	Walk(p, node.X)
-	p.write("]")
 	p.write("::")
 	Walk(p, node.Y)
 	return nil
@@ -136,7 +378,7 @@ func (p *prettyPrinter) visitSelectExpr(node *SelectExpr) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitConstrainedVarExpr(node *ConstrainedVarExpr) Visitor {
+func (p *prettyPrinter) visitConstrainedVarExpr(node *CastExpr) Visitor {
 	p.write("[")
 	Walk(p, node.Type)
 	p.write("]")
@@ -156,13 +398,8 @@ func (p *prettyPrinter) visitArrayExpr(node *ArrayExpr) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitArrayConstructor(node *ArrayConstructor) Visitor {
-	for i, elem := range node.Elems {
-		Walk(p, elem)
-		if i < len(node.Elems)-1 {
-			p.write(", ")
-		}
-	}
+func (p *prettyPrinter) visitCommaExpr(node *CommaExpr) Visitor {
+	p.visitExprs(node.Elems, ",")
 	return nil
 }
 
@@ -257,12 +494,7 @@ func (p *prettyPrinter) visitCmdExpr(node *CmdExpr) Visitor {
 	Walk(p, node.Cmd)
 	if len(node.Args) > 0 {
 		p.write(" ")
-		for i, arg := range node.Args {
-			Walk(p, arg)
-			if i < len(node.Args)-1 {
-				p.write(" ")
-			}
-		}
+		p.visitExprs(node.Args)
 	}
 	return nil
 }
@@ -270,12 +502,7 @@ func (p *prettyPrinter) visitCmdExpr(node *CmdExpr) Visitor {
 func (p *prettyPrinter) visitCallExpr(node *CallExpr) Visitor {
 	Walk(p, node.Func)
 	p.write("(")
-	for i, arg := range node.Recv {
-		Walk(p, arg)
-		if i < len(node.Recv)-1 {
-			p.write(", ")
-		}
-	}
+	p.visitExprs(node.Recv, ", ")
 	p.write(")")
 	return nil
 }
@@ -313,12 +540,7 @@ func (p *prettyPrinter) visitAttribute(node *Attribute) Visitor {
 	p.write("[")
 	Walk(p, node.Name)
 	p.write("(")
-	for i, recv := range node.Recv {
-		Walk(p, recv)
-		if i < len(node.Recv)-1 {
-			p.write(", ")
-		}
-	}
+	p.visitExprs(node.Recv, ", ")
 	p.write(")")
 	p.write("]")
 	return nil
@@ -328,26 +550,37 @@ func (p *prettyPrinter) visitFuncDecl(node *FuncDecl) Visitor {
 	p.indentWrite("Function ")
 	Walk(p, node.Name)
 
-	p.write(" {\n")
+	Walk(p, node.Body)
 
-	for _, attribute := range node.Attributes {
-		p.indentWrite(" ")
-		Walk(p, attribute)
+	return nil
+}
+
+func (p *prettyPrinter) visitParamBlock(node *ParamBlock) Visitor {
+	for _, attr := range node.Attributes {
+		p.indentWrite("")
+		Walk(p, attr)
 		p.write("\n")
 	}
 
 	p.indentWrite("Param(\n")
+
+	p.indent++
 	for i, param := range node.Params {
+		for _, attr := range param.Attributes {
+			p.indentWrite("")
+			Walk(p, attr)
+			p.write("\n")
+		}
+		p.indentWrite("")
 		Walk(p, param)
 		if i < len(node.Params)-1 {
-			p.write(", ")
+			p.write("\n")
 		}
 	}
+	p.indent--
+
 	p.write("\n")
 	p.indentWrite(")\n")
-
-	Walk(p, node.Body)
-	p.write("}\n")
 	return nil
 }
 
@@ -400,20 +633,21 @@ func (p *prettyPrinter) visitIndexExpr(node *IndexExpr) Visitor {
 func (p *prettyPrinter) visitIndicesExpr(node *IndicesExpr) Visitor {
 	Walk(p, node.X)
 	p.write("[")
-	for i, index := range node.Indices {
-		Walk(p, index)
-		if i < len(node.Indices)-1 {
-			p.write(", ")
-		}
-	}
+	p.visitExprs(node.Indices, ", ")
 	p.write("]")
 	return nil
 }
 
 func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
+	if node.Tok == token.Illegal {
+		node.Tok = token.ASSIGN
+	}
 	Walk(p, node.Lhs)
-	p.write(" = ")
+	p.write(" ")
+	p.write(node.Tok.String())
+	p.write(" ")
 	Walk(p, node.Rhs)
+	p.write("\n")
 	return nil
 }
 
@@ -425,7 +659,7 @@ func (p *prettyPrinter) visitFile(node *File) Visitor {
 }
 
 func (p *prettyPrinter) visitHashTable(node *HashTable) Visitor {
-	p.write("@{\n")
+	p.write("@{")
 	for i, entry := range node.Entries {
 		Walk(p, entry)
 		if i < len(node.Entries)-1 {
@@ -441,6 +675,19 @@ func (p *prettyPrinter) visitHashEntry(node *HashEntry) Visitor {
 	p.write(" = ")
 	Walk(p, node.Value)
 	return nil
+}
+
+func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
+	sepStr := " "
+	if len(sep) > 0 {
+		sepStr = sep[0]
+	}
+	for i, expr := range exprs {
+		Walk(p, expr)
+		if i < len(exprs)-1 {
+			p.write(sepStr)
+		}
+	}
 }
 
 func Print(node Node) {

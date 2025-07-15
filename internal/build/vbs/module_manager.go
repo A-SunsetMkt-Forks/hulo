@@ -24,10 +24,10 @@ type ModuleManager struct {
 
 // ImportedModule 表示已导入的模块
 type ImportedModule struct {
-	Path    string                 // 模块路径
-	AST     interface{}            // 解析后的AST
-	Exports map[string]interface{} // 导出的符号
-	Imports []string               // 该模块的导入列表
+	Path    string         // 模块路径
+	AST     any            // 解析后的AST
+	Exports map[string]any // 导出的符号
+	Imports []string       // 该模块的导入列表
 }
 
 // ModuleInfo 表示模块信息

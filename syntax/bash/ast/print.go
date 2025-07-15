@@ -110,9 +110,36 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitCmdListExpr(node)
 	case *CmdGroup:
 		return p.visitCmdGroup(node)
+	case *Comment:
+		return p.visitComment(node)
+	case *CommentGroup:
+		return p.visitCommentGroup(node)
+	case *ReturnStmt:
+		return p.visitReturnStmt(node)
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
 	}
+}
+
+func (p *prettyPrinter) visitReturnStmt(node *ReturnStmt) Visitor {
+	p.indentWrite("return ")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitComment(node *Comment) Visitor {
+	p.indentWrite("#")
+	p.write(node.Text)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitCommentGroup(node *CommentGroup) Visitor {
+	for _, c := range node.List {
+		Walk(p, c)
+	}
+	return nil
 }
 
 func (p *prettyPrinter) visitRedirect(node *Redirect) Visitor {
@@ -538,7 +565,6 @@ func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
 }
 
 func (p *prettyPrinter) visitPipelineExpr(node *PipelineExpr) Visitor {
-	p.indentWrite("")
 	for i, cmd := range node.Cmds {
 		Walk(p, cmd)
 		if i < len(node.Cmds)-1 {
@@ -548,14 +574,19 @@ func (p *prettyPrinter) visitPipelineExpr(node *PipelineExpr) Visitor {
 	return nil
 }
 
+// Write writes the AST to the output.
+func Write(node Node, output io.Writer) {
+	Walk(&prettyPrinter{indent: 0, output: output, indentSpace: "  "}, node)
+}
+
 // Print prints the AST to the standard output.
 func Print(node Node) {
-	Walk(&prettyPrinter{indent: 0, output: os.Stdout, indentSpace: "  "}, node)
+	Write(node, os.Stdout)
 }
 
 // String returns the AST as a string.
 func String(node Node) string {
 	buf := &strings.Builder{}
-	Walk(&prettyPrinter{indent: 0, output: buf, indentSpace: "  "}, node)
+	Write(node, buf)
 	return buf.String()
 }
