@@ -6,16 +6,20 @@ package main
 import (
 	"fmt"
 
+	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/spf13/cobra"
 )
 
-var hlpmCmd = &cobra.Command{
-	Use:   "hlpm",
-	Short: "Hulo Package Manager",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello, World!")
-	},
-}
+var (
+	huloPkg *config.HuloPkg
+	hlpmCmd = &cobra.Command{
+		Use:   "hlpm",
+		Short: "Hulo Package Manager",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Hello, World!")
+		},
+	}
+)
 
 func init() {
 	hlpmCmd.AddCommand(versionCmd, buildCmd, runCmd,

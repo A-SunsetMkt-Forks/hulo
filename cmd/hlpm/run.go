@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/caarlos0/log"
+	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +26,12 @@ var runCmd = &cobra.Command{
   hlpm run dev -- --watch             # Run script with watch flag`,
 	DisableFlagParsing: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+		huloPkg, err = util.LoadConfigure[*config.HuloPkg](config.HuloPkgFileName)
+		if err != nil {
+			log.WithError(err).Fatal("fail to load package")
+		}
+
 		hlpmArgs, huloArgs := separateArgs(args)
 
 		if len(hlpmArgs) == 0 {
@@ -36,7 +44,7 @@ var runCmd = &cobra.Command{
 		case isFile(args[0]):
 			runFile(args[0], huloArgs)
 		default:
-
+			log.Fatal("invalid argument")
 		}
 	},
 }
@@ -56,6 +64,9 @@ func separateArgs(args []string) ([]string, []string) {
 }
 
 func isScript(script string) bool {
+	if _, ok := huloPkg.Scripts[script]; ok {
+		return true
+	}
 	return false
 }
 
@@ -69,7 +80,14 @@ func isFile(path string) bool {
 }
 
 func runScript(script string, huloArgs []string) {
-	loadProjectConfig()
+	scr := huloPkg.Scripts[script]
+	cmd := exec.Command(scr, huloArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		log.WithError(err).Fatal("fail to run script")
+	}
 }
 
 func runFile(file string, huloArgs []string) {
@@ -91,8 +109,6 @@ func runFile(file string, huloArgs []string) {
 		log.WithError(err).Fatal("fail to run file")
 	}
 }
-
-func loadProjectConfig() {}
 
 func findHuloExecutable() (string, error) {
 	// 1. 查找当前目录

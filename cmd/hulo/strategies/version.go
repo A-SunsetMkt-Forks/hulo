@@ -19,6 +19,11 @@ func (v *VersionStrategy) CanHandle(params *Parameters) bool {
 }
 
 func (v *VersionStrategy) Execute(params *Parameters, args []string) error {
+	// Print logo
+	fmt.Print(meta.HULOLOGO)
+	fmt.Println()
+
+	// Print version information
 	fmt.Printf("hulo %s\n", meta.Version)
 	fmt.Printf("Hulo Runtime Environment (build %s)\n", meta.Date)
 	fmt.Printf("Hulo %s %s Compiler (build %s, %s)\n", runtime.GOOS, runtime.GOARCH, meta.Commit, meta.GoVersion)
