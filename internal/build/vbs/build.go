@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hulo-lang/hulo/internal/build"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
@@ -215,7 +215,12 @@ func Transpile(opts *config.VBScriptOptions, mainFile string, vfs vfs.VFS, baseP
 
 	results[mainFile] = vbsCode
 
-	return results, nil
+	finalResults := make(map[string]string)
+	for key, value := range results {
+		finalResults[strings.Replace(key, ".hl", ".vbs", 1)] = value
+	}
+
+	return finalResults, nil
 }
 
 // ModuleExports 模块导出的符号
@@ -526,7 +531,7 @@ type VBScriptTranspiler struct {
 
 	enableShell bool
 
-	alloc *build.Allocator
+	alloc *util.Allocator
 
 	moduleManager *ModuleManager // 模块管理器
 

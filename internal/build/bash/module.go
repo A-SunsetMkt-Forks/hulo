@@ -5,10 +5,13 @@ package build
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
@@ -59,20 +62,95 @@ const (
 	ImportAll
 )
 
+type SymbolType int
+
+const (
+	SymbolVariable SymbolType = iota
+	SymbolFunction
+	SymbolClass
+	SymbolConstant
+	SymbolArray
+	SymbolObject
+)
+
+type Symbol struct {
+	Name        string     // 原始名称
+	MangledName string     // 混淆后的名称
+	Type        SymbolType // 符号类型
+	Value       hast.Node  // 原始AST节点
+	Scope       *Scope     // 所属作用域
+	Module      *Module    // 所属模块
+	IsExported  bool       // 是否导出
+}
+
+type Scope struct {
+	ID        string             // 作用域唯一标识
+	Type      ScopeType          // 作用域类型
+	Variables map[string]*Symbol // 变量名 -> 符号
+	Parent    *Scope             // 父作用域
+	Module    *Module            // 所属模块
+}
+
+type ScopeStack struct {
+	scopes []*Scope
+}
+
+func (ss *ScopeStack) Push(scope *Scope) {
+	ss.scopes = append(ss.scopes, scope)
+}
+
+func (ss *ScopeStack) Pop() {
+	if len(ss.scopes) > 0 {
+		ss.scopes = ss.scopes[:len(ss.scopes)-1]
+	}
+}
+
+func (ss *ScopeStack) Current() *Scope {
+	if len(ss.scopes) == 0 {
+		return nil
+	}
+	return ss.scopes[len(ss.scopes)-1]
+}
+
 type SymbolTable struct {
+	// 保留现有的模块级别符号
 	functions map[string]hast.Node
 	classes   map[string]hast.Node
 	constants map[string]hast.Node
 	variables map[string]hast.Node
+
+	// 新增：作用域管理
+	scopes      *ScopeStack
+	globalScope *Scope
+
+	// 新增：名称分配器
+	moduleAllocator *util.Allocator            // 模块级别的分配器
+	scopeAllocators map[string]*util.Allocator // 作用域级别的分配器
+	enableMangle    bool
 }
 
 // NewSymbolTable 创建新的符号表
-func NewSymbolTable() *SymbolTable {
+func NewSymbolTable(moduleName string, enableMangle bool) *SymbolTable {
 	return &SymbolTable{
 		functions: make(map[string]hast.Node),
 		classes:   make(map[string]hast.Node),
 		constants: make(map[string]hast.Node),
 		variables: make(map[string]hast.Node),
+
+		scopes: &ScopeStack{},
+		globalScope: &Scope{
+			ID:        "global",
+			Type:      GlobalScope,
+			Variables: make(map[string]*Symbol),
+			Module:    nil, // 全局作用域不属于特定模块
+		},
+
+		moduleAllocator: util.NewAllocator(
+			util.WithPrefix(fmt.Sprintf("_%s_", moduleName)),
+			util.WithInitialCounter(0),
+		),
+		scopeAllocators: make(map[string]*util.Allocator),
+		enableMangle:    enableMangle,
 	}
 }
 
@@ -120,6 +198,86 @@ func (st *SymbolTable) AddConstant(name string, node hast.Node) {
 	st.constants[name] = node
 }
 
+// 作用域管理方法
+func (st *SymbolTable) PushScope(scopeType ScopeType, module *Module) *Scope {
+	parent := st.CurrentScope()
+	scopeID := fmt.Sprintf("scope_%d", len(st.scopes.scopes))
+
+	newScope := &Scope{
+		ID:        scopeID,
+		Type:      scopeType,
+		Variables: make(map[string]*Symbol),
+		Parent:    parent,
+		Module:    module,
+	}
+
+	// 为每个作用域创建独立的分配器
+	st.scopeAllocators[scopeID] = util.NewAllocator(
+		util.WithPrefix(fmt.Sprintf("_%s_", scopeID)),
+		util.WithInitialCounter(0),
+	)
+
+	st.scopes.Push(newScope)
+	return newScope
+}
+
+func (st *SymbolTable) PopScope() {
+	current := st.CurrentScope()
+	if current != nil {
+		// 清理作用域分配器
+		delete(st.scopeAllocators, current.ID)
+	}
+	st.scopes.Pop()
+}
+
+func (st *SymbolTable) CurrentScope() *Scope {
+	return st.scopes.Current()
+}
+
+// 变量分配策略
+func (st *SymbolTable) AllocVariableName(originalName string, scope *Scope) string {
+	if !st.enableMangle {
+		return originalName
+	}
+	// 检查当前作用域是否已有同名变量
+	if _, exists := scope.Variables[originalName]; exists {
+		// 如果存在，使用作用域级别的分配器
+		allocator := st.scopeAllocators[scope.ID]
+		return allocator.AllocName(originalName)
+	}
+
+	// 检查模块级别的符号
+	if st.HasVariable(originalName) || st.HasFunction(originalName) ||
+		st.HasClass(originalName) || st.HasConstant(originalName) {
+		// 模块级别符号，使用模块分配器
+		return st.moduleAllocator.AllocName(originalName)
+	}
+
+	// 新变量，使用当前作用域的分配器
+	allocator := st.scopeAllocators[scope.ID]
+	return allocator.AllocName(originalName)
+}
+
+// 符号查找
+func (st *SymbolTable) LookupSymbol(name string) *Symbol {
+	current := st.CurrentScope()
+	for current != nil {
+		if symbol, exists := current.Variables[name]; exists {
+			return symbol
+		}
+		current = current.Parent
+	}
+	return nil
+}
+
+// 添加符号到当前作用域
+func (st *SymbolTable) AddSymbol(symbol *Symbol) {
+	current := st.CurrentScope()
+	if current != nil {
+		current.Variables[symbol.Name] = symbol
+	}
+}
+
 type ScopeType int
 
 const (
@@ -136,6 +294,8 @@ type ModuleManager struct {
 	resolver *DependencyResolver
 
 	isMain bool // 首次要收集 builtin 包
+
+	options *config.Huloc
 }
 
 type DependencyResolver struct {
@@ -227,8 +387,31 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
+	opts := []parser.ParserOptions{}
+	if len(mm.options.Parser.ShowASTTree) > 0 {
+		switch mm.options.Parser.ShowASTTree {
+		case "stdout":
+			opts = append(opts, parser.OptionTracerASTTree(os.Stdout))
+		case "stderr":
+			opts = append(opts, parser.OptionTracerASTTree(os.Stderr))
+		case "file":
+			file, err := mm.vfs.Open(mm.options.Parser.ShowASTTree)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file %s: %w", mm.options.Parser.ShowASTTree, err)
+			}
+			defer file.Close()
+			opts = append(opts, parser.OptionTracerASTTree(file))
+		}
+	}
+	if !mm.options.Parser.EnableTracer {
+		opts = append(opts, parser.OptionDisableTracer())
+	}
+	if mm.options.Parser.DisableTiming {
+		opts = append(opts, parser.OptionTracerDisableTiming())
+	}
+
 	// 解析AST
-	ast, err := parser.ParseSourceScript(string(content))
+	ast, err := parser.ParseSourceScript(string(content), opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse file %s: %w", filePath, err)
 	}
@@ -237,14 +420,15 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	imports, dependencies := mm.extractImports(ast)
 
 	// 创建模块
+	moduleName := mm.getModuleName(filePath)
 	module := &Module{
-		Name:         mm.getModuleName(filePath),
+		Name:         moduleName,
 		Path:         filePath,
 		AST:          ast,
 		Exports:      make(map[string]*ExportInfo),
 		Imports:      imports,
 		Dependencies: dependencies,
-		Symbols:      NewSymbolTable(),
+		Symbols:      NewSymbolTable(moduleName, mm.options.EnableMangle),
 	}
 
 	// 缓存模块

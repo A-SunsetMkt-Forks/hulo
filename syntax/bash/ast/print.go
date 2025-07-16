@@ -253,7 +253,7 @@ func (p *prettyPrinter) visitForStmt(node *ForStmt) Visitor {
 			Walk(p, node.Post)
 		}
 	}
-	p.write(")); do\n")
+	p.write(" )); do\n")
 
 	Walk(p, node.Body)
 
@@ -297,7 +297,7 @@ func (p *prettyPrinter) visitCaseStmt(node *CaseStmt) Visitor {
 		p.indent++
 		Walk(p, pattern.Body)
 		p.indent--
-		p.indentWrite("  ;;\n")
+		p.indentWrite("    ;;\n")
 	}
 
 	if node.Else != nil {
@@ -305,7 +305,7 @@ func (p *prettyPrinter) visitCaseStmt(node *CaseStmt) Visitor {
 		p.indent++
 		Walk(p, node.Else)
 		p.indent--
-		p.indentWrite("  ;;\n")
+		p.indentWrite("    ;;\n")
 	}
 
 	p.indentWrite("esac\n")
@@ -370,7 +370,10 @@ func (p *prettyPrinter) visitBinaryExpr(node *BinaryExpr) Visitor {
 	Walk(p, node.X)
 
 	switch node.Op {
-	case token.TsLss, token.TsGtr:
+	case token.TsReMatch, token.TsNempStr, token.TsEmpStr,
+		token.TsNewer, token.TsOlder, token.TsDevIno,
+		token.TsEql, token.TsNeq, token.TsLeq,
+		token.TsGeq, token.TsLss, token.TsGtr:
 		p.write(fmt.Sprintf(" %s ", node.Op))
 	default:
 		p.write(node.Op.String())
@@ -414,7 +417,7 @@ func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
 
 			node.Else = el.Else
 		case *BlockStmt:
-			p.write("else\n")
+			p.indentWrite("else\n")
 			Walk(p, el)
 			node.Else = nil
 		}

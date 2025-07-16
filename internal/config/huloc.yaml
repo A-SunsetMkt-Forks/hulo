@@ -6,3 +6,11 @@ compilerOptions:
 main: main.hl
 exclude:
 include:
+parserOptions:
+  showASTTree: stdout
+  enableTracer: false
+  disableTiming: true
+  watchNode:
+outDir: dist
+targets:
+  - vbs

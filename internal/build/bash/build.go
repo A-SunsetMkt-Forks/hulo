@@ -15,101 +15,11 @@ import (
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	btok "github.com/hulo-lang/hulo/syntax/bash/token"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
-	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
-func Translate(opts *config.BashOptions, node hast.Node) (bast.Node, error) {
-	bnode := translate2Bash(opts, node)
-	return bnode, nil
-}
-
-func translate2Bash(opts *config.BashOptions, node hast.Node) bast.Node {
-	switch node := node.(type) {
-	case *hast.File:
-		stmts := []bast.Stmt{&bast.Comment{Text: "!/bin/bash"}}
-		for _, s := range node.Stmts {
-			stmts = append(stmts, translate2Bash(opts, s).(bast.Stmt))
-		}
-
-		return &bast.File{
-			Stmts: stmts,
-		}
-	case *hast.IfStmt:
-		// opts.Boolean = "number & >= 1.2.3"
-		parse, err := hcrDispatcher.Get(opts.BooleanFormat)
-		if err != nil {
-			return nil
-		}
-		cond, err := parse.Apply(&hast.IfStmt{}, node.Cond)
-		if err != nil {
-			return nil
-		}
-		return &bast.IfStmt{
-			Cond: cond.(bast.Expr),
-			Body: translate2Bash(opts, node.Body).(*bast.BlockStmt),
-		}
-	case *hast.BlockStmt:
-		return &bast.BlockStmt{}
-	case *hast.BinaryExpr:
-		return &bast.BinaryExpr{
-			X:  translate2Bash(opts, node.X).(bast.Expr),
-			Op: Token(node.Op),
-			Y:  translate2Bash(opts, node.Y).(bast.Expr),
-		}
-	case *hast.RefExpr:
-		return &bast.VarExpExpr{
-			X: translate2Bash(opts, node.X).(*bast.Ident),
-		}
-	case *hast.Ident:
-		return &bast.Ident{
-			Name: node.Name,
-		}
-	case *hast.StringLiteral:
-		return &bast.Word{
-			Val: fmt.Sprintf(`"%s"`, node.Value),
-		}
-	case *hast.NumericLiteral:
-		return &bast.Word{
-			Val: node.Value,
-		}
-	case *hast.TrueLiteral:
-		return &bast.Word{
-			Val: "true",
-		}
-	case *hast.FalseLiteral:
-		return &bast.Word{
-			Val: "false",
-		}
-	case *hast.ExprStmt:
-		return &bast.ExprStmt{
-			X: translate2Bash(opts, node.X).(bast.Expr),
-		}
-	case *hast.CallExpr:
-		fun := translate2Bash(opts, node.Fun).(*bast.Ident)
-
-		recv := []bast.Expr{}
-		for _, r := range node.Recv {
-			recv = append(recv, translate2Bash(opts, r).(bast.Expr))
-		}
-
-		return &bast.CmdExpr{
-			Name: fun,
-			Recv: recv,
-		}
-	case *hast.Comment:
-		return &bast.Comment{
-			Text: node.Text,
-		}
-	default:
-		fmt.Printf("%T\n", node)
-	}
-
-	return nil
-}
-
 type BashTranspiler struct {
-	opts *config.BashOptions
+	opts *config.Huloc
 
 	buffer []bast.Stmt
 
@@ -123,14 +33,17 @@ type BashTranspiler struct {
 	globalSymbols *SymbolTable
 
 	scopeStack container.Stack[ScopeType]
+
+	currentScope *Scope
 }
 
-func NewBashTranspiler(opts *config.BashOptions, vfs vfs.VFS) *BashTranspiler {
+func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
 	return &BashTranspiler{
 		opts: opts,
 		vfs:  vfs,
 		// 初始化模块管理
 		moduleManager: &ModuleManager{
+			options:  opts,
 			vfs:      vfs,
 			basePath: "",
 			modules:  make(map[string]*Module),
@@ -143,7 +56,7 @@ func NewBashTranspiler(opts *config.BashOptions, vfs vfs.VFS) *BashTranspiler {
 		modules: make(map[string]*Module),
 
 		// 初始化符号管理
-		globalSymbols: NewSymbolTable(),
+		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
 
 		// 初始化作用域管理
 		scopeStack: container.NewArrayStack[ScopeType](),
@@ -163,7 +76,8 @@ func (b *BashTranspiler) Transpile(mainFile string) (map[string]string, error) {
 		if err := b.translateModule(module); err != nil {
 			return nil, fmt.Errorf("failed to translate module %s: %w", module.Path, err)
 		}
-		results[module.Path] = bast.String(module.Transpiled)
+		path := strings.Replace(module.Path, ".hl", ".sh", 1)
+		results[path] = bast.String(module.Transpiled)
 	}
 
 	return results, nil
@@ -231,28 +145,38 @@ func (b *BashTranspiler) analyzeModuleExports(module *Module) {
 			}
 
 		case *hast.AssignStmt:
-			// pub var a = 10
-			// TODO: 要实现 pub 修饰符
-			switch s.Scope {
-			case htok.CONST:
-				if ident, ok := s.Lhs.(*hast.Ident); ok {
-					module.Exports[ident.Name] = &ExportInfo{
-						Name:   ident.Name,
+			// 处理所有类型的赋值语句
+			var varName string
+			if refExpr, ok := s.Lhs.(*hast.RefExpr); ok {
+				// 从 $p 中提取变量名 p
+				if ident, ok := refExpr.X.(*hast.Ident); ok {
+					varName = ident.Name
+				}
+			} else if ident, ok := s.Lhs.(*hast.Ident); ok {
+				varName = ident.Name
+			}
+
+			if varName != "" {
+				switch s.Scope {
+				case htok.CONST:
+					module.Exports[varName] = &ExportInfo{
+						Name:   varName,
 						Value:  s,
 						Kind:   ExportConstant,
 						Public: false,
 					}
-					module.Symbols.AddConstant(ident.Name, s)
-				}
-			case htok.VAR:
-				if ident, ok := s.Lhs.(*hast.Ident); ok {
-					module.Exports[ident.Name] = &ExportInfo{
-						Name:   ident.Name,
+					module.Symbols.AddConstant(varName, s)
+				case htok.VAR:
+					module.Exports[varName] = &ExportInfo{
+						Name:   varName,
 						Value:  s,
 						Kind:   ExportVariable,
 						Public: false,
 					}
-					module.Symbols.AddVariable(ident.Name, s)
+					module.Symbols.AddVariable(varName, s)
+				default:
+					// 普通赋值语句（如 let arr = [1, 2, 3]）
+					module.Symbols.AddVariable(varName, s)
 				}
 			}
 
@@ -268,7 +192,7 @@ func (b *BashTranspiler) analyzeModuleExports(module *Module) {
 	}
 }
 
-func Transpile(opts *config.BashOptions, node hast.Node, vfs vfs.VFS, basePath string, huloPath string, mainFile string, popts ...parser.ParserOptions) (map[string]string, error) {
+func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string, huloPath string, mainFile string) (map[string]string, error) {
 	tr := NewBashTranspiler(opts, vfs)
 	tr.moduleManager.basePath = basePath
 	return tr.Transpile(mainFile)
@@ -312,6 +236,10 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 		return b.ConvertWhileStmt(node)
 	case *hast.ForStmt:
 		return b.ConvertForStmt(node)
+	case *hast.ForInStmt:
+		return b.ConvertForInStmt(node)
+	case *hast.ForeachStmt:
+		return b.ConvertForeachStmt(node)
 	case *hast.ReturnStmt:
 		return b.ConvertReturnStmt(node)
 	case *hast.Comment:
@@ -322,6 +250,16 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 		return b.ConvertRefExpr(node)
 	case *hast.Parameter:
 		return b.ConvertParameter(node)
+	case *hast.IncDecExpr:
+		return b.ConvertIncDecExpr(node)
+	case *hast.ArrayLiteralExpr:
+		return b.ConvertArrayLiteralExpr(node)
+	case *hast.ObjectLiteralExpr:
+		return b.ConvertObjectLiteralExpr(node)
+	case *hast.MatchStmt:
+		return b.ConvertMatchStmt(node)
+	case *hast.DoWhileStmt:
+		return b.ConvertDoWhileStmt(node)
 	default:
 		fmt.Printf("Unhandled node type: %T\n", node)
 		return nil
@@ -332,22 +270,31 @@ func (b *BashTranspiler) ConvertFile(node *hast.File) bast.Node {
 	var stmts []bast.Stmt
 
 	// 添加 shebang
-	stmts = append(stmts, &bast.Comment{
-		Text: "#!/bin/bash",
-	})
+	stmts = append(stmts, &bast.Comment{Text: "!/bin/bash"})
+
+	// 转换文档注释
+	if node.Docs != nil {
+		for _, doc := range node.Docs {
+			converted := b.Convert(doc)
+			if converted != nil {
+				if stmtNode, ok := converted.(bast.Stmt); ok {
+					stmts = append(stmts, stmtNode)
+				}
+			}
+		}
+	}
 
 	// 转换所有语句
+
 	for _, stmt := range node.Stmts {
 		converted := b.Convert(stmt)
+		stmts = append(stmts, b.Flush()...)
 		if converted != nil {
 			if stmtNode, ok := converted.(bast.Stmt); ok {
 				stmts = append(stmts, stmtNode)
 			}
 		}
 	}
-
-	// 添加缓冲区中的语句
-	stmts = append(stmts, b.Flush()...)
 
 	return &bast.File{
 		Stmts: stmts,
@@ -388,17 +335,72 @@ func (b *BashTranspiler) ConvertExprStmt(node *hast.ExprStmt) bast.Node {
 }
 
 func (b *BashTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
-	rhs := b.Convert(node.Rhs).(bast.Expr)
+	// 先转换 RHS
+	convertedRhs := b.Convert(node.Rhs)
+	if convertedRhs == nil {
+		return nil
+	}
 
-	// 处理 $p := "hello" 的情况
-	// 在 Hulo 中，$p := "hello" 等价于 let p = "hello"
+	// 检查是否是内置命令调用
+	if cmdExpr, ok := convertedRhs.(*bast.CmdExpr); ok {
+		if cmdExpr.Name.Name == "read" {
+			return b.convertReadCommand(node.Lhs, cmdExpr)
+		}
+	}
+
+	rhs, ok := convertedRhs.(bast.Expr)
+	if !ok {
+		return nil
+	}
+
+	// 获取变量名
+	var varName string
 	if refExpr, ok := node.Lhs.(*hast.RefExpr); ok {
 		// 从 $p 中提取变量名 p
 		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			varName = ident.Name
+		}
+	} else if ident, ok := node.Lhs.(*hast.Ident); ok {
+		varName = ident.Name
+	}
+
+	// 如果有变量名，进行符号管理
+	if varName != "" && b.currentModule != nil {
+		currentScope := b.currentModule.Symbols.CurrentScope()
+		if currentScope == nil {
+			// 如果没有当前作用域，创建一个全局作用域
+			currentScope = b.currentModule.Symbols.PushScope(GlobalScope, b.currentModule)
+		}
+
+		// 创建符号
+		symbol := &Symbol{
+			Name:   varName,
+			Type:   SymbolVariable,
+			Value:  node,
+			Scope:  currentScope,
+			Module: b.currentModule,
+		}
+
+		// 添加到当前作用域
+		b.currentModule.Symbols.AddSymbol(symbol)
+
+		// 分配生成名称
+		generatedName := b.currentModule.Symbols.AllocVariableName(varName, currentScope)
+		symbol.MangledName = generatedName
+
+		// 如果RHS是对象字面量，建立绑定
+		if objLit, ok := node.Rhs.(*hast.ObjectLiteralExpr); ok {
+			b.bindObjectLiteral(symbol, objLit)
+			// 返回赋值语句，使用混淆后的变量名
 			return &bast.AssignStmt{
-				Lhs: &bast.Ident{Name: ident.Name},
-				Rhs: rhs,
+				Lhs: &bast.Ident{Name: generatedName},
+				Rhs: &bast.Ident{Name: symbol.MangledName},
 			}
+		}
+
+		return &bast.AssignStmt{
+			Lhs: &bast.Ident{Name: generatedName},
+			Rhs: rhs,
 		}
 	}
 
@@ -414,6 +416,9 @@ func (b *BashTranspiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
 	cond := b.Convert(node.Cond).(bast.Expr)
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 
+	// 将条件转换为算术表达式 (( ... ))
+	arithCond := b.convertToArithExpr(cond)
+
 	var elseStmt bast.Stmt
 	if node.Else != nil {
 		converted := b.Convert(node.Else)
@@ -423,13 +428,23 @@ func (b *BashTranspiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
 	}
 
 	return &bast.IfStmt{
-		Cond: cond,
+		If:   btok.Pos(1),
+		Cond: arithCond,
+		Semi: btok.Pos(1),
+		Then: btok.Pos(1),
 		Body: body,
 		Else: elseStmt,
+		Fi:   btok.Pos(1),
 	}
 }
 
 func (b *BashTranspiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
+	// 进入新作用域
+	if b.currentModule != nil {
+		b.currentModule.Symbols.PushScope(BlockScope, b.currentModule)
+		defer b.currentModule.Symbols.PopScope()
+	}
+
 	var stmts []bast.Stmt
 	for _, stmt := range node.List {
 		converted := b.Convert(stmt)
@@ -497,6 +512,36 @@ func (b *BashTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 		}
 	}
 
+	// 处理其他算术运算，转换为 $(( ... )) 语法
+	if node.Op == htok.PLUS || node.Op == htok.MINUS || node.Op == htok.SLASH {
+		var lv, rv string
+		switch x := x.(type) {
+		case *bast.VarExpExpr:
+			lv = x.X.(*bast.Ident).Name
+		case *bast.Word:
+			lv = x.Val
+		}
+
+		switch y := y.(type) {
+		case *bast.VarExpExpr:
+			rv = y.X.(*bast.Ident).Name
+		case *bast.Word:
+			rv = y.Val
+		}
+
+		// 生成 $((a + b)) 语法
+		return &bast.ArithExpr{
+			Dollar: btok.Pos(1),
+			Lparen: btok.Pos(1),
+			X: &bast.BinaryExpr{
+				X:  &bast.Ident{Name: lv},
+				Op: b.convertOperator(node.Op),
+				Y:  &bast.Ident{Name: rv},
+			},
+			Rparen: btok.Pos(1),
+		}
+	}
+
 	return &bast.BinaryExpr{
 		X:  x,
 		Op: b.convertOperator(node.Op),
@@ -515,12 +560,12 @@ func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	// TODO: RefExpr (SelectExpr) 这里错了 Hulo 分析器解析有问题
 	// 应该是 SelectExpr 的 X 是 RefExpr
 	if refExpr, ok := node.Fun.(*hast.RefExpr); ok {
-		fmt.Printf("refExpr: %T\n", refExpr.X)
-		if ident, ok := refExpr.X.(*hast.Ident); ok {
-			fmt.Printf("ident: %s %T\n", ident.Name, ident)
+		// fmt.Printf("refExpr: %T\n", refExpr.X)
+		if _, ok := refExpr.X.(*hast.Ident); ok {
+			// fmt.Printf("ident: %s %T\n", ident.Name, ident)
 		}
 	}
-	fmt.Printf("fnName: %s %T %T\n", fnName, fun, node.Fun)
+	// fmt.Printf("fnName: %s %T %T\n", fnName, fun, node.Fun)
 
 	var recv []bast.Expr
 	for _, arg := range node.Recv {
@@ -534,6 +579,12 @@ func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 }
 
 func (b *BashTranspiler) ConvertIdent(node *hast.Ident) bast.Node {
+	// 查符号表，返回混淆名
+	if b.currentModule != nil && b.currentModule.Symbols != nil {
+		if symbol := b.currentModule.Symbols.LookupSymbol(node.Name); symbol != nil && symbol.MangledName != "" {
+			return &bast.Ident{Name: symbol.MangledName}
+		}
+	}
 	return &bast.Ident{
 		Name: node.Name,
 	}
@@ -661,23 +712,106 @@ func (b *BashTranspiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
 	cond := b.Convert(node.Cond).(bast.Expr)
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 
+	// 将条件转换为 Bash 的 test 表达式
+	// 例如: $a < 2 转换为 [ "$a" -lt 2 ]
+	bashCond := b.convertToBashTest(cond)
+
 	return &bast.WhileStmt{
-		Cond: cond,
-		Body: body,
+		While: btok.Pos(1),
+		Cond:  bashCond,
+		Semi:  btok.Pos(1),
+		Do:    btok.Pos(1),
+		Body:  body,
+		Done:  btok.Pos(1),
 	}
 }
 
 func (b *BashTranspiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
-	init := b.Convert(node.Init).(bast.Stmt)
-	cond := b.Convert(node.Cond).(bast.Expr)
-	post := b.Convert(node.Post).(bast.Stmt)
+	// C-style for 循环: loop (init; cond; post) { body }
+	// 转换循环体
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 
+	// 转换初始化语句
+	var init bast.Node
+	if node.Init != nil {
+		init = b.Convert(node.Init)
+	}
+
+	// 转换条件表达式
+	var cond bast.Expr
+	if node.Cond != nil {
+		cond = b.Convert(node.Cond).(bast.Expr)
+	}
+
+	// 转换后置表达式
+	var post bast.Node
+	if node.Post != nil {
+		// 特殊处理 IncDecExpr (如 i++)
+		if incDec, ok := node.Post.(*hast.IncDecExpr); ok {
+			// 将 i++ 转换为 i=i+1
+			var tok btok.Token = btok.Plus
+			if incDec.Tok == htok.DEC {
+				tok = btok.Minus
+			}
+			post = &bast.AssignStmt{
+				Lhs: b.Convert(incDec.X).(bast.Expr),
+				Rhs: &bast.BinaryExpr{
+					X:  b.Convert(incDec.X).(bast.Expr),
+					Op: tok,
+					Y:  &bast.Word{Val: "1"},
+				},
+			}
+		} else {
+			post = b.Convert(node.Post)
+		}
+	}
+
+	// ====== 变量名去 $ 处理 ======
+	stripVarExp := func(expr bast.Expr) bast.Expr {
+		if v, ok := expr.(*bast.VarExpExpr); ok {
+			if id, ok := v.X.(*bast.Ident); ok {
+				return id
+			}
+		}
+		return expr
+	}
+
+	// 处理 init
+	if assign, ok := init.(*bast.AssignStmt); ok {
+		assign.Lhs = stripVarExp(assign.Lhs)
+		init = assign
+	}
+	// 处理 cond
+	if bexpr, ok := cond.(*bast.BinaryExpr); ok {
+		bexpr.X = stripVarExp(bexpr.X)
+		bexpr.Y = stripVarExp(bexpr.Y)
+		cond = bexpr
+	}
+	// 处理 post
+	if assign, ok := post.(*bast.AssignStmt); ok {
+		assign.Lhs = stripVarExp(assign.Lhs)
+		if bexpr, ok := assign.Rhs.(*bast.BinaryExpr); ok {
+			bexpr.X = stripVarExp(bexpr.X)
+			bexpr.Y = stripVarExp(bexpr.Y)
+			assign.Rhs = bexpr
+		}
+		post = assign
+	}
+
+	// 创建 Bash C-style for 循环
+	// for ((i=0; i<10; i++)); do ... done
 	return &bast.ForStmt{
-		Init: init,
-		Cond: cond,
-		Post: post,
-		Body: body,
+		For:    btok.Pos(1),
+		Lparen: btok.Pos(1),
+		Init:   init,
+		Semi1:  btok.Pos(1),
+		Cond:   cond,
+		Semi2:  btok.Pos(1),
+		Post:   post,
+		Rparen: btok.Pos(1),
+		Do:     btok.Pos(1),
+		Body:   body,
+		Done:   btok.Pos(1),
 	}
 }
 
@@ -710,9 +844,9 @@ func (b *BashTranspiler) convertOperator(op htok.Token) btok.Token {
 	case htok.NEQ:
 		return btok.NotEqual
 	case htok.LT:
-		return btok.LessEqual
+		return btok.TsLss
 	case htok.LE:
-		return btok.LessEqual
+		return btok.TsLeq
 	case htok.GT:
 		return btok.TsGtr
 	case htok.GE:
@@ -815,7 +949,6 @@ func (b *BashTranspiler) convertBuiltinMethod(obj *hast.RefExpr, methodName stri
 // ConvertRefExpr 处理引用表达式 $x
 func (b *BashTranspiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
 	x := b.Convert(node.X).(bast.Expr)
-
 	// 对于 Bash，$x 转换为变量引用
 	return &bast.VarExpExpr{
 		X: x,
@@ -859,6 +992,452 @@ func (b *BashTranspiler) ConvertParameter(node *hast.Parameter) bast.Node {
 	return b.Convert(node.Name).(bast.Expr)
 }
 
+func (b *BashTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
+	// 将 i++ 转换为 a=$((a + 1))，将 i-- 转换为 a=$((a - 1))
+	var op btok.Token
+	if node.Tok == htok.INC {
+		op = btok.Plus
+	} else {
+		op = btok.Minus
+	}
+
+	// 获取变量名（去掉 $ 前缀）
+	var varName string
+	if refExpr, ok := node.X.(*hast.RefExpr); ok {
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			varName = ident.Name
+		}
+	}
+
+	// 创建算术表达式 $((a + 1))
+	arithExpr := &bast.ArithExpr{
+		Dollar: btok.Pos(1),
+		Lparen: btok.Pos(1),
+		X: &bast.BinaryExpr{
+			X:  &bast.Ident{Name: varName},
+			Op: op,
+			Y:  &bast.Word{Val: "1"},
+		},
+		Rparen: btok.Pos(1),
+	}
+
+	// 创建赋值语句 a=$((a + 1))
+	return &bast.AssignStmt{
+		Lhs: &bast.Ident{Name: varName},
+		Rhs: arithExpr,
+	}
+}
+
+// convertToBashTest 将 Hulo 的条件表达式转换为 Bash 的 test 表达式
+// 例如: $a < 2 转换为 [ "$a" -lt 2 ]
+func (b *BashTranspiler) convertToBashTest(expr bast.Expr) bast.Expr {
+	if bexpr, ok := expr.(*bast.BinaryExpr); ok {
+		// 获取左右操作数
+		left := bexpr.X
+		right := bexpr.Y
+
+		// 确保变量引用被正确引用
+		if v, ok := left.(*bast.VarExpExpr); ok {
+			left = &bast.Word{Val: fmt.Sprintf(`"$%s"`, v.X.(*bast.Ident).Name)}
+		}
+		if v, ok := right.(*bast.VarExpExpr); ok {
+			right = &bast.Word{Val: fmt.Sprintf(`"$%s"`, v.X.(*bast.Ident).Name)}
+		}
+
+		// 转换操作符
+		var testOp btok.Token
+		switch bexpr.Op {
+		case btok.TsLeq:
+			testOp = btok.TsLeq
+		case btok.TsGtr:
+			testOp = btok.TsGtr
+		case btok.TsGeq:
+			testOp = btok.TsGeq
+		case btok.TsEql:
+			testOp = btok.TsEql
+		case btok.TsNeq:
+			testOp = btok.TsNeq
+		case btok.TsLss:
+			testOp = btok.TsLss
+		default:
+			testOp = btok.TsLss // 默认使用 -lt
+		}
+
+		// 创建 test 表达式 [ left -op right ]
+		return &bast.TestExpr{
+			Lbrack: btok.Pos(1),
+			X: &bast.BinaryExpr{
+				X:  left,
+				Op: testOp,
+				Y:  right,
+			},
+			Rbrack: btok.Pos(1),
+		}
+	}
+
+	return expr
+}
+
+// convertToArithExpr 将 Hulo 的条件表达式转换为 Bash 的算术表达式
+// 例如: $a < 2 转换为 (( a < 2 ))
+func (b *BashTranspiler) convertToArithExpr(expr bast.Expr) bast.Expr {
+	if bexpr, ok := expr.(*bast.BinaryExpr); ok {
+		// 获取左右操作数
+		left := bexpr.X
+		right := bexpr.Y
+
+		// 确保变量引用被正确引用（去掉 $ 前缀）
+		// 注意：这里不需要修改，因为VarExpExpr中的X已经是混淆后的名称
+		if v, ok := left.(*bast.VarExpExpr); ok {
+			left = &bast.Ident{Name: v.X.(*bast.Ident).Name}
+		}
+		if v, ok := right.(*bast.VarExpExpr); ok {
+			right = &bast.Ident{Name: v.X.(*bast.Ident).Name}
+		}
+
+		// 转换操作符
+		var arithOp btok.Token
+		switch bexpr.Op {
+		case btok.TsLeq:
+			arithOp = btok.LessEqual
+		case btok.TsGtr:
+			arithOp = btok.RdrOut
+		case btok.TsGeq:
+			arithOp = btok.GreatEqual
+		case btok.TsEql:
+			arithOp = btok.Equal
+		case btok.TsNeq:
+			arithOp = btok.NotEqual
+		case btok.TsLss:
+			arithOp = btok.RdrIn // 用 -lt 代表 <，在 Bash 算术表达式里就是 <
+		default:
+			arithOp = btok.RdrIn // 默认用 <
+		}
+
+		// 创建算术表达式 (( left op right ))
+		return &bast.ArithEvalExpr{
+			Lparen: btok.Pos(1),
+			X: &bast.BinaryExpr{
+				X:  left,
+				Op: arithOp,
+				Y:  right,
+			},
+			Rparen: btok.Pos(1),
+		}
+	}
+
+	return expr
+}
+
+// convertReadCommand 将 read("prompt") 转换为 read -p "prompt" variable
+func (b *BashTranspiler) convertReadCommand(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
+	// 获取变量名
+	var varName string
+	if refExpr, ok := lhs.(*hast.RefExpr); ok {
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			varName = ident.Name
+		}
+	} else if ident, ok := lhs.(*hast.Ident); ok {
+		varName = ident.Name
+	}
+
+	// 获取提示信息
+	var prompt string
+	if len(callExpr.Recv) > 0 {
+		if strLit, ok := callExpr.Recv[0].(*bast.Word); ok {
+			prompt = strLit.Val
+		}
+	}
+
+	// 创建 read -p "prompt" variable 命令
+	return &bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "read"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: "-p"},
+				&bast.Word{Val: prompt},
+				&bast.Ident{Name: varName},
+			},
+		},
+	}
+}
+
+// ConvertArrayLiteralExpr 转换数组字面量表达式
+func (b *BashTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
+	var elements []bast.Expr
+	for _, elem := range node.Elems {
+		converted := b.Convert(elem)
+		if converted != nil {
+			if expr, ok := converted.(bast.Expr); ok {
+				elements = append(elements, expr)
+			}
+		}
+	}
+
+	// 在 Bash 中，数组用括号表示：(item1 item2 item3)
+	return &bast.ArrExpr{
+		Lparen: btok.Pos(1),
+		Vars:   elements,
+		Rparen: btok.Pos(1),
+	}
+}
+
+// ConvertObjectLiteralExpr 转换对象字面量表达式
+func (b *BashTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) bast.Node {
+	// 生成唯一的变量名
+	arrayVarName := fmt.Sprintf("obj_%d", len(b.buffer))
+
+	// 添加 declare -A 声明
+	b.Emit(&bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "declare"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: "-A"},
+				&bast.Ident{Name: arrayVarName},
+			},
+		},
+	})
+
+	// 添加键值对赋值
+	for _, prop := range node.Props {
+		if kv, ok := prop.(*hast.KeyValueExpr); ok {
+			key := b.Convert(kv.Key).(bast.Expr)
+			value := b.Convert(kv.Value).(bast.Expr)
+
+			b.Emit(&bast.AssignStmt{
+				Lhs: &bast.IndexExpr{
+					X:      &bast.Ident{Name: arrayVarName},
+					Lbrack: btok.Pos(1),
+					Y:      key,
+					Rbrack: btok.Pos(1),
+				},
+				Rhs: value,
+			})
+		}
+	}
+
+	// 返回变量引用
+	return &bast.Ident{Name: arrayVarName}
+}
+
+// ConvertForInStmt 转换 for-in 循环
+func (b *BashTranspiler) ConvertForInStmt(node *hast.ForInStmt) bast.Node {
+	// 转换循环变量 - Index 是 *Ident 类型
+	loopVarName := node.Index.Name
+
+	// 转换范围表达式
+	rangeExpr := b.Convert(&node.RangeExpr).(bast.Expr)
+
+	// 转换循环体
+	body := b.Convert(node.Body).(*bast.BlockStmt)
+
+	// 在 Bash 中，for-in 循环格式：for var in list; do ... done
+	return &bast.ForInStmt{
+		For:  btok.Pos(1),
+		Var:  &bast.Ident{Name: loopVarName}, // 使用变量名，不是 $var
+		In:   btok.Pos(1),
+		List: rangeExpr,
+		Semi: btok.Pos(1),
+		Do:   btok.Pos(1),
+		Body: body,
+		Done: btok.Pos(1),
+	}
+}
+
+// ConvertForeachStmt 转换 foreach 循环
+func (b *BashTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
+	if node.Tok == htok.OF {
+		return b.ConvertForOfStmt(node)
+	}
+
+	// 转换循环变量 - 处理解构赋值和单个变量
+	var loopVarName string
+
+	// 检查是否是解构赋值，如 ($key, $value)
+	// 暂时简化处理，只处理单个变量
+	if refExpr, ok := node.Index.(*hast.RefExpr); ok {
+		// 单个变量，如 $item
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			loopVarName = ident.Name
+		}
+	}
+	// 如果没有找到变量名，使用默认值
+	if loopVarName == "" {
+		loopVarName = "item"
+	}
+
+	// 转换要遍历的变量/数组
+	var listExpr bast.Expr
+	if refExpr, ok := node.Var.(*hast.RefExpr); ok {
+		// 如果是变量引用，如 $arr
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			listExpr = &bast.VarExpExpr{X: &bast.Ident{Name: ident.Name}}
+		}
+	} else if arrayLit, ok := node.Var.(*hast.ArrayLiteralExpr); ok {
+		// 如果是数组字面量，如 [0, 1, 2]
+		listExpr = b.Convert(arrayLit).(bast.Expr)
+	}
+	// 如果没有找到列表表达式，使用默认值
+	if listExpr == nil {
+		listExpr = &bast.Word{Val: "$arr"}
+	}
+
+	// 转换循环体
+	body := b.Convert(node.Body).(*bast.BlockStmt)
+
+	// 在 Bash 中，foreach 循环格式：for var in list; do ... done
+	return &bast.ForInStmt{
+		For:  btok.Pos(1),
+		Var:  &bast.Ident{Name: loopVarName}, // 使用变量名，不是 $var
+		In:   btok.Pos(1),
+		List: listExpr,
+		Semi: btok.Pos(1),
+		Do:   btok.Pos(1),
+		Body: body,
+		Done: btok.Pos(1),
+	}
+}
+
+func (b *BashTranspiler) ConvertForOfStmt(node *hast.ForeachStmt) bast.Node {
+	// 获取要遍历的关联数组变量名
+	var arrayVarName string
+	if refExpr, ok := node.Var.(*hast.RefExpr); ok {
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			// 查找符号表中的混淆名称
+			if b.currentModule != nil {
+				if symbol := b.currentModule.Symbols.LookupSymbol(ident.Name); symbol != nil {
+					arrayVarName = symbol.MangledName
+				} else {
+					arrayVarName = ident.Name
+				}
+			} else {
+				arrayVarName = ident.Name
+			}
+		}
+	}
+	if arrayVarName == "" {
+		arrayVarName = "config"
+	}
+
+	// 如果变量是对象字面量，直接转换它
+	if objLit, ok := node.Var.(*hast.ObjectLiteralExpr); ok {
+		// 直接转换对象字面量，它会返回变量引用
+		arrayVarExpr := b.Convert(objLit).(*bast.Ident)
+		arrayVarName = arrayVarExpr.Name
+	}
+
+	// 分析解构赋值模式
+	var keyVarName, valueVarName string
+	var isKeyOnly, isValueOnly bool
+
+	// 检查解构赋值模式
+	// 暂时简化处理，只处理单个变量
+	if refExpr, ok := node.Index.(*hast.RefExpr); ok {
+		// 单个变量，如 $key
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			keyVarName = ident.Name
+			isKeyOnly = true
+		}
+	}
+
+	// 转换循环体
+	body := b.Convert(node.Body).(*bast.BlockStmt)
+
+	// 根据解构模式生成不同的 Bash 循环
+	if keyVarName != "" && valueVarName != "" {
+		// 模式：($key, $value) - 遍历 key 和 value
+		return &bast.ForInStmt{
+			For:  btok.Pos(1),
+			Var:  &bast.Ident{Name: keyVarName},
+			In:   btok.Pos(1),
+			List: &bast.Word{Val: fmt.Sprintf(`"${!%s[@]}"`, arrayVarName)},
+			Semi: btok.Pos(1),
+			Do:   btok.Pos(1),
+			Body: &bast.BlockStmt{
+				List: []bast.Stmt{
+					&bast.AssignStmt{
+						Lhs: &bast.Ident{Name: valueVarName},
+						Rhs: &bast.Word{Val: fmt.Sprintf(`"${%s[$%s]}"`, arrayVarName, keyVarName)},
+					},
+					body.List[0], // 原始的 echo 语句
+				},
+			},
+			Done: btok.Pos(1),
+		}
+	} else if isKeyOnly {
+		// 模式：($key, _) 或 $key - 只遍历 key
+		return &bast.ForInStmt{
+			For:  btok.Pos(1),
+			Var:  &bast.Ident{Name: keyVarName},
+			In:   btok.Pos(1),
+			List: &bast.Word{Val: fmt.Sprintf(`"${!%s[@]}"`, arrayVarName)},
+			Semi: btok.Pos(1),
+			Do:   btok.Pos(1),
+			Body: body,
+			Done: btok.Pos(1),
+		}
+	} else if isValueOnly {
+		// 模式：(_, $value) - 只遍历 value
+		return &bast.ForInStmt{
+			For:  btok.Pos(1),
+			Var:  &bast.Ident{Name: valueVarName},
+			In:   btok.Pos(1),
+			List: &bast.Word{Val: fmt.Sprintf(`"${%s[@]}"`, arrayVarName)},
+			Semi: btok.Pos(1),
+			Do:   btok.Pos(1),
+			Body: body,
+			Done: btok.Pos(1),
+		}
+	}
+
+	// 默认情况
+	return &bast.ForInStmt{
+		For:  btok.Pos(1),
+		Var:  &bast.Ident{Name: "key"},
+		In:   btok.Pos(1),
+		List: &bast.Word{Val: fmt.Sprintf(`"${!%s[@]}"`, arrayVarName)},
+		Semi: btok.Pos(1),
+		Do:   btok.Pos(1),
+		Body: body,
+		Done: btok.Pos(1),
+	}
+}
+
+// bindObjectLiteral 绑定对象字面量到符号
+func (b *BashTranspiler) bindObjectLiteral(symbol *Symbol, objLit *hast.ObjectLiteralExpr) {
+	// 使用符号的生成名称
+	arrayVarName := symbol.MangledName
+
+	// 生成关联数组声明
+	b.Emit(&bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "declare"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: "-A"},
+				&bast.Ident{Name: arrayVarName},
+			},
+		},
+	})
+
+	// 添加键值对赋值
+	for _, prop := range objLit.Props {
+		if kv, ok := prop.(*hast.KeyValueExpr); ok {
+			key := b.Convert(kv.Key).(bast.Expr)
+			value := b.Convert(kv.Value).(bast.Expr)
+
+			b.Emit(&bast.AssignStmt{
+				Lhs: &bast.IndexExpr{
+					X:      &bast.Ident{Name: arrayVarName},
+					Lbrack: btok.Pos(1),
+					Y:      key,
+					Rbrack: btok.Pos(1),
+				},
+				Rhs: value,
+			})
+		}
+	}
+}
+
 // getModuleName 从路径获取模块名
 func (b *BashTranspiler) getModuleName(path string) string {
 	// 简单的实现，从路径中提取文件名（不含扩展名）
@@ -874,4 +1453,97 @@ func (b *BashTranspiler) getModuleName(path string) string {
 		baseName = baseName[:idx]
 	}
 	return baseName
+}
+
+// ConvertMatchStmt 将 match 语句转换为 case 语句
+func (b *BashTranspiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
+	// 转换匹配表达式
+	matchExpr := b.Convert(node.Expr).(bast.Expr)
+
+	// 收集所有 case 子句
+	var patterns []*bast.CaseClause
+
+	// 处理所有 case 子句
+	for _, caseClause := range node.Cases {
+		// 转换 case 条件
+		cond := b.Convert(caseClause.Cond).(bast.Expr)
+
+		// 转换 case 体
+		var caseBody *bast.BlockStmt
+		if caseClause.Body != nil {
+			converted := b.Convert(caseClause.Body)
+			if block, ok := converted.(*bast.BlockStmt); ok {
+				caseBody = block
+			} else {
+				caseBody = &bast.BlockStmt{
+					List: []bast.Stmt{converted.(bast.Stmt)},
+				}
+			}
+		} else {
+			caseBody = &bast.BlockStmt{List: []bast.Stmt{}}
+		}
+
+		// 创建 case 子句
+		pattern := &bast.CaseClause{
+			Conds: []bast.Expr{cond},
+			Body:  caseBody,
+			Semi:  btok.Pos(1), // ;;
+		}
+
+		patterns = append(patterns, pattern)
+	}
+
+	// 处理默认分支
+	var elseBody *bast.BlockStmt
+	if node.Default != nil {
+		if node.Default.Body != nil {
+			converted := b.Convert(node.Default.Body)
+			if block, ok := converted.(*bast.BlockStmt); ok {
+				elseBody = block
+			} else {
+				elseBody = &bast.BlockStmt{
+					List: []bast.Stmt{converted.(bast.Stmt)},
+				}
+			}
+		} else {
+			elseBody = &bast.BlockStmt{List: []bast.Stmt{}}
+		}
+	}
+
+	// 创建 case 语句
+	return &bast.CaseStmt{
+		Case:     btok.Pos(1),
+		X:        matchExpr,
+		In:       btok.Pos(1),
+		Patterns: patterns,
+		Else:     elseBody,
+		Esac:     btok.Pos(1),
+	}
+}
+
+// ConvertDoWhileStmt 将 do-while 语句转换为 while 循环
+func (b *BashTranspiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) bast.Node {
+	// 转换循环体
+	body := b.Convert(node.Body).(*bast.BlockStmt)
+
+	// 转换条件表达式
+	cond := b.Convert(node.Cond).(bast.Expr)
+
+	// 在 Bash 中，do-while 循环可以通过以下方式实现：
+	// 1. 先执行一次循环体
+	// 2. 然后使用 while 循环，条件是原来的条件
+	// 3. 在 while 循环中再次执行循环体
+
+	// 创建 while 循环
+	whileStmt := &bast.WhileStmt{
+		While: btok.Pos(1),
+		Cond:  cond,
+		Semi:  btok.Pos(1),
+		Do:    btok.Pos(1),
+		Body:  body,
+		Done:  btok.Pos(1),
+	}
+
+	// 返回 while 语句（因为 do-while 在 Bash 中就是 while 循环）
+	return whileStmt
 }

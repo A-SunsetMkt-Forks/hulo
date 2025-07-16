@@ -1,7 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package util
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/hulo-lang/hulo/internal/container"
-	"github.com/hulo-lang/hulo/internal/util"
 )
 
 func TestNewAllocator(t *testing.T) {
@@ -53,7 +52,7 @@ func TestNewAllocator(t *testing.T) {
 		},
 		{
 			name: "custom lock",
-			opts: []AllocatorOption{WithLock(&util.NoOpLocker{})},
+			opts: []AllocatorOption{WithLock(&NoOpLocker{})},
 			check: func(t *testing.T, a *Allocator) {
 				if a.lock == nil {
 					t.Error("expected non-nil lock")

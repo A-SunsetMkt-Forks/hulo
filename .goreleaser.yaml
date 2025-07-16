@@ -16,19 +16,53 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - id: hulo
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
       - windows
       - darwin
-    main: ./cmd
+    main: ./cmd/hulo
+    binary: hulo
     ldflags:
       - -s -w
-      - -X main.Version={{.Env.Version}}
-      - -X main.Date={{.Date}}
-      - -X main.Commit={{.Commit}}
-      - -X main.GoVersion={{.Env.GOVERSION}}
+      - -X github.com/hulo-lang/hulo/cmd/meta.Version={{.Env.Version}}
+      - -X github.com/hulo-lang/hulo/cmd/meta.Date={{.Date}}
+      - -X github.com/hulo-lang/hulo/cmd/meta.Commit={{.Commit}}
+      - -X github.com/hulo-lang/hulo/cmd/meta.GoVersion={{.Env.GOVERSION}}
+
+  - id: hulo-repl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./cmd/hulo-repl
+    binary: hulo-repl
+    ldflags:
+      - -s -w
+      - -X github.com/hulo-lang/hulo/cmd.Version={{.Env.Version}}
+      - -X github.com/hulo-lang/hulo/cmd.Date={{.Date}}
+      - -X github.com/hulo-lang/hulo/cmd.Commit={{.Commit}}
+      - -X github.com/hulo-lang/hulo/cmd.GoVersion={{.Env.GOVERSION}}
+
+  - id: hlpm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./cmd/hlpm
+    binary: hlpm
+    ldflags:
+      - -s -w
+      - -X github.com/hulo-lang/hulo/cmd.Version={{.Env.Version}}
+      - -X github.com/hulo-lang/hulo/cmd.Date={{.Date}}
+      - -X github.com/hulo-lang/hulo/cmd.Commit={{.Commit}}
+      - -X github.com/hulo-lang/hulo/cmd.GoVersion={{.Env.GOVERSION}}
 
 archives:
   - formats: [tar.gz]
@@ -53,6 +87,12 @@ archives:
       - CODE_OF_CONDUCT.md
       - src: internal/std/**/*
         dst: std
+      - src: dist/hulo_{{.Os}}_{{.Arch}}_*/hulo*
+        dst: bin/
+      - src: dist/hulo-repl_{{.Os}}_{{.Arch}}_*/hulo-repl*
+        dst: bin/
+      - src: dist/hlpm_{{.Os}}_{{.Arch}}_*/hlpm*
+        dst: bin/
 
 changelog:
   sort: asc

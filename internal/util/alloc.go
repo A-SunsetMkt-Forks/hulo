@@ -1,13 +1,11 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package util
 
 import (
 	"fmt"
 	"sync"
-
-	"github.com/hulo-lang/hulo/internal/util"
 )
 
 // AllocatorOption defines a function that configures an Allocator
@@ -86,7 +84,7 @@ type Allocator struct {
 func NewAllocator(opts ...AllocatorOption) *Allocator {
 	// Create allocator with default values
 	allocator := &Allocator{
-		lock:       &util.NoOpLocker{}, // Default lock implementation
+		lock:       &NoOpLocker{}, // Default lock implementation
 		nameMap:    make(map[string]string),
 		reverseMap: make(map[string]string),
 		prefix:     "_v", // Default prefix

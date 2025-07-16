@@ -7,57 +7,50 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/caarlos0/log"
-
 	build "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
-	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
-	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
-	"github.com/hulo-lang/hulo/syntax/hulo/parser"
-	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBuild(t *testing.T) {
-	node, err := build.Translate(&config.BashOptions{}, &hast.File{
-		Stmts: []hast.Stmt{
-			&hast.IfStmt{
-				Cond: &hast.BinaryExpr{
-					X:  &hast.Ident{Name: "x"},
-					Op: htok.EQ,
-					Y: &hast.BasicLit{
-						Kind:  htok.NUM,
-						Value: "10",
-					},
-				},
-				Body: &hast.BlockStmt{
-					List: []hast.Stmt{
-						&hast.ExprStmt{
-							X: &hast.CallExpr{
-								Fun: &hast.Ident{Name: "echo"},
-								Recv: []hast.Expr{
-									&hast.BasicLit{Kind: htok.STR, Value: "Hello, World!"},
-								},
-							},
-						},
-					},
-				},
-			},
-		}})
-	assert.NoError(t, err)
-	bast.Print(node)
+	// node, err := build.Translate(&config.BashOptions{}, &hast.File{
+	// 	Stmts: []hast.Stmt{
+	// 		&hast.IfStmt{
+	// 			Cond: &hast.BinaryExpr{
+	// 				X:  &hast.Ident{Name: "x"},
+	// 				Op: htok.EQ,
+	// 				Y: &hast.BasicLit{
+	// 					Kind:  htok.NUM,
+	// 					Value: "10",
+	// 				},
+	// 			},
+	// 			Body: &hast.BlockStmt{
+	// 				List: []hast.Stmt{
+	// 					&hast.ExprStmt{
+	// 						X: &hast.CallExpr{
+	// 							Fun: &hast.Ident{Name: "echo"},
+	// 							Recv: []hast.Expr{
+	// 								&hast.BasicLit{Kind: htok.STR, Value: "Hello, World!"},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}})
+	// assert.NoError(t, err)
+	// bast.Print(node)
 }
 
 func TestSorceScriptBuild(t *testing.T) {
-	log.SetLevel(log.ErrorLevel)
-	script := `echo "Hello, World!" 3.14 true`
-	node, err := parser.ParseSourceScript(script)
-	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.BashOptions{}, node)
-	assert.NoError(t, err)
-	bast.Print(bnode)
+	// script := `echo "Hello, World!" 3.14 true`
+	// node, err := parser.ParseSourceScript(script)
+	// assert.NoError(t, err)
+	// // hast.Print(node)
+	// bnode, err := build.Translate(&config.BashOptions{}, node)
+	// assert.NoError(t, err)
+	// bast.Print(bnode)
 }
 
 func TestBuildModule(t *testing.T) {
@@ -68,7 +61,7 @@ declare fn echo(message: str);
 		`,
 		"my_script.hl": `
 			pub fn greet() {
-				echo("Hello, World!")
+				echo "Hello, World!"
 			}
 		`,
 		"main.hl": `
@@ -82,7 +75,7 @@ declare fn echo(message: str);
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.BashOptions{}, nil, fs, ".", ".", "main.hl")
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -119,7 +112,374 @@ pub fn sqrt(x: num) -> num {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.BashOptions{}, nil, fs, ".", ".", "main.hl")
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTanspileLoop(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			loop $i := 0; $i < 10; $i++ {
+				echo $i
+			}
+			let a = 0
+			loop $a < 2 {
+				echo $a;
+				$a++;
+			}
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTanspileScope(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			let a = 10
+			var b = 3.14
+			const c = "Hello World!"
+			$d := true
+			// {
+			// 	let a = 3
+			// }
+			fn test() {
+				let a = 5
+				echo $a
+			}
+			echo $a
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTanspileIf(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			let a = read("Input a:")
+			let b = read("Input b:")
+
+			if $a > 10 {
+				echo "a is greater than 10"
+				if $b > 20 {
+					echo "b is greater than 20"
+				} else {
+					echo "b is less than or equal to 20"
+				}
+			} else if $a < 0 {
+				echo "a is less than 0"
+			} else {
+				echo "a is between 0 and 10"
+			}
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileImport(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"math.hl": `
+			pub fn add(a: num, b: num) -> num {
+				return $a + $b
+			}
+
+			pub fn sub_(a: num, b: num) -> num {
+				return $a - $b
+			}
+
+			pub fn mul(a: num, b: num) -> num {
+				return $a * $b
+			}
+
+			pub fn div(a: num, b: num) -> num {
+				return $a / $b
+			}
+		`,
+		"main.hl": `
+			import "math"
+
+			echo(math.div(10, 2))
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileComment(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+// this is a comment
+
+/*
+ * this
+ *    is a multi
+ * comment
+ */
+
+/**
+ * this
+ *    is a multi
+ * comment
+ */
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileFunc(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+fn helloWorld() {
+	echo "Hello, World!"
+}
+
+fn sayHello(name: str) -> void {
+	echo "Hello, $name!"
+}
+
+fn add(a: num, b: num) => $a + $b
+
+fn multiply(a: num, b: num) -> num {
+	return $a * $b
+}
+
+helloWorld;
+sayHello "Hulo";
+echo add(1, 2);
+echo multiply(1, 2);
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileForIn(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+let arr: list<num> = [1, 2, 3, 4, 5]
+
+loop $item in $arr {
+    echo $item
+}
+
+loop $i in [0, 1, 2] {
+	echo $i
+}`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileForOf(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+let config: map<str, str> = {"host": "localhost", "port": "8080"}
+loop ($key, $value) of $config {
+    echo "$key = $value"
+}
+loop ($key, _) of $config {
+    echo $key
+}
+
+loop (_, $value) of $config {
+    echo $value
+}
+
+loop $key of $config {
+    echo $key
+}`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileMatch(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			let n = read("Input a number:");
+
+			match $n {
+				0 => echo "The number is 0.",
+				1 => echo "The number is 1.",
+				_ => echo "The number is not 0 or 1."
+			}
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileDoWhile(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			let a = 15
+			do {
+				echo "Hello, World!";
+				$a--;
+			} loop ($a > 0);
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileClass(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			class User {
+				pub name: str
+				pub age: num
+
+				pub fn to_str() -> str {
+					return "User(name: $name, age: $age)"
+				}
+
+				pub fn greet(other: str) {
+					echo "Hello, $other! I'm $name."
+				}
+			}
+
+			let u = User("John", 20)
+			echo $u.to_str();
+			$u.greet("Jane");
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{}, fs, ".", ".", "main.hl")
 	assert.NoError(t, err)
 
 	for file, code := range results {
