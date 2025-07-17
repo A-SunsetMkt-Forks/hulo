@@ -15,21 +15,25 @@ type HuloPkg struct {
 	Homepage     string            `yaml:"homepage"`
 	Keywords     []string          `yaml:"keywords"`
 	Scripts      map[string]string `yaml:"scripts"`
-	Dependencies map[string]Dependency      `yaml:"dependencies"`
+	Dependencies map[string]string `yaml:"dependencies"`
+	Main         string            `yaml:"main"`
 }
 
 func NewHuloPkg() *HuloPkg {
 	return &HuloPkg{
-		Name:         "untitled",
-		Version:      "0.1.0",
-		Description:  "A Hulo package",
-		Author:       "",
-		License:      "MIT",
-		Repository:   "",
-		Homepage:     "",
-		Keywords:     []string{},
-		Scripts:      make(map[string]string),
-		Dependencies: make(map[string]Dependency),
+		Name:        "",
+		Version:     "0.1.0",
+		Description: "A Hulo package",
+		Author:      "",
+		License:     "ISC",
+		Repository:  "",
+		Homepage:    "",
+		Keywords:    []string{},
+		Scripts: map[string]string{
+			"test": `echo "Error: no test specified" && exit 1`,
+		},
+		Dependencies: make(map[string]string),
+		Main:         "main.hl",
 	}
 }
 

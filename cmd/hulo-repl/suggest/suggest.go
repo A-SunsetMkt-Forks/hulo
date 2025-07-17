@@ -1,11 +1,11 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package main
+package suggest
 
 import "github.com/c-bata/go-prompt"
 
-var keyWords = []prompt.Suggest{
+var KeyWords = []prompt.Suggest{
 	// module
 	{Text: "mod", Description: "Module declaration"},
 	{Text: "use", Description: "Use declaration"},
@@ -80,4 +80,13 @@ var keyWords = []prompt.Suggest{
 	// operators
 	{Text: "new", Description: "New operator"},
 	{Text: "delete", Description: "Delete operator"},
+}
+
+var Commands = []prompt.Suggest{
+	{Text: "help", Description: "Show help information"},
+	{Text: "exit", Description: "Exit the REPL"},
+	{Text: "quit", Description: "Exit the REPL"},
+	{Text: "clear", Description: "Clear the screen"},
+	{Text: "config", Description: "Show current configuration"},
+	{Text: "version", Description: "Show version information"},
 }

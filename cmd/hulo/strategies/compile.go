@@ -16,7 +16,7 @@ import (
 	vbs "github.com/hulo-lang/hulo/internal/build/vbs"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/vfs/osfs"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 var _ Strategy = (*CompileStrategy)(nil)
@@ -43,9 +43,9 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 
 	var huloc *config.Huloc
 
-	if localFs.Exists(config.NAME) {
+	if localFs.Exists(config.HulocFileName) {
 		log.Info("reading huloc.yaml")
-		src, err := localFs.ReadFile(config.NAME)
+		src, err := localFs.ReadFile(config.HulocFileName)
 		if err != nil {
 			log.WithError(err).Fatal("fail to read file")
 		}
@@ -116,12 +116,12 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 			var err error
 			switch lang {
 			case config.L_VBSCRIPT:
-				results, err = vbs.Transpile(huloc.CompilerOptions.VBScript, huloc.Main, localFs, ".", huloc.HuloPath)
+				results, err = vbs.Transpile(huloc, localFs, ".", huloc.HuloPath)
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}
 			case config.L_BASH:
-				results, err = bash.Transpile(huloc, localFs, ".", huloc.HuloPath, huloc.Main)
+				results, err = bash.Transpile(huloc, localFs, ".", huloc.HuloPath)
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}

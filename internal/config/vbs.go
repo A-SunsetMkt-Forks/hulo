@@ -5,5 +5,5 @@ package config
 
 // VBScriptOptions is the configuration for the VBScript compiler.
 type VBScriptOptions struct {
-	CommentSyntax string `json:"commentSyntax" validate:"oneof=rem single_quote"`
+	CommentSyntax string `yaml:"comment_syntax" validate:"oneof=rem single_quote"`
 }

@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,7 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "config a package",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello, World!")
+		fmt.Println("HULO_PATH:", os.Getenv("HULO_PATH"))
+		fmt.Println("HULO_MODULES:", os.Getenv("HULO_MODULES"))
 	},
 }

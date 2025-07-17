@@ -9,7 +9,7 @@ import (
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 func TestValidate(t *testing.T) {

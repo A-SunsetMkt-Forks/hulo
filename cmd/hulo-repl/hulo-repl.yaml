@@ -1,0 +1,43 @@
+# Hulo REPL Configuration File
+# This file contains default settings for the Hulo REPL
+
+# General settings
+dry_run: false
+verbose: false
+max_suggestions: 5
+
+# Theme settings
+theme: colorful  # Options: default, dark, light, colorful, monokai
+theme_files:
+  default: "./theme/templates/default.yaml"
+  dark: "./theme/templates/dark.yaml"
+  light: "./theme/templates/light.yaml"
+  colorful: "./theme/templates/colorful.yaml"
+  monokai: "./theme/templates/monokai.yaml"
+
+# History settings
+history_file: "~/.hulo_repl_history"
+
+# Development settings
+development_mode: false
+debug_level: "info"  # Options: debug, info, warn, error
+
+# Custom keybindings (future feature)
+keybindings:
+  clear_screen: "ctrl+l"
+  exit: "ctrl+d"
+  help: "f1"
+
+# debug settings
+transpiler:
+  output: stdout
+  enable: true
+parser:
+  output: stdout
+  enable: true
+analyzer:
+  output: stdout
+  enable: true
+target: bash
+lexer:
+token:

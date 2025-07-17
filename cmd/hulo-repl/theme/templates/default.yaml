@@ -1,0 +1,11 @@
+prefix_text_color: white
+preview_suggestion_text_color: cyan
+preview_suggestion_bg_color: dark_gray
+suggestion_text_color: white
+suggestion_bg_color: dark_gray
+selected_suggestion_text_color: white
+selected_suggestion_bg_color: blue
+description_text_color: light_gray
+description_bg_color: dark_gray
+selected_description_text_color: white
+selected_description_bg_color: red

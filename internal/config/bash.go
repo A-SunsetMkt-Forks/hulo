@@ -5,6 +5,6 @@ package config
 
 // BashOptions is the configuration for the Bash compiler.
 type BashOptions struct {
-	MultiString   string `json:"multiString"`
-	BooleanFormat string `json:"booleanFormat" validate:"oneof=number string command"`
+	MultiString   string `yaml:"multi_string"`
+	BooleanFormat string `yaml:"boolean_format" validate:"oneof=number string command"`
 }

@@ -1,0 +1,16 @@
+prefix_text_color: fuchsia
+prefix_bg_color: black
+input_text_color: white
+input_bg_color: black
+preview_suggestion_text_color: turquoise
+preview_suggestion_bg_color: dark_gray
+suggestion_text_color: light_gray
+suggestion_bg_color: dark_gray
+selected_suggestion_text_color: yellow
+selected_suggestion_bg_color: dark_red
+description_text_color: light_gray
+description_bg_color: dark_gray
+selected_description_text_color: white
+selected_description_bg_color: dark_red
+scrollbar_thumb_color: gray
+scrollbar_bg_color: dark_gray

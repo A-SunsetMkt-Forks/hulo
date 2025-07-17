@@ -4,9 +4,12 @@
 package util
 
 import (
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 func LoadConfigure[T any](path string) (T, error) {
@@ -20,4 +23,37 @@ func LoadConfigure[T any](path string) (T, error) {
 		return *new(T), err
 	}
 	return config, nil
+}
+
+func SaveConfigure[T any](path string, config T) error {
+	content, err := yaml.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+func Download(url string, out io.Writer) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
+}
+
+func Exists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

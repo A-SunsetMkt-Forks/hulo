@@ -5,19 +5,30 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/opencommand/tinge"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
+type initParameters struct {
+	All   bool
+	Files []string
+}
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "init a package",
 	Run: func(cmd *cobra.Command, args []string) {
+		if util.Exists(config.HuloPkgFileName) {
+			log.Fatal("package already exists")
+		}
+
 		log.Info(tinge.Styled().
 			Bold("generating").
 			Space().
@@ -25,6 +36,11 @@ var initCmd = &cobra.Command{
 			String())
 
 		pkg := config.NewHuloPkg()
+		wd, err := os.Getwd()
+		if err != nil {
+			wd = "my-project"
+		}
+		pkg.Name = filepath.Base(wd)
 		out, err := yaml.Marshal(&pkg)
 		if err != nil {
 			log.WithError(err).Fatal("fail to marshal package")

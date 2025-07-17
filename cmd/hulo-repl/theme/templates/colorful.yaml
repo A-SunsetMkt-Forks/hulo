@@ -1,0 +1,19 @@
+# Colorful Theme for Hulo REPL
+# A vibrant and colorful theme
+
+prefix_text_color: yellow
+prefix_bg_color: dark_blue
+input_text_color: white
+input_bg_color: dark_blue
+preview_suggestion_text_color: cyan
+preview_suggestion_bg_color: dark_gray
+suggestion_text_color: white
+suggestion_bg_color: dark_gray
+selected_suggestion_text_color: yellow
+selected_suggestion_bg_color: red
+description_text_color: light_gray
+description_bg_color: dark_gray
+selected_description_text_color: white
+selected_description_bg_color: red
+scrollbar_thumb_color: purple
+scrollbar_bg_color: dark_gray

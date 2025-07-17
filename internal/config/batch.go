@@ -5,5 +5,5 @@ package config
 
 // BatchOptions is the configuration for the Batch compiler.
 type BatchOptions struct {
-	CommentSyntax string `json:"commentSyntax" validate:"oneof=rem double_colon"`
+	CommentSyntax string `yaml:"comment_syntax" validate:"oneof=rem double_colon"`
 }

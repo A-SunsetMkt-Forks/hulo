@@ -192,10 +192,10 @@ func (b *BashTranspiler) analyzeModuleExports(module *Module) {
 	}
 }
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string, huloPath string, mainFile string) (map[string]string, error) {
+func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string, huloPath string) (map[string]string, error) {
 	tr := NewBashTranspiler(opts, vfs)
 	tr.moduleManager.basePath = basePath
-	return tr.Transpile(mainFile)
+	return tr.Transpile(opts.Main)
 }
 
 func (b *BashTranspiler) Convert(node hast.Node) bast.Node {

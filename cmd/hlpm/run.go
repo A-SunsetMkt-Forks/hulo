@@ -129,7 +129,7 @@ func findHuloExecutable() (string, error) {
 
 	// 2. 查找 hlpm 同目录
 	hlpmDir := filepath.Dir(os.Args[0])
-	huloPath = filepath.Join(hlpmDir, "hulo.exe")
+	huloPath = filepath.Join(hlpmDir, exe)
 	if _, err := os.Stat(huloPath); err == nil {
 		return huloPath, nil
 	}
