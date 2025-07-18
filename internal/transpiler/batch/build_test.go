@@ -1,13 +1,13 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build_test
+package transpiler_test
 
 import (
 	"testing"
 
 	"github.com/caarlos0/log"
-	build "github.com/hulo-lang/hulo/internal/build/batch"
+	build "github.com/hulo-lang/hulo/internal/transpiler/batch"
 	"github.com/hulo-lang/hulo/internal/config"
 	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"

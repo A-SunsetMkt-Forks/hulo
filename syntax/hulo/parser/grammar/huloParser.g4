@@ -248,17 +248,19 @@ longOption: DEC Identifier;
  * my_cmd.std::grep -o "abc" "a.txt" "b.txt" -- -os platform::win32
  */
 commandExpression:
-    (memberAccess | CommandStringLiteral) (option conditionalExpression?)* (
-        conditionalExpression
-        | memberAccess
-    )* (BITAND DEC (option conditionalExpression?)*)? (commandJoin | commandStream)?
+    (memberAccess | CommandStringLiteral) commandArgument* BITAND? builtinCommandArgument? (
+        commandJoin
+        | commandStream
+    )?
 ;
+
+commandArgument: option | conditionalExpression | memberAccess;
+
+builtinCommandArgument: TRIPLE_MINUS commandArgument*;
 
 commandJoin: (AND | OR) commandExpression;
 
 commandStream: (BITOR | LT | GT | SHL | SHR) commandExpression;
-
-commandMemberAccess: Identifier memberAccessPoint?;
 
 commandAccessPoint:
     DOT Identifier commandAccessPoint?

@@ -1,4 +1,4 @@
-package build
+package transpiler
 
 import (
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"

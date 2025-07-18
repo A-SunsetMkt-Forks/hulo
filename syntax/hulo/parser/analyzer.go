@@ -753,19 +753,74 @@ func (a *Analyzer) VisitLambdaBody(ctx *generated.LambdaBodyContext) any {
 }
 
 // VisitCommandExpression implements the Visitor interface for CommandExpression
+
+func (a *Analyzer) VisitOption(ctx *generated.OptionContext) any {
+	return a.visitWrapper("Option", ctx, func() any {
+		// Handle short option like -e
+		if ctx.ShortOption() != nil {
+			shortOpt := ctx.ShortOption()
+			// Combine SUB (-) and Identifier (e) to form "-e"
+			optionText := shortOpt.SUB().GetText() + shortOpt.Identifier().GetText()
+			return &ast.Ident{
+				NamePos: token.Pos(shortOpt.SUB().GetSymbol().GetStart()),
+				Name:    optionText,
+			}
+		}
+
+		// Handle long option like --verbose
+		if ctx.LongOption() != nil {
+			longOpt := ctx.LongOption()
+			// Combine DEC (--) and Identifier (verbose) to form "--verbose"
+			optionText := longOpt.DEC().GetText() + longOpt.Identifier().GetText()
+			return &ast.Ident{
+				NamePos: token.Pos(longOpt.DEC().GetSymbol().GetStart()),
+				Name:    optionText,
+			}
+		}
+
+		return nil
+	})
+}
+
+func (a *Analyzer) VisitCommandArgument(ctx *generated.CommandArgumentContext) any {
+	return a.visitWrapper("CommandArgument", ctx, func() any {
+		// Check each possible child type and visit it if present
+		if ctx.Option() != nil {
+			// TODO: option 就提取字面量，貌似GetText就可以
+			return &ast.Ident{
+				NamePos: token.Pos(ctx.Option().GetStart().GetStart()),
+				Name:    ctx.Option().GetText(),
+			}
+		}
+		if ctx.ConditionalExpression() != nil {
+			expr, _ := accept[ast.Expr](ctx.ConditionalExpression(), a)
+			return expr
+		}
+		if ctx.MemberAccess() != nil {
+			expr, _ := accept[ast.Expr](ctx.MemberAccess(), a)
+			return expr
+		}
+		// If none of the expected children are present, return nil
+		return nil
+	})
+}
+
 func (a *Analyzer) VisitCommandExpression(ctx *generated.CommandExpressionContext) any {
 	return a.visitWrapper("CommandExpression", ctx, func() any {
 		var fun ast.Expr
 		var recv []ast.Expr
 
-		// Handle command string literal or member access
+		// Handle command string literal or identifier
 		if ctx.CommandStringLiteral() != nil {
 			fun = &ast.StringLiteral{
 				Value:    ctx.CommandStringLiteral().GetText(),
 				ValuePos: token.Pos(ctx.CommandStringLiteral().GetSymbol().GetStart()),
 			}
-		} else if len(ctx.AllMemberAccess()) > 0 {
-			fun, _ = accept[ast.Expr](ctx.MemberAccess(0), a)
+		} else if ctx.MemberAccess() != nil {
+			// First memberAccess is the command name
+			if memberAccess, ok := accept[ast.Expr](ctx.MemberAccess(), a); ok {
+				fun = memberAccess
+			}
 		}
 
 		ce, isComptime := fun.(*ast.ComptimeExpr)
@@ -773,58 +828,70 @@ func (a *Analyzer) VisitCommandExpression(ctx *generated.CommandExpressionContex
 			fun = ce.X
 		}
 
-		// Handle options and arguments
-		for _, opt := range ctx.AllOption() {
-			optExpr, _ := accept[ast.Expr](opt, a)
-			if optExpr != nil {
-				recv = append(recv, optExpr)
-			}
-		}
-
-		for _, expr := range ctx.AllConditionalExpression() {
-			arg, _ := accept[ast.Expr](expr, a)
-			if arg != nil {
+		// Collect arguments in order from commandArgument list
+		for _, argCtx := range ctx.AllCommandArgument() {
+			if arg, ok := accept[ast.Expr](argCtx, a); ok {
 				recv = append(recv, arg)
 			}
 		}
 
-		// Handle additional member access arguments (skip the first one which is the command name)
-		for i := 1; i < len(ctx.AllMemberAccess()); i++ {
-			arg, _ := accept[ast.Expr](ctx.MemberAccess(i), a)
-			if arg != nil {
-				recv = append(recv, arg)
+		isAsync := false
+		if ctx.BITAND() != nil {
+			isAsync = true
+		}
+
+		builtinArgs := []ast.Expr{}
+		if ctx.BuiltinCommandArgument() != nil {
+			for _, argCtx := range ctx.BuiltinCommandArgument().AllCommandArgument() {
+				arg, _ := accept[ast.Expr](argCtx, a)
+				builtinArgs = append(builtinArgs, arg)
 			}
 		}
 
+		var call ast.Expr
 		// Create CallExpr
-		call := &ast.CallExpr{
-			Fun:    fun,
-			Lparen: token.Pos(ctx.GetStart().GetStart()),
-			Recv:   recv,
-			Rparen: token.Pos(ctx.GetStop().GetStop()),
+		call = &ast.CmdExpr{
+			Cmd:         fun,
+			Args:        recv,
+			IsAsync:     isAsync,
+			BuiltinArgs: builtinArgs,
 		}
 
 		// Handle command join or stream if present
 		if ctx.CommandJoin() != nil {
 			join, _ := accept[ast.Expr](ctx.CommandJoin(), a)
 			if join != nil {
+				tok := token.PIPE
+				if ctx.CommandJoin().AND() != nil {
+					tok = token.CONCAT
+				}
 				// Create a new CallExpr for the joined command
-				call = &ast.CallExpr{
-					Fun:    call,
-					Lparen: token.Pos(ctx.GetStart().GetStart()),
-					Recv:   []ast.Expr{join},
-					Rparen: token.Pos(ctx.GetStop().GetStop()),
+				call = &ast.BinaryExpr{
+					X:  call,
+					Op: tok,
+					Y:  join,
 				}
 			}
 		} else if ctx.CommandStream() != nil {
 			stream, _ := accept[ast.Expr](ctx.CommandStream(), a)
 			if stream != nil {
+				var tok token.Token
+				if ctx.CommandStream().LT() != nil {
+					tok = token.LT
+				} else if ctx.CommandStream().GT() != nil {
+					tok = token.GT
+				} else if ctx.CommandStream().SHL() != nil {
+					tok = token.LT
+				} else if ctx.CommandStream().SHR() != nil {
+					tok = token.GT
+				} else if ctx.CommandStream().BITOR() != nil {
+					tok = token.PIPE
+				}
 				// Create a new CallExpr for the streamed command
-				call = &ast.CallExpr{
-					Fun:    call,
-					Lparen: token.Pos(ctx.GetStart().GetStart()),
-					Recv:   []ast.Expr{stream},
-					Rparen: token.Pos(ctx.GetStop().GetStop()),
+				call = &ast.BinaryExpr{
+					X:  call,
+					Op: tok,
+					Y:  stream,
 				}
 			}
 		}
@@ -869,8 +936,11 @@ func (a *Analyzer) VisitMemberAccess(ctx *generated.MemberAccessContext) any {
 				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
 				Name:    ident,
 			}
-			ret := a.visitMemberAccessPoint(base, ctx.MemberAccessPoint().(*generated.MemberAccessPointContext))
-			return a.wrapComptimeExprssion(ret, isComptime)
+			memberAccessPoint := ctx.MemberAccessPoint()
+			if memberAccessPoint != nil {
+				ret := a.visitMemberAccessPoint(base, memberAccessPoint.(*generated.MemberAccessPointContext))
+				return a.wrapComptimeExprssion(ret, isComptime)
+			}
 		}
 
 		// Handle STR, NUM, BOOL with member access point
@@ -1236,6 +1306,12 @@ func (a *Analyzer) VisitCallExpression(ctx *generated.CallExpressionContext) any
 				}
 			}
 			stmt.X = callExpr
+
+			// Handle chained calls
+			if ctx.CallExpressionLinkedList() != nil {
+				stmt.X = a.processCallExpressionLinkedList(ctx.CallExpressionLinkedList().(*generated.CallExpressionLinkedListContext), stmt.X.(ast.Expr))
+			}
+
 			return ret
 		}
 
@@ -1248,11 +1324,100 @@ func (a *Analyzer) VisitCallExpression(ctx *generated.CallExpressionContext) any
 					callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
 				}
 			}
+
+			// Handle chained calls
+			if ctx.CallExpressionLinkedList() != nil {
+				return a.processCallExpressionLinkedList(ctx.CallExpressionLinkedList().(*generated.CallExpressionLinkedListContext), callExpr)
+			}
+
 			return callExpr
 		}
 
 		return ret
 	})
+}
+
+func (a *Analyzer) VisitCallExpressionLinkedList(ctx *generated.CallExpressionLinkedListContext) any {
+	return a.visitWrapper("CallExpressionLinkedList", ctx, func() any {
+		// This method should not be called directly by the visitor pattern
+		// It should only be called from VisitCallExpression with a base expression
+		return nil
+	})
+}
+
+func (a *Analyzer) processCallExpressionLinkedList(ctx *generated.CallExpressionLinkedListContext, base ast.Expr) ast.Expr {
+	// Handle dot access (e.g., .to_str())
+	if ctx.DOT() != nil {
+		// Create a SelectExpr for the method access
+		selectExpr := &ast.SelectExpr{
+			X:   base,
+			Dot: token.Pos(ctx.DOT().GetSymbol().GetStart()),
+			Y: &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+				Name:    ctx.Identifier().GetText(),
+			},
+		}
+
+		// Create a CallExpr for the method call
+		callExpr := &ast.CallExpr{
+			Fun:    selectExpr,
+			Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+			Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+		}
+
+		// Handle arguments if present
+		if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
+			for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
+				e := a.VisitExpression(expr.(*generated.ExpressionContext))
+				if e != nil {
+					callExpr.Recv = append(callExpr.Recv, e.(ast.Expr))
+				}
+			}
+		}
+
+		// Handle recursive chained calls
+		if ctx.CallExpressionLinkedList() != nil {
+			return a.processCallExpressionLinkedList(ctx.CallExpressionLinkedList().(*generated.CallExpressionLinkedListContext), callExpr)
+		}
+
+		return callExpr
+	}
+
+	// Handle double dot access (e.g., ..to_str()) - cascade operator
+	if ctx.DOUBLE_DOT() != nil {
+		// Create a CascadeExpr for the cascade operation
+		cascadeExpr := &ast.CascadeExpr{
+			X:      base,
+			DblDot: token.Pos(ctx.DOUBLE_DOT().GetSymbol().GetStart()),
+			Y: &ast.CallExpr{
+				Fun: &ast.Ident{
+					NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+					Name:    ctx.Identifier().GetText(),
+				},
+				Lparen: token.Pos(ctx.LPAREN().GetSymbol().GetStart()),
+				Rparen: token.Pos(ctx.RPAREN().GetSymbol().GetStart()),
+			},
+		}
+
+		// Handle arguments if present
+		if ctx.ReceiverArgumentList() != nil && ctx.ReceiverArgumentList().ExpressionList() != nil {
+			for _, expr := range ctx.ReceiverArgumentList().ExpressionList().AllExpression() {
+				e := a.VisitExpression(expr.(*generated.ExpressionContext))
+				if e != nil {
+					cascadeExpr.Y.(*ast.CallExpr).Recv = append(cascadeExpr.Y.(*ast.CallExpr).Recv, e.(ast.Expr))
+				}
+			}
+		}
+
+		// Handle recursive chained calls
+		if ctx.CallExpressionLinkedList() != nil {
+			return a.processCallExpressionLinkedList(ctx.CallExpressionLinkedList().(*generated.CallExpressionLinkedListContext), cascadeExpr)
+		}
+
+		return cascadeExpr
+	}
+
+	return base
 }
 
 func (a *Analyzer) VisitVariableExpression(ctx *generated.VariableExpressionContext) any {

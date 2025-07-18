@@ -1,11 +1,11 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package transpiler
 
 import (
-	"github.com/hulo-lang/hulo/internal/build"
-	"github.com/hulo-lang/hulo/internal/build/bash/strategy"
+	"github.com/hulo-lang/hulo/internal/transpiler"
+	"github.com/hulo-lang/hulo/internal/transpiler/bash/strategy"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
@@ -13,11 +13,11 @@ import (
 type CompileRuleFunc func(node hast.Node) (bast.Node, error)
 
 type HCRDispatcher struct {
-	rules map[string]build.Strategy[bast.Node]
+	rules map[string]transpiler.Strategy[bast.Node]
 }
 
-func (d *HCRDispatcher) Put(fullRule string, cb build.Strategy[bast.Node]) error {
-	hcr, err := build.ParseRule(fullRule)
+func (d *HCRDispatcher) Put(fullRule string, cb transpiler.Strategy[bast.Node]) error {
+	hcr, err := transpiler.ParseRule(fullRule)
 	if err != nil {
 		return err
 	}
@@ -27,8 +27,8 @@ func (d *HCRDispatcher) Put(fullRule string, cb build.Strategy[bast.Node]) error
 	return nil
 }
 
-func (d *HCRDispatcher) Get(ruleName string) (build.Strategy[bast.Node], error) {
-	hcr, err := build.ParseRule(ruleName)
+func (d *HCRDispatcher) Get(ruleName string) (transpiler.Strategy[bast.Node], error) {
+	hcr, err := transpiler.ParseRule(ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (d *HCRDispatcher) Get(ruleName string) (build.Strategy[bast.Node], error) 
 	return d.rules[hcr.Name()], nil
 }
 
-var hcrDispatcher = &HCRDispatcher{rules: make(map[string]build.Strategy[bast.Node])}
+var hcrDispatcher = &HCRDispatcher{rules: make(map[string]transpiler.Strategy[bast.Node])}
 
 func init() {
 	hcrDispatcher.Put("number", &strategy.BooleanAsNumberStrategy{})

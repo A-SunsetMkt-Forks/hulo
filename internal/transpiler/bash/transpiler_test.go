@@ -1,14 +1,14 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build_test
+package transpiler_test
 
 import (
 	"fmt"
 	"testing"
 
-	build "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/config"
+	build "github.com/hulo-lang/hulo/internal/transpiler/bash"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 	"github.com/stretchr/testify/assert"
 )
@@ -56,7 +56,7 @@ func TestSorceScriptBuild(t *testing.T) {
 func TestBuildModule(t *testing.T) {
 	fs := memvfs.New()
 	testFiles := map[string]string{
-		"std/unsafe/bash/constant.hl": `
+		"core/unsafe/bash/index.hl": `
 declare fn echo(message: str);
 		`,
 		"my_script.hl": `
@@ -75,7 +75,7 @@ declare fn echo(message: str);
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -112,7 +112,7 @@ pub fn sqrt(x: num) -> num {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -141,7 +141,7 @@ func TestTanspileLoop(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -174,7 +174,7 @@ func TestTanspileScope(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -210,7 +210,7 @@ func TestTanspileIf(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -251,7 +251,7 @@ func TestTranspileImport(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -285,7 +285,7 @@ func TestTranspileComment(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -324,7 +324,7 @@ echo multiply(1, 2);
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -353,7 +353,7 @@ loop $i in [0, 1, 2] {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -388,7 +388,7 @@ loop $key of $config {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -416,7 +416,7 @@ func TestTranspileMatch(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -442,7 +442,7 @@ func TestTranspileDoWhile(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -479,7 +479,7 @@ func TestTranspileClass(t *testing.T) {
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, ".", ".")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {

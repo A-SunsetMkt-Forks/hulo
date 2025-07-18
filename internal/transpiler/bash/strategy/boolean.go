@@ -1,15 +1,15 @@
 package strategy
 
 import (
-	"github.com/hulo-lang/hulo/internal/build"
+	"github.com/hulo-lang/hulo/internal/transpiler"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
 var (
-	_ build.Strategy[bast.Node] = (*BooleanAsNumberStrategy)(nil)
-	_ build.Strategy[bast.Node] = (*BooleanAsStringStrategy)(nil)
-	_ build.Strategy[bast.Node] = (*BooleanAsCommandStrategy)(nil)
+	_ transpiler.Strategy[bast.Node] = (*BooleanAsNumberStrategy)(nil)
+	_ transpiler.Strategy[bast.Node] = (*BooleanAsStringStrategy)(nil)
+	_ transpiler.Strategy[bast.Node] = (*BooleanAsCommandStrategy)(nil)
 )
 
 type BooleanAsNumberStrategy struct{}

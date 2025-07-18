@@ -1,10 +1,11 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package transpiler
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,7 +19,7 @@ import (
 	vtok "github.com/hulo-lang/hulo/syntax/vbs/token"
 )
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string, huloPath string) (map[string]string, error) {
+func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]string, error) {
 	tr := NewVBScriptTranspiler(opts, vfs)
 	tr.moduleManager.basePath = basePath
 	return tr.Transpile(opts.Main)
@@ -35,6 +36,8 @@ type VBScriptTranspiler struct {
 
 	modules       map[string]*Module
 	currentModule *Module
+
+	builtinModules []*Module
 
 	globalSymbols *SymbolTable
 
@@ -54,6 +57,7 @@ func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler 
 		undefinedSymbols: container.NewMapSet[string](),
 		// 初始化模块管理
 		moduleManager: &ModuleManager{
+			isFirst:  true,
 			options:  opts,
 			vfs:      vfs,
 			basePath: "",
@@ -76,6 +80,14 @@ func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler 
 }
 
 func (b *VBScriptTranspiler) Transpile(mainFile string) (map[string]string, error) {
+	// 解析内置模块
+	builtinModules, err := b.moduleManager.ResolveAllDependencies(filepath.Join(b.opts.HuloPath, "core/unsafe/vbs/index.hl"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve builtin dependencies: %w", err)
+	}
+
+	b.builtinModules = builtinModules
+
 	// 1. 解析所有依赖
 	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
 	if err != nil {
@@ -261,6 +273,8 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 		return v.ConvertExternDecl(node)
 	case *hast.CallExpr:
 		return v.ConvertCallExpr(node)
+	case *hast.CmdExpr:
+		return v.ConvertCmdExpr(node)
 	case *hast.Ident:
 		return &vast.Ident{Name: node.Name}
 	case *hast.NumericLiteral:
@@ -818,25 +832,25 @@ func (v *VBScriptTranspiler) escapeVBScriptString(s string) string {
 }
 
 func (v *VBScriptTranspiler) canResolveFunction(fun *vast.Ident) bool {
-	fmt.Printf("[canResolveFunction] 查找函数: %s\n", fun.Name)
-	fmt.Printf("[canResolveFunction] 当前模块: %s\n", v.currentModule.Path)
-	fmt.Printf("[canResolveFunction] 当前模块符号表函数: %v\n", getMapKeys(v.currentModule.Symbols.functions))
-	fmt.Printf("[canResolveFunction] 当前模块依赖: %v\n", v.currentModule.Dependencies)
+	log.Debugf("[canResolveFunction] 查找函数: %s", fun.Name)
+	log.Debugf("[canResolveFunction] 当前模块: %s", v.currentModule.Path)
+	log.Debugf("[canResolveFunction] 当前模块符号表函数: %v", getMapKeys(v.currentModule.Symbols.functions))
+	log.Debugf("[canResolveFunction] 当前模块依赖: %v", v.currentModule.Dependencies)
 
 	// 1. 查当前模块
 	if v.currentModule.Symbols.HasFunction(fun.Name) {
-		fmt.Printf("[canResolveFunction] 在当前模块符号表找到: %s\n", fun.Name)
+		log.Debugf("[canResolveFunction] 在当前模块符号表找到: %s", fun.Name)
 		return true
 	}
 
 	// 2. 递归查所有依赖
 	visited := make(map[string]bool)
 	found := v.findFunctionInDependencies(v.currentModule, fun.Name, visited)
-	fmt.Printf("[canResolveFunction] 递归依赖查找结果: %v\n", found)
+	log.Debugf("[canResolveFunction] 递归依赖查找结果: %v", found)
 
 	// 3. 查 moduleManager.externalVBS
 	if _, ok := v.moduleManager.externalVBS[fun.Name]; ok {
-		fmt.Printf("[canResolveFunction] 在 moduleManager.externalVBS 找到: %s\n", fun.Name)
+		log.Debugf("[canResolveFunction] 在 moduleManager.externalVBS 找到: %s", fun.Name)
 		return true
 	}
 
@@ -888,6 +902,13 @@ func (v *VBScriptTranspiler) findFunctionInModuleDependencies(module *Module, ta
 	// 检查当前模块是否是目标模块
 	if strings.HasSuffix(module.Path, targetModuleName) || module.Path == targetModuleName {
 		if module.Symbols.HasFunction(funcName) {
+			return true
+		}
+	}
+
+	// 检查内置模块
+	for _, builtinModule := range v.builtinModules {
+		if builtinModule.Symbols.HasFunction(funcName) {
 			return true
 		}
 	}
@@ -987,6 +1008,102 @@ func (v *VBScriptTranspiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 		// For other cases, just convert the function and arguments
 		recv := []vast.Expr{}
 		for _, r := range node.Recv {
+			recv = append(recv, v.Convert(r).(vast.Expr))
+		}
+		return &vast.CallExpr{
+			Func: convertedFun.(vast.Expr),
+			Recv: recv,
+		}
+	}
+}
+
+func (v *VBScriptTranspiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
+	convertedFun := v.Convert(node.Cmd)
+
+	// Handle different types of function expressions
+	switch fun := convertedFun.(type) {
+	case *vast.Ident:
+		// Simple function name
+		if v.currentModule.Symbols.HasClass(fun.Name) {
+			return &vast.CmdExpr{
+				Cmd: &vast.Ident{Name: "New"},
+				Recv: []vast.Expr{
+					&vast.Ident{Name: fun.Name},
+				},
+			}
+		}
+
+		if !v.canResolveFunction(fun) {
+			log.Debugf("has no function %s, enable shell", fun.Name)
+			v.enableShell = true
+
+			recv := []string{}
+			for _, r := range node.Args {
+				arg := v.Convert(r).(vast.Expr).String()
+				if len(arg) >= 2 && arg[0] == '"' && arg[len(arg)-1] == '"' {
+					arg = fmt.Sprintf("\"\"%s\"\"", arg[1:len(arg)-1])
+				}
+				recv = append(recv, arg)
+			}
+
+			return &vast.SelectorExpr{
+				X: &vast.Ident{Name: "shell"},
+				Sel: &vast.CallExpr{
+					Func: &vast.Ident{Name: "Exec"},
+					Recv: []vast.Expr{
+						&vast.BasicLit{
+							Kind:  vtok.STRING,
+							Value: fmt.Sprintf("cmd.exe /c %s %s", fun.Name, strings.Join(recv, " ")),
+						},
+					},
+				},
+			}
+		} else {
+			recv := []vast.Expr{}
+			for _, r := range node.Args {
+				recv = append(recv, v.Convert(r).(vast.Expr))
+			}
+			return &vast.CallExpr{
+				Func: fun,
+				Recv: recv,
+			}
+		}
+	// TODO: 这里有很大的问题 callExpr 居然套娃了 select, 说明语法树解析出问题了，现在暂时将错就错
+	case *vast.SelectorExpr:
+		// Handle module access like utils.Calculate() or $p.greet()
+		// Check if this is a module access (e.g., utils.Calculate)
+		if moduleIdent, ok := fun.X.(*vast.Ident); ok {
+			if funcIdent, ok := fun.Sel.(*vast.Ident); ok {
+				// Check if this is a module access (e.g., utils.Calculate)
+				// vs object method call (e.g., $p2.greet())
+				visited := make(map[string]bool)
+				if v.findFunctionInModuleDependencies(v.currentModule, moduleIdent.Name, funcIdent.Name, visited) {
+					recv := []vast.Expr{}
+					for _, r := range node.Args {
+						recv = append(recv, v.Convert(r).(vast.Expr))
+					}
+					return &vast.CallExpr{
+						Func: funcIdent, // Just use the function name
+						Recv: recv,
+					}
+				}
+				// Otherwise, it's an object method call, keep the selector expression
+			}
+		}
+
+		// Handle other selector expressions (e.g., $p.greet())
+		recv := []vast.Expr{}
+		for _, r := range node.Args {
+			recv = append(recv, v.Convert(r).(vast.Expr))
+		}
+		return &vast.CallExpr{
+			Func: fun,
+			Recv: recv,
+		}
+	default:
+		// For other cases, just convert the function and arguments
+		recv := []vast.Expr{}
+		for _, r := range node.Args {
 			recv = append(recv, v.Convert(r).(vast.Expr))
 		}
 		return &vast.CallExpr{

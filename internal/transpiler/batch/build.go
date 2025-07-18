@@ -1,7 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package transpiler
 
 import (
 	"fmt"
@@ -80,7 +80,7 @@ func translate2Batch(opts *config.BatchOptions, node hast.Node) bast.Node {
 		}
 	case *hast.RefExpr:
 		return &bast.Lit{
-			Val: node.X.String(),
+			Val: node.X.(*hast.Ident).Name,
 		}
 	case *hast.CallExpr:
 		recv := make([]bast.Expr, len(node.Recv))

@@ -1,7 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package transpiler
 
 import (
 	"fmt"
@@ -13,9 +13,9 @@ import (
 	"github.com/hulo-lang/hulo/internal/container"
 	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/hulo-lang/hulo/internal/vfs"
-	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
+	vast "github.com/hulo-lang/hulo/syntax/vbs/ast"
 )
 
 type Module struct {
@@ -25,7 +25,7 @@ type Module struct {
 	Exports      map[string]*ExportInfo
 	Imports      []*ImportInfo
 	Dependencies []string
-	Transpiled   *bast.File
+	Transpiled   *vast.File
 	Symbols      *SymbolTable
 }
 
@@ -112,18 +112,39 @@ func (ss *ScopeStack) Current() *Scope {
 	return ss.scopes[len(ss.scopes)-1]
 }
 
+// ClassSymbol 表示类的符号表信息
+type ClassSymbol struct {
+	Name   string   // 类名
+	Fields []string // 字段名列表
+	Public bool     // 是否为公共类
+}
+
+// EnumValue 表示枚举值的信息
+type EnumValue struct {
+	Name  string // 枚举值名
+	Value string // 实际值
+	Type  string // 值类型：number, string, boolean
+}
+
+// EnumSymbol 表示枚举的符号表信息
+type EnumSymbol struct {
+	Name   string       // 枚举名
+	Values []*EnumValue // 枚举值列表
+}
+
 type SymbolTable struct {
 	// 保留现有的模块级别符号
 	functions map[string]hast.Node
-	classes   map[string]hast.Node
+	classes   map[string]*ClassSymbol
 	constants map[string]hast.Node
 	variables map[string]hast.Node
+	enums     map[string]*EnumSymbol
 
-	// 新增：作用域管理
+	// 作用域管理
 	scopes      *ScopeStack
 	globalScope *Scope
 
-	// 新增：名称分配器
+	// 名称分配器
 	moduleAllocator *util.Allocator            // 模块级别的分配器
 	scopeAllocators map[string]*util.Allocator // 作用域级别的分配器
 	enableMangle    bool
@@ -133,9 +154,10 @@ type SymbolTable struct {
 func NewSymbolTable(moduleName string, enableMangle bool) *SymbolTable {
 	return &SymbolTable{
 		functions: make(map[string]hast.Node),
-		classes:   make(map[string]hast.Node),
+		classes:   make(map[string]*ClassSymbol),
 		constants: make(map[string]hast.Node),
 		variables: make(map[string]hast.Node),
+		enums:     make(map[string]*EnumSymbol),
 
 		scopes: &ScopeStack{},
 		globalScope: &Scope{
@@ -189,8 +211,13 @@ func (st *SymbolTable) AddFunction(name string, node hast.Node) {
 }
 
 // AddClass 添加类
-func (st *SymbolTable) AddClass(name string, node hast.Node) {
-	st.classes[name] = node
+func (st *SymbolTable) AddClass(name string, class *ClassSymbol) {
+	st.classes[name] = class
+}
+
+func (st *SymbolTable) GetClass(name string) (*ClassSymbol, bool) {
+	class, exists := st.classes[name]
+	return class, exists
 }
 
 // AddConstant 添加常量
@@ -198,10 +225,43 @@ func (st *SymbolTable) AddConstant(name string, node hast.Node) {
 	st.constants[name] = node
 }
 
+func (st *SymbolTable) AddEnum(name string, values []*EnumValue) {
+	st.enums[name] = &EnumSymbol{
+		Name:   name,
+		Values: values,
+	}
+}
+
+func (st *SymbolTable) GetEnum(name string) (*EnumSymbol, bool) {
+	enum, exists := st.enums[name]
+	return enum, exists
+}
+
+func (st *SymbolTable) HasEnum(name string) bool {
+	_, exists := st.enums[name]
+	return exists
+}
+
+func (st *SymbolTable) HasEnumValue(enumName, valueName string) bool {
+	if enum, exists := st.enums[enumName]; exists {
+		for _, value := range enum.Values {
+			if value.Name == valueName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // 作用域管理方法
-func (st *SymbolTable) PushScope(scopeType ScopeType, module *Module) *Scope {
+func (st *SymbolTable) PushScope(scopeType ScopeType, module *Module, id ...string) *Scope {
 	parent := st.CurrentScope()
-	scopeID := fmt.Sprintf("scope_%d", len(st.scopes.scopes))
+	var scopeID string
+	if len(id) > 0 {
+		scopeID = id[0]
+	} else {
+		scopeID = fmt.Sprintf("scope_%d", len(st.scopes.scopes))
+	}
 
 	newScope := &Scope{
 		ID:        scopeID,
@@ -285,6 +345,7 @@ const (
 	FunctionScope
 	ClassScope
 	BlockScope
+	ForScope
 )
 
 type ModuleManager struct {
@@ -296,6 +357,10 @@ type ModuleManager struct {
 	isMain bool // 首次要收集 builtin 包
 
 	options *config.Huloc
+
+	externalVBS map[string]string // 符号名 -> vbs内容
+
+	isFirst bool // 先硬编码内置模块
 }
 
 type DependencyResolver struct {
@@ -364,7 +429,9 @@ func (mm *ModuleManager) resolveDependencies(filePath string) error {
 
 	// 递归解析依赖
 	for _, dep := range module.Dependencies {
-		if err := mm.resolveDependencies(dep); err != nil {
+		// 解析相对路径
+		resolvedDep := mm.resolveRelativePath(filePath, dep)
+		if err := mm.resolveDependencies(resolvedDep); err != nil {
 			return err
 		}
 	}
@@ -385,6 +452,11 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	content, err := mm.vfs.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	if mm.isFirst {
+		mm.isFirst = false
+		content = []byte(fmt.Sprintf("import * from \"%s\"\n", strings.ReplaceAll(filepath.Join(mm.options.HuloPath, "core/unsafe/vbs/index"), "\\", "/")) + string(content))
 	}
 
 	opts := []parser.ParserOptions{}
@@ -417,7 +489,7 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	}
 
 	// 提取导入信息
-	imports, dependencies := mm.extractImports(ast)
+	imports, dependencies := mm.extractImports(ast, filePath)
 
 	// 创建模块
 	moduleName := mm.getModuleName(filePath)
@@ -437,9 +509,11 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	return module, nil
 }
 
-func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string) {
+func (mm *ModuleManager) extractImports(ast *hast.File, currentModulePath string) ([]*ImportInfo, []string) {
 	var imports []*ImportInfo
 	var dependencies []string
+	// 使用map来去重依赖
+	dependencySet := make(map[string]bool)
 
 	for _, stmt := range ast.Stmts {
 		if importStmt, ok := stmt.(*hast.Import); ok {
@@ -447,15 +521,12 @@ func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string
 
 			switch {
 			case importStmt.ImportSingle != nil:
-				// import "module" as alias
 				importInfo = &ImportInfo{
 					ModulePath: importStmt.ImportSingle.Path,
 					Alias:      importStmt.ImportSingle.Alias,
 					Kind:       ImportSingle,
 				}
-
 			case importStmt.ImportMulti != nil:
-				// import { symbol1, symbol2 } from "module"
 				var symbols []string
 				for _, field := range importStmt.ImportMulti.List {
 					symbols = append(symbols, field.Field)
@@ -465,9 +536,7 @@ func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string
 					SymbolName: symbols,
 					Kind:       ImportMulti,
 				}
-
 			case importStmt.ImportAll != nil:
-				// import * from "module"
 				importInfo = &ImportInfo{
 					ModulePath: importStmt.ImportAll.Path,
 					Alias:      importStmt.ImportAll.Alias,
@@ -477,7 +546,40 @@ func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string
 
 			if importInfo != nil {
 				imports = append(imports, importInfo)
-				dependencies = append(dependencies, importInfo.ModulePath)
+				dep := importInfo.ModulePath
+				if strings.HasSuffix(dep, ".vbs") {
+					// 读取 vbs 文件内容，注册到 externalVBS
+					vbsPath := dep
+					if !filepath.IsAbs(dep) && !strings.HasPrefix(dep, "./") && !strings.HasPrefix(dep, "../") {
+						currentDir := filepath.Dir(currentModulePath)
+						vbsPath = filepath.Join(currentDir, dep)
+					}
+					content, err := mm.vfs.ReadFile(vbsPath)
+					fmt.Println(vbsPath, string(content))
+					if err == nil {
+						if importInfo.Kind == ImportMulti {
+							for _, sym := range importInfo.SymbolName {
+								mm.externalVBS[sym] = string(content)
+							}
+						} else if importInfo.Kind == ImportSingle {
+							mm.externalVBS[importInfo.Alias] = string(content)
+						}
+					}
+					// 不加入 dependencies
+					continue
+				}
+				// 非 vbs 文件才补全 .hl
+				depPath := dep
+				if !filepath.IsAbs(dep) && !strings.HasSuffix(dep, ".hl") && !strings.HasPrefix(dep, "./") && !strings.HasPrefix(dep, "../") {
+					currentDir := filepath.Dir(currentModulePath)
+					depPath = filepath.Join(currentDir, dep+".hl")
+				}
+
+				// 去重：只有未添加过的依赖才添加
+				if !dependencySet[depPath] {
+					dependencies = append(dependencies, depPath)
+					dependencySet[depPath] = true
+				}
 			}
 		}
 	}
@@ -496,4 +598,25 @@ func (mm *ModuleManager) getModuleName(filePath string) string {
 
 func (mm *ModuleManager) GetModule(path string) *Module {
 	return mm.modules[path]
+}
+
+// resolveRelativePath 解析相对于当前模块的导入路径
+func (mm *ModuleManager) resolveRelativePath(currentModulePath, importPath string) string {
+	// 如果导入路径是绝对路径或以 ./ 或 ../ 开头，则相对于当前模块解析
+	if filepath.IsAbs(importPath) || strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../") {
+		currentDir := filepath.Dir(currentModulePath)
+		return filepath.Join(currentDir, importPath)
+	}
+
+	// 否则，尝试在当前模块的目录中查找
+	currentDir := filepath.Dir(currentModulePath)
+	relativePath := filepath.Join(currentDir, importPath)
+
+	// 检查相对路径是否存在
+	if mm.vfs.Exists(relativePath) || mm.vfs.Exists(relativePath+".hl") {
+		return relativePath
+	}
+
+	// 如果相对路径不存在，返回原始路径（让上层处理）
+	return importPath
 }

@@ -6,8 +6,8 @@ package exec
 import (
 	"fmt"
 
-	build "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/transpiler/bash"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 )
@@ -34,7 +34,7 @@ func (e *DebugExecutor) CanHandle(cmd string) bool {
 
 func (e *DebugExecutor) Execute(cmd string) error {
 	e.fs.WriteFile("main.hl", []byte(cmd), 0644)
-	res, err := build.Transpile(&config.Huloc{Main: "main.hl"}, e.fs, ".", ".")
+	res, err := transpiler.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, e.fs, ".")
 	if err != nil {
 		return err
 	}

@@ -152,6 +152,8 @@ NOT : '!';
 INC : '++';
 DEC : '--';
 
+TRIPLE_MINUS: '---';
+
 BITAND : '&';
 BITOR  : '|';
 BITXOR : '^';

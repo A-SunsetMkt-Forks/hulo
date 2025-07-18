@@ -67,10 +67,14 @@ const (
 	OR        // ||
 	AND       // &&
 
+	PIPE // |
 	CONCAT // &
 
 	LT // <
 	GT // >
+
+	SHL // <<
+	SHR // >>
 
 	NOT   // !
 	QUEST // ?

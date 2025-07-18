@@ -24,7 +24,7 @@ builds:
       - windows
       - darwin
     main: ./cmd/hulo
-    binary: hulo
+    binary: bin/hulo
     ldflags:
       - -s -w
       - -X github.com/hulo-lang/hulo/cmd/meta.Version={{.Env.Version}}
@@ -40,7 +40,7 @@ builds:
       - windows
       - darwin
     main: ./cmd/hulo-repl
-    binary: hulo-repl
+    binary: bin/hulo-repl
     ldflags:
       - -s -w
       - -X github.com/hulo-lang/hulo/cmd.Version={{.Env.Version}}
@@ -56,7 +56,7 @@ builds:
       - windows
       - darwin
     main: ./cmd/hlpm
-    binary: hlpm
+    binary: bin/hlpm
     ldflags:
       - -s -w
       - -X github.com/hulo-lang/hulo/cmd.Version={{.Env.Version}}
@@ -85,14 +85,10 @@ archives:
       - CONTRIBUTING.md
       - SECURITY.md
       - CODE_OF_CONDUCT.md
-      - src: internal/std/**/*
-        dst: std
-      - src: dist/hulo_{{.Os}}_{{.Arch}}_*/hulo*
-        dst: bin/
-      - src: dist/hulo-repl_{{.Os}}_{{.Arch}}_*/hulo-repl*
-        dst: bin/
-      - src: dist/hlpm_{{.Os}}_{{.Arch}}_*/hlpm*
-        dst: bin/
+      - src: cmd/hulo-repl/theme/templates/*
+        dst: theme
+      - src: core/**/*
+        dst: core
 
 changelog:
   sort: asc

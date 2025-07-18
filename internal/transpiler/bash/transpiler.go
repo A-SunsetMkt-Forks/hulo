@@ -1,10 +1,11 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package build
+package transpiler
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"slices"
@@ -27,14 +28,18 @@ type BashTranspiler struct {
 
 	vfs vfs.VFS
 
-	modules       map[string]*Module
-	currentModule *Module
+	modules        map[string]*Module
+	currentModule  *Module
+	builtinModules []*Module
 
 	globalSymbols *SymbolTable
 
 	scopeStack container.Stack[ScopeType]
 
 	currentScope *Scope
+
+	// 跟踪类实例变量名到类名的映射
+	classInstances map[string]string
 }
 
 func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
@@ -54,16 +59,25 @@ func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
 			},
 		},
 		modules: make(map[string]*Module),
-
 		// 初始化符号管理
 		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
 
 		// 初始化作用域管理
 		scopeStack: container.NewArrayStack[ScopeType](),
+
+		// 初始化类实例映射
+		classInstances: make(map[string]string),
 	}
 }
 
 func (b *BashTranspiler) Transpile(mainFile string) (map[string]string, error) {
+	builtinModules, err := b.moduleManager.ResolveAllDependencies(filepath.Join(b.opts.HuloPath, "core/unsafe/bash/index.hl"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve builtin dependencies: %w", err)
+	}
+
+	b.builtinModules = builtinModules
+
 	// 1. 解析所有依赖
 	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
 	if err != nil {
@@ -192,7 +206,7 @@ func (b *BashTranspiler) analyzeModuleExports(module *Module) {
 	}
 }
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string, huloPath string) (map[string]string, error) {
+func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]string, error) {
 	tr := NewBashTranspiler(opts, vfs)
 	tr.moduleManager.basePath = basePath
 	return tr.Transpile(opts.Main)
@@ -216,6 +230,8 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 		return b.ConvertBinaryExpr(node)
 	case *hast.CallExpr:
 		return b.ConvertCallExpr(node)
+	case *hast.CmdExpr:
+		return b.ConvertCmdExpr(node)
 	case *hast.Ident:
 		return b.ConvertIdent(node)
 	case *hast.StringLiteral:
@@ -345,6 +361,10 @@ func (b *BashTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
 	if cmdExpr, ok := convertedRhs.(*bast.CmdExpr); ok {
 		if cmdExpr.Name.Name == "read" {
 			return b.convertReadCommand(node.Lhs, cmdExpr)
+		}
+		// 检查是否是构造函数调用
+		if strings.HasPrefix(cmdExpr.Name.Name, "create_") {
+			return b.convertConstructorCall(node.Lhs, cmdExpr)
 		}
 	}
 
@@ -550,6 +570,62 @@ func (b *BashTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 }
 
 func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
+	// 检查是否是类的方法调用：$u.to_str()
+	if refExpr, ok := node.Fun.(*hast.RefExpr); ok {
+		if selectExpr, ok := refExpr.X.(*hast.SelectExpr); ok {
+			if ident, ok := selectExpr.X.(*hast.Ident); ok {
+				// 这是一个对象方法调用
+				objectVar := ident.Name
+				methodName := selectExpr.Y.(*hast.Ident).Name
+
+				// 从映射中获取类名
+				className := b.classInstances[objectVar]
+				if className == "" {
+					// 如果没有找到映射，使用默认处理
+					className = strings.Title(objectVar)
+				}
+				classNameLower := strings.ToLower(className)
+
+				// 生成方法调用：user_to_str "$u"
+				bashMethodName := fmt.Sprintf("%s_%s", classNameLower, methodName)
+
+				var args []bast.Expr
+				// 第一个参数是对象本身
+				args = append(args, &bast.VarExpExpr{X: &bast.Ident{Name: objectVar}})
+				// 添加其他参数
+				for _, arg := range node.Recv {
+					args = append(args, b.Convert(arg).(bast.Expr))
+				}
+
+				return &bast.CmdExpr{
+					Name: &bast.Ident{Name: bashMethodName},
+					Recv: args,
+				}
+			}
+		}
+	}
+
+	// 检查是否是构造函数调用：User("John", 20)
+	if ident, ok := node.Fun.(*hast.Ident); ok {
+		className := ident.Name
+		// 检查是否是已知的类
+		if b.currentModule != nil && b.currentModule.Symbols.HasClass(className) {
+			// 这是构造函数调用
+			constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
+
+			var args []bast.Expr
+			for _, arg := range node.Recv {
+				args = append(args, b.Convert(arg).(bast.Expr))
+			}
+
+			return &bast.CmdExpr{
+				Name: &bast.Ident{Name: constructorName},
+				Recv: args,
+			}
+		}
+	}
+
+	// 普通函数调用
 	fun := b.Convert(node.Fun)
 	fnName := ""
 	if ident, ok := fun.(*bast.Ident); ok {
@@ -557,18 +633,85 @@ func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	} else if varExp, ok := fun.(*bast.VarExpExpr); ok {
 		fnName = varExp.X.(*bast.Ident).Name
 	}
-	// TODO: RefExpr (SelectExpr) 这里错了 Hulo 分析器解析有问题
-	// 应该是 SelectExpr 的 X 是 RefExpr
-	if refExpr, ok := node.Fun.(*hast.RefExpr); ok {
-		// fmt.Printf("refExpr: %T\n", refExpr.X)
-		if _, ok := refExpr.X.(*hast.Ident); ok {
-			// fmt.Printf("ident: %s %T\n", ident.Name, ident)
-		}
-	}
-	// fmt.Printf("fnName: %s %T %T\n", fnName, fun, node.Fun)
 
 	var recv []bast.Expr
 	for _, arg := range node.Recv {
+		recv = append(recv, b.Convert(arg).(bast.Expr))
+	}
+
+	return &bast.CmdExpr{
+		Name: &bast.Ident{Name: fnName},
+		Recv: recv,
+	}
+}
+
+func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
+	// 检查是否是类的方法调用：$u.to_str()
+	if refExpr, ok := node.Cmd.(*hast.RefExpr); ok {
+		if selectExpr, ok := refExpr.X.(*hast.SelectExpr); ok {
+			if ident, ok := selectExpr.X.(*hast.Ident); ok {
+				// 这是一个对象方法调用
+				objectVar := ident.Name
+				methodName := selectExpr.Y.(*hast.Ident).Name
+
+				// 从映射中获取类名
+				className := b.classInstances[objectVar]
+				if className == "" {
+					// 如果没有找到映射，使用默认处理
+					className = strings.Title(objectVar)
+				}
+				classNameLower := strings.ToLower(className)
+
+				// 生成方法调用：user_to_str "$u"
+				bashMethodName := fmt.Sprintf("%s_%s", classNameLower, methodName)
+
+				var args []bast.Expr
+				// 第一个参数是对象本身
+				args = append(args, &bast.VarExpExpr{X: &bast.Ident{Name: objectVar}})
+				// 添加其他参数
+				for _, arg := range node.Args {
+					args = append(args, b.Convert(arg).(bast.Expr))
+				}
+
+				return &bast.CmdExpr{
+					Name: &bast.Ident{Name: bashMethodName},
+					Recv: args,
+				}
+			}
+		}
+	}
+
+	// 检查是否是构造函数调用：User("John", 20)
+	if ident, ok := node.Cmd.(*hast.Ident); ok {
+		className := ident.Name
+		// 检查是否是已知的类
+		if b.currentModule != nil && b.currentModule.Symbols.HasClass(className) {
+			// 这是构造函数调用
+			constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
+
+			var args []bast.Expr
+			for _, arg := range node.Args {
+				args = append(args, b.Convert(arg).(bast.Expr))
+			}
+
+			return &bast.CmdExpr{
+				Name: &bast.Ident{Name: constructorName},
+				Recv: args,
+			}
+		}
+	}
+
+	// 普通函数调用
+	fun := b.Convert(node.Cmd)
+	fnName := ""
+	if ident, ok := fun.(*bast.Ident); ok {
+		fnName = ident.Name
+	} else if varExp, ok := fun.(*bast.VarExpExpr); ok {
+		fnName = varExp.X.(*bast.Ident).Name
+	}
+
+	var recv []bast.Expr
+	for _, arg := range node.Args {
 		recv = append(recv, b.Convert(arg).(bast.Expr))
 	}
 
@@ -659,19 +802,146 @@ func (b *BashTranspiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
 }
 
 func (b *BashTranspiler) ConvertClassDecl(node *hast.ClassDecl) bast.Node {
-	name := b.Convert(node.Name).(*bast.Ident)
+	className := node.Name.Name
 
 	// 添加到当前模块的符号表
 	if b.currentModule != nil {
-		b.currentModule.Symbols.AddClass(name.Name, node)
+		b.currentModule.Symbols.AddClass(className, node)
 	}
 
-	// 对于Bash，类通常转换为函数或结构
-	// 这里简化为函数声明
-	return &bast.FuncDecl{
-		Name: name,
-		Body: &bast.BlockStmt{},
+	// 生成构造函数
+	constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
+
+	// 收集字段名
+	var fieldNames []string
+	for _, field := range node.Fields.List {
+		fieldNames = append(fieldNames, field.Name.Name)
 	}
+
+	// 生成构造函数体
+	var constructorBody []bast.Stmt
+
+	// 添加 local 参数声明
+	for i, fieldName := range fieldNames {
+		constructorBody = append(constructorBody, &bast.AssignStmt{
+			Local: btok.Pos(1),
+			Lhs:   &bast.Ident{Name: fieldName},
+			Rhs:   &bast.VarExpExpr{X: &bast.Ident{Name: fmt.Sprintf("%d", i+1)}},
+		})
+	}
+
+	// 创建关联数组声明
+	constructorBody = append(constructorBody, &bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "declare"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: "-A"},
+				&bast.Ident{Name: strings.ToLower(className)},
+			},
+		},
+	})
+
+	// 添加字段赋值
+	for _, fieldName := range fieldNames {
+		constructorBody = append(constructorBody, &bast.AssignStmt{
+			Lhs: &bast.IndexExpr{
+				X:      &bast.Ident{Name: strings.ToLower(className)},
+				Lbrack: btok.Pos(1),
+				Y:      &bast.Word{Val: fmt.Sprintf(`"%s"`, fieldName)},
+				Rbrack: btok.Pos(1),
+			},
+			Rhs: &bast.VarExpExpr{X: &bast.Ident{Name: fieldName}},
+		})
+	}
+
+	// 返回关联数组
+	constructorBody = append(constructorBody, &bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "echo"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: fmt.Sprintf(`"$(declare -p %s)"`, strings.ToLower(className))},
+			},
+		},
+	})
+
+	// 生成构造函数
+	constructor := &bast.FuncDecl{
+		Name: &bast.Ident{Name: constructorName},
+		Body: &bast.BlockStmt{List: constructorBody},
+	}
+
+	// 将构造函数添加到缓冲区
+	b.Emit(constructor)
+
+	// 生成方法
+	for _, method := range node.Methods {
+		b.generateClassMethod(className, method)
+	}
+
+	// 返回一个空的语句（因为构造函数和方法已经通过 Emit 添加）
+	return &bast.ExprStmt{
+		X: &bast.Word{Val: ""},
+	}
+}
+
+func (b *BashTranspiler) generateClassMethod(className string, method *hast.FuncDecl) {
+	methodName := method.Name.Name
+	classNameLower := strings.ToLower(className)
+
+	// 生成方法名：user_to_str, user_greet 等
+	bashMethodName := fmt.Sprintf("%s_%s", classNameLower, methodName)
+
+	// 生成方法体
+	var methodBody []bast.Stmt
+
+	// 添加 eval 语句来解析传入的对象
+	methodBody = append(methodBody, &bast.ExprStmt{
+		X: &bast.CmdExpr{
+			Name: &bast.Ident{Name: "eval"},
+			Recv: []bast.Expr{
+				&bast.Word{Val: fmt.Sprintf(`"declare -A %s=${1}"`, classNameLower)},
+			},
+		},
+	})
+
+	// 处理参数（跳过第一个参数，因为它是对象本身）
+	for i, param := range method.Recv {
+		if paramNode, ok := param.(*hast.Parameter); ok {
+			paramName := paramNode.Name.Name
+			// 参数从 $2 开始，因为 $1 是对象
+			methodBody = append(methodBody, &bast.AssignStmt{
+				Local: btok.Pos(1),
+				Lhs:   &bast.Ident{Name: paramName},
+				Rhs:   &bast.VarExpExpr{X: &bast.Ident{Name: fmt.Sprintf("%d", i+2)}},
+			})
+		}
+	}
+
+	// 转换方法体
+	if method.Body != nil {
+		convertedBody := b.Convert(method.Body)
+		if block, ok := convertedBody.(*bast.BlockStmt); ok {
+			// 替换方法体中的字段访问
+			modifiedBody := b.replaceFieldAccesses(block, classNameLower)
+			methodBody = append(methodBody, modifiedBody.List...)
+		}
+	}
+
+	// 生成方法函数
+	methodFunc := &bast.FuncDecl{
+		Name: &bast.Ident{Name: bashMethodName},
+		Body: &bast.BlockStmt{List: methodBody},
+	}
+
+	// 将方法添加到缓冲区
+	b.Emit(methodFunc)
+}
+
+func (b *BashTranspiler) replaceFieldAccesses(block *bast.BlockStmt, classNameLower string) *bast.BlockStmt {
+	// 这里需要递归替换所有字段访问
+	// 例如：$name 应该替换为 ${user["name"]}
+	// 这是一个简化的实现，实际需要更复杂的AST遍历
+	return block
 }
 
 func (b *BashTranspiler) ConvertImport(node *hast.Import) bast.Node {
@@ -1162,6 +1432,39 @@ func (b *BashTranspiler) convertReadCommand(lhs hast.Expr, callExpr *bast.CmdExp
 	}
 }
 
+// convertConstructorCall 将构造函数调用转换为变量赋值
+func (b *BashTranspiler) convertConstructorCall(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
+	// 获取变量名
+	var varName string
+	if refExpr, ok := lhs.(*hast.RefExpr); ok {
+		if ident, ok := refExpr.X.(*hast.Ident); ok {
+			varName = ident.Name
+		}
+	} else if ident, ok := lhs.(*hast.Ident); ok {
+		varName = ident.Name
+	}
+
+	// 从构造函数名推断类名
+	className := ""
+	if strings.HasPrefix(callExpr.Name.Name, "create_") {
+		className = strings.Title(strings.TrimPrefix(callExpr.Name.Name, "create_"))
+	}
+
+	// 记录变量名到类名的映射
+	if className != "" {
+		b.classInstances[varName] = className
+	}
+
+	// 创建变量赋值：u=$(create_user "John" 20)
+	return &bast.AssignStmt{
+		Lhs: &bast.Ident{Name: varName},
+		Rhs: &bast.CmdSubst{
+			Tok: btok.DollParen,
+			X:   callExpr,
+		},
+	}
+}
+
 // ConvertArrayLiteralExpr 转换数组字面量表达式
 func (b *BashTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
 	var elements []bast.Expr
@@ -1184,6 +1487,7 @@ func (b *BashTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) ba
 
 // ConvertObjectLiteralExpr 转换对象字面量表达式
 func (b *BashTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) bast.Node {
+	return &bast.Ident{Name: ""}
 	// 生成唯一的变量名
 	arrayVarName := fmt.Sprintf("obj_%d", len(b.buffer))
 

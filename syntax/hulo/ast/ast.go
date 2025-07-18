@@ -4,9 +4,6 @@
 package ast
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
@@ -25,7 +22,6 @@ type Stmt interface {
 type Expr interface {
 	Node
 	exprNode()
-	String() string
 }
 
 // ----------------------------------------------------------------------------
@@ -736,6 +732,14 @@ type (
 		Rparen     token.Pos // position of ")"
 	}
 
+	// A CmdExpr node represents a command expression.
+	CmdExpr struct {
+		Cmd         Expr   // command name/expression
+		Args        []Expr // command arguments; or nil
+		IsAsync     bool   // true if async is used, e.g., cmd &
+		BuiltinArgs []Expr // builtin command arguments, e.g. cmd --- -a "str" 10 -b
+	}
+
 	// A CmdSubstExpr node represents a command substitution. e.g. $(...)
 	CmdSubstExpr struct {
 		Dollar token.Pos
@@ -1077,6 +1081,7 @@ func (x *IndexExpr) Pos() token.Pos             { return x.X.Pos() }
 func (x *BinaryExpr) Pos() token.Pos            { return x.X.Pos() }
 func (x *RangeExpr) Pos() token.Pos             { return x.Start.Pos() }
 func (x *CallExpr) Pos() token.Pos              { return x.Fun.Pos() }
+func (x *CmdExpr) Pos() token.Pos               { return x.Cmd.Pos() }
 func (x *CmdSubstExpr) Pos() token.Pos          { return x.Dollar }
 func (x *Ident) Pos() token.Pos                 { return x.NamePos }
 func (x *BasicLit) Pos() token.Pos              { return x.ValuePos }
@@ -1137,7 +1142,16 @@ func (x *RangeExpr) End() token.Pos {
 	}
 	return x.Step.End()
 }
-func (x *CallExpr) End() token.Pos     { return x.Rparen }
+func (x *CallExpr) End() token.Pos { return x.Rparen }
+func (x *CmdExpr) End() token.Pos {
+	if len(x.BuiltinArgs) > 0 {
+		return x.BuiltinArgs[len(x.BuiltinArgs)-1].End()
+	}
+	if len(x.Args) > 0 {
+		return x.Args[len(x.Args)-1].End()
+	}
+	return x.Cmd.End()
+}
 func (x *CmdSubstExpr) End() token.Pos { return x.Rparen }
 func (x *Ident) End() token.Pos        { return token.Pos(int(x.NamePos) + len(x.Name)) }
 func (x *BasicLit) End() token.Pos     { return token.Pos(int(x.ValuePos) + len(x.Value)) }
@@ -1199,299 +1213,300 @@ func (x *LambdaExpr) End() token.Pos             { return x.Body.Rbrace }
 func (x *ConditionalType) End() token.Pos        { return x.FalseType.End() }
 func (x *InferType) End() token.Pos              { return x.X.End() }
 
-func (x *Ident) String() string {
-	return x.Name
-}
+// func (x *Ident) String() string {
+// 	return x.Name
+// }
 
-func (x *BasicLit) String() string {
-	if x.Kind == token.STR {
-		return fmt.Sprintf("\"%s\"", x.Value)
-	}
-	return x.Value
-}
+// func (x *BasicLit) String() string {
+// 	if x.Kind == token.STR {
+// 		return fmt.Sprintf("\"%s\"", x.Value)
+// 	}
+// 	return x.Value
+// }
 
-func (x *IndexExpr) String() string {
-	return fmt.Sprintf("%s[%s]", x.X, x.Index)
-}
+// func (x *IndexExpr) String() string {
+// 	return fmt.Sprintf("%s[%s]", x.X, x.Index)
+// }
 
-func (x *IndexListExpr) String() string {
-	indices := []string{}
-	for _, index := range x.Indices {
-		indices = append(indices, index.String())
-	}
-	return fmt.Sprintf("%s[%s]", x.X, strings.Join(indices, ", "))
-}
+// func (x *IndexListExpr) String() string {
+// 	indices := []string{}
+// 	for _, index := range x.Indices {
+// 		indices = append(indices, index.String())
+// 	}
+// 	return fmt.Sprintf("%s[%s]", x.X, strings.Join(indices, ", "))
+// }
 
-func (x *SliceExpr) String() string {
-	switch {
-	case x.Low != nil && x.High != nil && x.Max != nil:
-		return fmt.Sprintf("%s[%s..%s..%s]", x.X, x.Low, x.High, x.Max)
-	case x.Low != nil && x.High != nil:
-		return fmt.Sprintf("%s[%s..%s]", x.X, x.Low, x.High)
-	case x.Low != nil:
-		return fmt.Sprintf("%s[%s..]", x.X, x.Low)
-	case x.High != nil:
-		return fmt.Sprintf("%s[..%s]", x.X, x.High)
-	}
-	panic("unreached")
-}
+// func (x *SliceExpr) String() string {
+// 	switch {
+// 	case x.Low != nil && x.High != nil && x.Max != nil:
+// 		return fmt.Sprintf("%s[%s..%s..%s]", x.X, x.Low, x.High, x.Max)
+// 	case x.Low != nil && x.High != nil:
+// 		return fmt.Sprintf("%s[%s..%s]", x.X, x.Low, x.High)
+// 	case x.Low != nil:
+// 		return fmt.Sprintf("%s[%s..]", x.X, x.Low)
+// 	case x.High != nil:
+// 		return fmt.Sprintf("%s[..%s]", x.X, x.High)
+// 	}
+// 	panic("unreached")
+// }
 
-func (x *BinaryExpr) String() string {
-	return fmt.Sprintf("%s %s %s", x.X, x.Op, x.Y)
-}
+// func (x *BinaryExpr) String() string {
+// 	return fmt.Sprintf("%s %s %s", x.X, x.Op, x.Y)
+// }
 
-func (x *IncDecExpr) String() string {
-	if x.Pre {
-		return fmt.Sprintf("%s%s", x.Tok, x.X)
-	}
-	return fmt.Sprintf("%s%s", x.X, x.Tok)
-}
+// func (x *IncDecExpr) String() string {
+// 	if x.Pre {
+// 		return fmt.Sprintf("%s%s", x.Tok, x.X)
+// 	}
+// 	return fmt.Sprintf("%s%s", x.X, x.Tok)
+// }
 
-func (x *NewDelExpr) String() string {
-	return fmt.Sprintf("%s %s", token.NEW, x.X)
-}
+// func (x *NewDelExpr) String() string {
+// 	return fmt.Sprintf("%s %s", token.NEW, x.X)
+// }
 
-func (x *RefExpr) String() string {
-	return fmt.Sprintf("$%s", x.X)
-}
+// func (x *RefExpr) String() string {
+// 	return fmt.Sprintf("$%s", x.X)
+// }
 
-func (x *SelectExpr) String() string {
-	if x.Quest {
-		return fmt.Sprintf("%s?.%s", x.X, x.Y)
-	}
-	return fmt.Sprintf("%s.%s", x.X, x.Y)
-}
+// func (x *SelectExpr) String() string {
+// 	if x.Quest {
+// 		return fmt.Sprintf("%s?.%s", x.X, x.Y)
+// 	}
+// 	return fmt.Sprintf("%s.%s", x.X, x.Y)
+// }
 
-func (x *ModAccessExpr) String() string {
-	return fmt.Sprintf("%s::%s", x.X, x.Y)
-}
+// func (x *ModAccessExpr) String() string {
+// 	return fmt.Sprintf("%s::%s", x.X, x.Y)
+// }
 
-func (x *UnaryExpr) String() string {
-	return fmt.Sprintf("%s%s", x.Op, x.X)
-}
+// func (x *UnaryExpr) String() string {
+// 	return fmt.Sprintf("%s%s", x.Op, x.X)
+// }
 
-func (x *CallExpr) String() string {
-	args := []string{}
-	for _, arg := range x.Recv {
-		args = append(args, arg.String())
-	}
-	return fmt.Sprintf("%s(%s)", x.Fun, strings.Join(args, ", "))
-}
+// func (x *CallExpr) String() string {
+// 	args := []string{}
+// 	for _, arg := range x.Recv {
+// 		args = append(args, arg.String())
+// 	}
+// 	return fmt.Sprintf("%s(%s)", x.Fun, strings.Join(args, ", "))
+// }
 
-func (x *CmdSubstExpr) String() string {
-	args := []string{}
-	for _, arg := range x.Recv {
-		args = append(args, arg.String())
-	}
-	return fmt.Sprintf("$(%s %s)", x.Fun, strings.Join(args, " "))
-}
+// func (x *CmdSubstExpr) String() string {
+// 	args := []string{}
+// 	for _, arg := range x.Recv {
+// 		args = append(args, arg.String())
+// 	}
+// 	return fmt.Sprintf("$(%s %s)", x.Fun, strings.Join(args, " "))
+// }
 
-func (x *ComptimeExpr) String() string {
-	return fmt.Sprintf("comptime { %s }", x.X)
-}
+// func (x *ComptimeExpr) String() string {
+// 	return fmt.Sprintf("comptime { %s }", x.X)
+// }
 
-func (x *TypeParameter) String() string {
-	if x.Constraints != nil {
-		constraints := []string{}
-		for _, c := range x.Constraints {
-			constraints = append(constraints, c.String())
-		}
-		return fmt.Sprintf("%s extends %s", x.Name, strings.Join(constraints, " + "))
-	}
-	return x.Name.String()
-}
+// func (x *TypeParameter) String() string {
+// 	if x.Constraints != nil {
+// 		constraints := []string{}
+// 		for _, c := range x.Constraints {
+// 			constraints = append(constraints, c.String())
+// 		}
+// 		return fmt.Sprintf("%s extends %s", x.Name, strings.Join(constraints, " + "))
+// 	}
+// 	return x.Name.String()
+// }
 
-func (x *UnionType) String() string {
-	expr := []string{}
-	for _, t := range x.Types {
-		expr = append(expr, t.String())
-	}
-	return strings.Join(expr, " | ")
-}
+// func (x *UnionType) String() string {
+// 	expr := []string{}
+// 	for _, t := range x.Types {
+// 		expr = append(expr, t.String())
+// 	}
+// 	return strings.Join(expr, " | ")
+// }
 
-func (x *IntersectionType) String() string {
-	expr := []string{}
-	for _, t := range x.Types {
-		expr = append(expr, t.String())
-	}
-	return strings.Join(expr, " & ")
-}
+// func (x *IntersectionType) String() string {
+// 	expr := []string{}
+// 	for _, t := range x.Types {
+// 		expr = append(expr, t.String())
+// 	}
+// 	return strings.Join(expr, " & ")
+// }
 
-func (x *TypeLiteral) String() string {
-	mems := []string{}
-	for _, t := range x.Members {
-		mems = append(mems, t.String())
-	}
-	return strings.Join(mems, "\n")
-}
+// func (x *TypeLiteral) String() string {
+// 	mems := []string{}
+// 	for _, t := range x.Members {
+// 		mems = append(mems, t.String())
+// 	}
+// 	return strings.Join(mems, "\n")
+// }
 
-func (x *TypeReference) String() string {
-	exprs := []string{}
-	for _, e := range x.TypeParams {
-		exprs = append(exprs, e.String())
-	}
-	if x.TypeParams != nil {
-		return fmt.Sprintf("%s<%s>", x.Name, strings.Join(exprs, ", "))
-	}
-	return x.Name.String()
-}
+// func (x *TypeReference) String() string {
+// 	exprs := []string{}
+// 	for _, e := range x.TypeParams {
+// 		exprs = append(exprs, e.String())
+// 	}
+// 	if x.TypeParams != nil {
+// 		return fmt.Sprintf("%s<%s>", x.Name, strings.Join(exprs, ", "))
+// 	}
+// 	return x.Name.String()
+// }
 
-func (x *ArrayType) String() string {
-	return fmt.Sprintf("%s[]", x.Name)
-}
+// func (x *ArrayType) String() string {
+// 	return fmt.Sprintf("%s[]", x.Name)
+// }
 
-func (x *FunctionType) String() string {
-	recv := []string{}
-	for _, t := range x.Recv {
-		recv = append(recv, t.String())
-	}
-	return fmt.Sprintf("(%s) -> %s", strings.Join(recv, ", "), x.RetVal)
-}
+// func (x *FunctionType) String() string {
+// 	recv := []string{}
+// 	for _, t := range x.Recv {
+// 		recv = append(recv, t.String())
+// 	}
+// 	return fmt.Sprintf("(%s) -> %s", strings.Join(recv, ", "), x.RetVal)
+// }
 
-func (x *TupleType) String() string {
-	exprs := []string{}
-	for _, e := range x.Types {
-		exprs = append(exprs, e.String())
-	}
-	return fmt.Sprintf("[%s]", strings.Join(exprs, ", "))
-}
+// func (x *TupleType) String() string {
+// 	exprs := []string{}
+// 	for _, e := range x.Types {
+// 		exprs = append(exprs, e.String())
+// 	}
+// 	return fmt.Sprintf("[%s]", strings.Join(exprs, ", "))
+// }
 
-func (x *SetType) String() string {
-	exprs := []string{}
-	for _, e := range x.Types {
-		exprs = append(exprs, e.String())
-	}
-	return fmt.Sprintf("(%s)", strings.Join(exprs, ", "))
-}
+// func (x *SetType) String() string {
+// 	exprs := []string{}
+// 	for _, e := range x.Types {
+// 		exprs = append(exprs, e.String())
+// 	}
+// 	return fmt.Sprintf("(%s)", strings.Join(exprs, ", "))
+// }
 
-func (x *ConditionalExpr) String() string {
-	return fmt.Sprintf("%s ? %s : %s", x.Cond, x.WhenTrue, x.WhneFalse)
-}
+// func (x *ConditionalExpr) String() string {
+// 	return fmt.Sprintf("%s ? %s : %s", x.Cond, x.WhenTrue, x.WhneFalse)
+// }
 
-func (x *CascadeExpr) String() string {
-	return fmt.Sprintf("%s..%s", x.X, x.Y)
-}
+// func (x *CascadeExpr) String() string {
+// 	return fmt.Sprintf("%s..%s", x.X, x.Y)
+// }
 
-func (x *ArrayLiteralExpr) String() string {
-	expr := []string{}
-	for _, e := range x.Elems {
-		expr = append(expr, e.String())
-	}
-	return fmt.Sprintf("[%s]", strings.Join(expr, ", "))
-}
+// func (x *ArrayLiteralExpr) String() string {
+// 	expr := []string{}
+// 	for _, e := range x.Elems {
+// 		expr = append(expr, e.String())
+// 	}
+// 	return fmt.Sprintf("[%s]", strings.Join(expr, ", "))
+// }
 
-func (x *SetLiteralExpr) String() string {
-	expr := []string{}
-	for _, e := range x.Elems {
-		expr = append(expr, e.String())
-	}
-	return fmt.Sprintf("{%s}", strings.Join(expr, ", "))
-}
+// func (x *SetLiteralExpr) String() string {
+// 	expr := []string{}
+// 	for _, e := range x.Elems {
+// 		expr = append(expr, e.String())
+// 	}
+// 	return fmt.Sprintf("{%s}", strings.Join(expr, ", "))
+// }
 
-func (x *TupleLiteralExpr) String() string {
-	expr := []string{}
-	for _, e := range x.Elems {
-		expr = append(expr, e.String())
-	}
-	return fmt.Sprintf("[%s]", strings.Join(expr, ", "))
-}
+// func (x *TupleLiteralExpr) String() string {
+// 	expr := []string{}
+// 	for _, e := range x.Elems {
+// 		expr = append(expr, e.String())
+// 	}
+// 	return fmt.Sprintf("[%s]", strings.Join(expr, ", "))
+// }
 
-func (x *NamedTupleLiteralExpr) String() string {
-	expr := []string{}
-	for _, e := range x.Elems {
-		expr = append(expr, e.String())
-	}
-	return fmt.Sprintf("(%s)", strings.Join(expr, ", "))
-}
+// func (x *NamedTupleLiteralExpr) String() string {
+// 	expr := []string{}
+// 	for _, e := range x.Elems {
+// 		expr = append(expr, e.String())
+// 	}
+// 	return fmt.Sprintf("(%s)", strings.Join(expr, ", "))
+// }
 
-func (x *NumericLiteral) String() string {
-	return x.Value
-}
+// func (x *NumericLiteral) String() string {
+// 	return x.Value
+// }
 
-func (x *StringLiteral) String() string {
-	return fmt.Sprintf(`"%s"`, x.Value)
-}
+// func (x *StringLiteral) String() string {
+// 	return fmt.Sprintf(`"%s"`, x.Value)
+// }
 
-func (x *AnyLiteral) String() string   { return "any" }
-func (x *NullLiteral) String() string  { return "null" }
-func (x *TrueLiteral) String() string  { return "true" }
-func (x *FalseLiteral) String() string { return "false" }
+// func (x *AnyLiteral) String() string   { return "any" }
+// func (x *NullLiteral) String() string  { return "null" }
+// func (x *TrueLiteral) String() string  { return "true" }
+// func (x *FalseLiteral) String() string { return "false" }
 
-func (x *TypeofExpr) String() string {
-	return fmt.Sprintf("typeof %s", x.X)
-}
+// func (x *TypeofExpr) String() string {
+// 	return fmt.Sprintf("typeof %s", x.X)
+// }
 
-func (x *AsExpr) String() string {
-	return fmt.Sprintf("%s as %s", x.X, x.Y)
-}
+// func (x *AsExpr) String() string {
+// 	return fmt.Sprintf("%s as %s", x.X, x.Y)
+// }
 
-func (x *Parameter) String() string {
-	ret := x.Name.String()
-	// if x.Variadic {
-	// 	ret = fmt.Sprintf("...%s", ret)
-	// }
-	// if x.Required {
-	// 	ret = fmt.Sprintf("required %s", ret)
-	// }
-	if x.Type != nil {
-		ret = fmt.Sprintf("%s: %s", ret, x.Type)
-	}
-	if x.Value != nil {
-		ret = fmt.Sprintf("%s = %s", ret, x.Value)
-	}
-	return ret
-}
+// func (x *Parameter) String() string {
+// 	ret := x.Name.String()
+// 	// if x.Variadic {
+// 	// 	ret = fmt.Sprintf("...%s", ret)
+// 	// }
+// 	// if x.Required {
+// 	// 	ret = fmt.Sprintf("required %s", ret)
+// 	// }
+// 	if x.Type != nil {
+// 		ret = fmt.Sprintf("%s: %s", ret, x.Type)
+// 	}
+// 	if x.Value != nil {
+// 		ret = fmt.Sprintf("%s = %s", ret, x.Value)
+// 	}
+// 	return ret
+// }
 
-func (x *NamedParameters) String() string {
-	params := []string{}
-	for _, p := range x.Params {
-		params = append(params, p.String())
-	}
-	return fmt.Sprintf("{%s}", strings.Join(params, ", "))
-}
+// func (x *NamedParameters) String() string {
+// 	params := []string{}
+// 	for _, p := range x.Params {
+// 		params = append(params, p.String())
+// 	}
+// 	return fmt.Sprintf("{%s}", strings.Join(params, ", "))
+// }
 
-func (x *ObjectLiteralExpr) String() string {
-	props := []string{}
-	for _, prop := range x.Props {
-		props = append(props, prop.String())
-	}
-	if len(props) == 0 {
-		return "{}"
-	}
-	return fmt.Sprintf("{ %s }", strings.Join(props, ", "))
-}
+// func (x *ObjectLiteralExpr) String() string {
+// 	props := []string{}
+// 	for _, prop := range x.Props {
+// 		props = append(props, prop.String())
+// 	}
+// 	if len(props) == 0 {
+// 		return "{}"
+// 	}
+// 	return fmt.Sprintf("{ %s }", strings.Join(props, ", "))
+// }
 
-func (x *KeyValueExpr) String() string {
-	return fmt.Sprintf("%s: %s", x.Key, x.Value)
-}
+// func (x *KeyValueExpr) String() string {
+// 	return fmt.Sprintf("%s: %s", x.Key, x.Value)
+// }
 
-func (x *NullableType) String() string {
-	return fmt.Sprintf("%s?", x.X)
-}
+// func (x *NullableType) String() string {
+// 	return fmt.Sprintf("%s?", x.X)
+// }
 
-func (x *NamedObjectLiteralExpr) String() string {
-	elems := []string{}
-	for _, el := range x.Props {
-		elems = append(elems, el.String())
-	}
-	if x.Name != nil {
-		return fmt.Sprintf("%s{%s}", x.Name.String(), strings.Join(elems, ", "))
-	}
-	return fmt.Sprintf("{%s}", strings.Join(elems, ", "))
-}
+// func (x *NamedObjectLiteralExpr) String() string {
+// 	elems := []string{}
+// 	for _, el := range x.Props {
+// 		elems = append(elems, el.String())
+// 	}
+// 	if x.Name != nil {
+// 		return fmt.Sprintf("%s{%s}", x.Name.String(), strings.Join(elems, ", "))
+// 	}
+// 	return fmt.Sprintf("{%s}", strings.Join(elems, ", "))
+// }
 
-func (*LambdaExpr) String() string { panic("method no support") }
+// func (*LambdaExpr) String() string { panic("method no support") }
 
-func (x *ConditionalType) String() string {
-	return fmt.Sprintf("%s extends %s ? %s : %s", x.CheckType, x.ExtendsType, x.TrueType, x.FalseType)
-}
+// func (x *ConditionalType) String() string {
+// 	return fmt.Sprintf("%s extends %s ? %s : %s", x.CheckType, x.ExtendsType, x.TrueType, x.FalseType)
+// }
 
-func (x *InferType) String() string {
-	return fmt.Sprintf("infer %s", x.X)
-}
+// func (x *InferType) String() string {
+// 	return fmt.Sprintf("infer %s", x.X)
+// }
 
 func (*BinaryExpr) exprNode()             {}
 func (*CallExpr) exprNode()               {}
+func (*CmdExpr) exprNode()                {}
 func (*CmdSubstExpr) exprNode()           {}
 func (*Ident) exprNode()                  {}
 func (*BasicLit) exprNode()               {}

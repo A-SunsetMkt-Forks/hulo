@@ -7,7 +7,7 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 
 	// "github.com/hulo-lang/hulo/internal/build/bash"
-	build "github.com/hulo-lang/hulo/internal/build/bash"
+	build "github.com/hulo-lang/hulo/internal/transpiler/bash"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/optimizer"

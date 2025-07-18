@@ -142,14 +142,17 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#commandExpression.
 	VisitCommandExpression(ctx *CommandExpressionContext) interface{}
 
+	// Visit a parse tree produced by huloParser#commandArgument.
+	VisitCommandArgument(ctx *CommandArgumentContext) interface{}
+
+	// Visit a parse tree produced by huloParser#builtinCommandArgument.
+	VisitBuiltinCommandArgument(ctx *BuiltinCommandArgumentContext) interface{}
+
 	// Visit a parse tree produced by huloParser#commandJoin.
 	VisitCommandJoin(ctx *CommandJoinContext) interface{}
 
 	// Visit a parse tree produced by huloParser#commandStream.
 	VisitCommandStream(ctx *CommandStreamContext) interface{}
-
-	// Visit a parse tree produced by huloParser#commandMemberAccess.
-	VisitCommandMemberAccess(ctx *CommandMemberAccessContext) interface{}
 
 	// Visit a parse tree produced by huloParser#commandAccessPoint.
 	VisitCommandAccessPoint(ctx *CommandAccessPointContext) interface{}

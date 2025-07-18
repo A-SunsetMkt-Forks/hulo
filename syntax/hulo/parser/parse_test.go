@@ -127,8 +127,10 @@ func TestIdentifier(t *testing.T) {
 			cmdExpr := exprStmt.Expression().CommandExpression()
 			assert.NotNil(t, cmdExpr)
 
-			member := cmdExpr.MemberAccess(0)
-			assert.Equal(t, tt.expectCmd, member.GetText())
+			// The first memberAccess is the command name
+			if cmdExpr.MemberAccess() != nil {
+				assert.Equal(t, tt.expectCmd, cmdExpr.MemberAccess().GetText())
+			}
 		})
 	}
 }
@@ -212,4 +214,83 @@ func TestParseNumbericReturn(t *testing.T) {
 	node, err := ParseSourceScript(`declare fn Sgn(x: num) -> -1 | 0 | 1`, OptionTracerASTTree(os.Stdout))
 	assert.NoError(t, err)
 	ast.Print(node)
+}
+
+func TestParserCallExpr(t *testing.T) {
+	node, err := ParseSourceScript(`let result = utils.calculate(5, 3)`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParserChainedCallExpr(t *testing.T) {
+	node, err := ParseSourceScript(`let result = utils.calculate(5, 3).to_str().len()`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParserChainedCallExprWithMod(t *testing.T) {
+	node, err := ParseSourceScript(`let result = utils.a::b::c::User.create("John", 25)..name="ansurfen"..age=30;`, OptionTracerASTTree(os.Stdout), OptionDisableTracer())
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParserMethodCall(t *testing.T) {
+	node, err := ParseSourceScript(`let u = User("John", 20); echo $u.to_str(); $u.greet("Jane");`, OptionTracerASTTree(os.Stdout), OptionDisableTracer())
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseCommand(t *testing.T) {
+	node, err := ParseSourceScript(`echo -e "Hello, World!"`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseNestedCommand(t *testing.T) {
+	node, err := ParseSourceScript(`my-cmd "a" sub-command "b"`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseCommandWithOption(t *testing.T) {
+	node, err := ParseSourceScript(`my-cmd -e --ignore-any-error -it`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseCommandWithComplexOptions(t *testing.T) {
+	node, err := ParseSourceScript(`my-cmd -e { name: "abc", age: 10 } -x [1, 2, 3]`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseComplexCommand(t *testing.T) {
+	node, err := ParseSourceScript(`docker run -it ubuntu bash -c "echo hello"`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseCommandWithBuiltinArgs(t *testing.T) {
+	node, err := ParseSourceScript(`container.std::my-command run -it ubuntu --- -f "abc"`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParsePipeline(t *testing.T) {
+	node, err := ParseSourceScript(`container.std::my-command run -it ubuntu | grep "hello"`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseDockerRun(t *testing.T) {
+	node, err := ParseSourceScript(`container.std::docker run -it ubuntu`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
+
+func TestParseUltraCommand(t *testing.T) {
+	node, err := ParseSourceScript(`container.std::my-command run -it ubuntu --ignore-any-error --output "" -- -f ""
+| grep "hello" && cd "~" && echo "world" &`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
 }

@@ -22,8 +22,8 @@ var runCmd = &cobra.Command{
 	Long:  "Run a script or file, optionally passing flags to the hulo compiler.",
 	Example: `  hlpm run main.hl                    # Run file with default options
   hlpm run main.hl -- --verbose       # Run file with verbose flag
-  hlpm run main.hl -- --target=vbs    # Run file with target flag
-  hlpm run dev -- --watch             # Run script with watch flag`,
+  hlpm run main.hl -- --target vbs    # Run file with target flag
+  hlpm run test                       # Run unit test`,
 	DisableFlagParsing: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error

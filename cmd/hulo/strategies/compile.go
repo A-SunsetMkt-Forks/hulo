@@ -12,8 +12,8 @@ import (
 
 	"github.com/caarlos0/log"
 
-	bash "github.com/hulo-lang/hulo/internal/build/bash"
-	vbs "github.com/hulo-lang/hulo/internal/build/vbs"
+	bash "github.com/hulo-lang/hulo/internal/transpiler/bash"
+	vbs "github.com/hulo-lang/hulo/internal/transpiler/vbs"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/vfs/osfs"
 	"gopkg.in/yaml.v3"
@@ -68,7 +68,7 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 		if err != nil {
 			log.WithError(err).Fatal("fail to get executable path")
 		}
-		huloc.HuloPath = filepath.Dir(execPath)
+		huloc.HuloPath = filepath.Join(execPath, "../..")
 	} else {
 		huloc.HuloPath = hulopath
 	}
@@ -116,19 +116,19 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 			var err error
 			switch lang {
 			case config.L_VBSCRIPT:
-				results, err = vbs.Transpile(huloc, localFs, ".", huloc.HuloPath)
+				results, err = vbs.Transpile(huloc, localFs, ".")
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}
 			case config.L_BASH:
-				results, err = bash.Transpile(huloc, localFs, ".", huloc.HuloPath)
+				results, err = bash.Transpile(huloc, localFs, ".")
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}
 			}
 
 			for file, code := range results {
-				if strings.Contains(file, "std") {
+				if strings.Contains(file, "core") {
 					continue
 				}
 				os.MkdirAll(filepath.Join(huloc.OutDir, filepath.Dir(file)), 0755)

@@ -187,15 +187,19 @@ func (v *BasehuloParserVisitor) VisitCommandExpression(ctx *CommandExpressionCon
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitCommandArgument(ctx *CommandArgumentContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitBuiltinCommandArgument(ctx *BuiltinCommandArgumentContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitCommandJoin(ctx *CommandJoinContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BasehuloParserVisitor) VisitCommandStream(ctx *CommandStreamContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasehuloParserVisitor) VisitCommandMemberAccess(ctx *CommandMemberAccessContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
