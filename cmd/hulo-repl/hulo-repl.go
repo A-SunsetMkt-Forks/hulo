@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -147,7 +148,22 @@ func runREPL(cmd *cobra.Command, args []string) {
 
 	cfg, err := util.LoadConfigure[config.HuloRepl](cfgPath)
 	if err != nil {
-		panic(err)
+		execPath, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		themeDir := filepath.Join(execPath, "../../theme")
+		cfg = config.HuloRepl{
+			Theme:          "default",
+			MaxSuggestions: 10,
+			ThemeFiles: map[string]string{
+				"default":  filepath.Join(themeDir, "default.yaml"),
+				"dark":     filepath.Join(themeDir, "dark.yaml"),
+				"light":    filepath.Join(themeDir, "light.yaml"),
+				"colorful": filepath.Join(themeDir, "colorful.yaml"),
+				"monokai":  filepath.Join(themeDir, "monokai.yaml"),
+			},
+		}
 	}
 
 	options := []prompt.Option{

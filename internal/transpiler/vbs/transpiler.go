@@ -57,7 +57,6 @@ func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler 
 		undefinedSymbols: container.NewMapSet[string](),
 		// 初始化模块管理
 		moduleManager: &ModuleManager{
-			isFirst:  true,
 			options:  opts,
 			vfs:      vfs,
 			basePath: "",
@@ -87,6 +86,13 @@ func (b *VBScriptTranspiler) Transpile(mainFile string) (map[string]string, erro
 	}
 
 	b.builtinModules = builtinModules
+
+	for _, module := range builtinModules {
+		if module.Symbols == nil {
+			module.Symbols = NewSymbolTable(module.Name, false)
+		}
+		b.analyzeModuleExports(module)
+	}
 
 	// 1. 解析所有依赖
 	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
@@ -841,6 +847,13 @@ func (v *VBScriptTranspiler) canResolveFunction(fun *vast.Ident) bool {
 	if v.currentModule.Symbols.HasFunction(fun.Name) {
 		log.Debugf("[canResolveFunction] 在当前模块符号表找到: %s", fun.Name)
 		return true
+	}
+
+	// 查找内置模块
+	for _, builtinModule := range v.builtinModules {
+		if builtinModule.Symbols.HasFunction(fun.Name) {
+			return true
+		}
 	}
 
 	// 2. 递归查所有依赖

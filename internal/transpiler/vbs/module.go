@@ -359,8 +359,6 @@ type ModuleManager struct {
 	options *config.Huloc
 
 	externalVBS map[string]string // 符号名 -> vbs内容
-
-	isFirst bool // 先硬编码内置模块
 }
 
 type DependencyResolver struct {
@@ -452,11 +450,6 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	content, err := mm.vfs.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
-	}
-
-	if mm.isFirst {
-		mm.isFirst = false
-		content = []byte(fmt.Sprintf("import * from \"%s\"\n", strings.ReplaceAll(filepath.Join(mm.options.HuloPath, "core/unsafe/vbs/index"), "\\", "/")) + string(content))
 	}
 
 	opts := []parser.ParserOptions{}
@@ -555,7 +548,6 @@ func (mm *ModuleManager) extractImports(ast *hast.File, currentModulePath string
 						vbsPath = filepath.Join(currentDir, dep)
 					}
 					content, err := mm.vfs.ReadFile(vbsPath)
-					fmt.Println(vbsPath, string(content))
 					if err == nil {
 						if importInfo.Kind == ImportMulti {
 							for _, sym := range importInfo.SymbolName {
@@ -602,8 +594,11 @@ func (mm *ModuleManager) GetModule(path string) *Module {
 
 // resolveRelativePath 解析相对于当前模块的导入路径
 func (mm *ModuleManager) resolveRelativePath(currentModulePath, importPath string) string {
+	if filepath.IsAbs(importPath) {
+		return importPath
+	}
 	// 如果导入路径是绝对路径或以 ./ 或 ../ 开头，则相对于当前模块解析
-	if filepath.IsAbs(importPath) || strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../") {
+	if strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../") {
 		currentDir := filepath.Dir(currentModulePath)
 		return filepath.Join(currentDir, importPath)
 	}

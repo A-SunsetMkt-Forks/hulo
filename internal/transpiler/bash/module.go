@@ -293,8 +293,6 @@ type ModuleManager struct {
 	modules  map[string]*Module
 	resolver *DependencyResolver
 
-	isMain bool // 首次要收集 builtin 包
-
 	options *config.Huloc
 }
 
@@ -364,7 +362,9 @@ func (mm *ModuleManager) resolveDependencies(filePath string) error {
 
 	// 递归解析依赖
 	for _, dep := range module.Dependencies {
-		if err := mm.resolveDependencies(dep); err != nil {
+		// 解析相对路径
+		resolvedDep := mm.resolveRelativePath(filePath, dep)
+		if err := mm.resolveDependencies(resolvedDep); err != nil {
 			return err
 		}
 	}
@@ -373,6 +373,30 @@ func (mm *ModuleManager) resolveDependencies(filePath string) error {
 	mm.resolver.order = append(mm.resolver.order, filePath)
 
 	return nil
+}
+
+// resolveRelativePath 解析相对于当前模块的导入路径
+func (mm *ModuleManager) resolveRelativePath(currentModulePath, importPath string) string {
+	if filepath.IsAbs(importPath) {
+		return importPath
+	}
+	// 如果导入路径是绝对路径或以 ./ 或 ../ 开头，则相对于当前模块解析
+	if strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../") {
+		currentDir := filepath.Dir(currentModulePath)
+		return filepath.Join(currentDir, importPath)
+	}
+
+	// 否则，尝试在当前模块的目录中查找
+	currentDir := filepath.Dir(currentModulePath)
+	relativePath := filepath.Join(currentDir, importPath)
+
+	// 检查相对路径是否存在
+	if mm.vfs.Exists(relativePath) || mm.vfs.Exists(relativePath+".hl") {
+		return relativePath
+	}
+
+	// 如果相对路径不存在，返回原始路径（让上层处理）
+	return importPath
 }
 
 func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
@@ -417,7 +441,7 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	}
 
 	// 提取导入信息
-	imports, dependencies := mm.extractImports(ast)
+	imports, dependencies := mm.extractImports(ast, filePath)
 
 	// 创建模块
 	moduleName := mm.getModuleName(filePath)
@@ -437,9 +461,11 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	return module, nil
 }
 
-func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string) {
+func (mm *ModuleManager) extractImports(ast *hast.File, currentModulePath string) ([]*ImportInfo, []string) {
 	var imports []*ImportInfo
 	var dependencies []string
+	// 使用map来去重依赖
+	dependencySet := make(map[string]bool)
 
 	for _, stmt := range ast.Stmts {
 		if importStmt, ok := stmt.(*hast.Import); ok {
@@ -477,7 +503,20 @@ func (mm *ModuleManager) extractImports(ast *hast.File) ([]*ImportInfo, []string
 
 			if importInfo != nil {
 				imports = append(imports, importInfo)
-				dependencies = append(dependencies, importInfo.ModulePath)
+				dep := importInfo.ModulePath
+
+				// 非 vbs 文件才补全 .hl
+				depPath := dep
+				if !filepath.IsAbs(dep) && !strings.HasSuffix(dep, ".hl") && !strings.HasPrefix(dep, "./") && !strings.HasPrefix(dep, "../") {
+					currentDir := filepath.Dir(currentModulePath)
+					depPath = filepath.Join(currentDir, dep+".hl")
+				}
+
+				// 去重：只有未添加过的依赖才添加
+				if !dependencySet[depPath] {
+					dependencies = append(dependencies, depPath)
+					dependencySet[depPath] = true
+				}
 			}
 		}
 	}

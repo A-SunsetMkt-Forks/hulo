@@ -22,7 +22,7 @@ type initParameters struct {
 }
 
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [package-name]",
 	Short: "init a package",
 	Run: func(cmd *cobra.Command, args []string) {
 		if util.Exists(config.HuloPkgFileName) {
@@ -36,11 +36,16 @@ var initCmd = &cobra.Command{
 			String())
 
 		pkg := config.NewHuloPkg()
-		wd, err := os.Getwd()
-		if err != nil {
-			wd = "my-project"
+		if len(args) > 0 {
+			pkg.Name = args[0]
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				wd = "my-project"
+			}
+			pkg.Name = filepath.Base(wd)
 		}
-		pkg.Name = filepath.Base(wd)
+
 		out, err := yaml.Marshal(&pkg)
 		if err != nil {
 			log.WithError(err).Fatal("fail to marshal package")
@@ -48,8 +53,7 @@ var initCmd = &cobra.Command{
 		os.WriteFile(config.HuloPkgFileName, out, 0644)
 
 		log.Info(tinge.Styled().Bold("setting up .gitignore").String())
-
-		if _, err := os.Stat(".gitignore"); os.IsNotExist(err) {
+		if !util.Exists(".gitignore") {
 			os.WriteFile(".gitignore", []byte("dist/"), 0644)
 		} else {
 			content, err := os.ReadFile(".gitignore")

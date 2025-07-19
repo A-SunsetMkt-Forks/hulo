@@ -78,6 +78,13 @@ func (b *BashTranspiler) Transpile(mainFile string) (map[string]string, error) {
 
 	b.builtinModules = builtinModules
 
+	for _, module := range builtinModules {
+		if module.Symbols == nil {
+			module.Symbols = NewSymbolTable(module.Name, false)
+		}
+		b.analyzeModuleExports(module)
+	}
+
 	// 1. 解析所有依赖
 	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
 	if err != nil {
@@ -276,10 +283,16 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 		return b.ConvertMatchStmt(node)
 	case *hast.DoWhileStmt:
 		return b.ConvertDoWhileStmt(node)
+	case *hast.DeclareDecl:
+		return b.ConvertDeclareDecl(node)
 	default:
 		fmt.Printf("Unhandled node type: %T\n", node)
 		return nil
 	}
+}
+
+func (b *BashTranspiler) ConvertDeclareDecl(node *hast.DeclareDecl) bast.Node {
+	return nil
 }
 
 func (b *BashTranspiler) ConvertFile(node *hast.File) bast.Node {
@@ -712,7 +725,12 @@ func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 
 	var recv []bast.Expr
 	for _, arg := range node.Args {
-		recv = append(recv, b.Convert(arg).(bast.Expr))
+		converted := b.Convert(arg).(bast.Expr)
+		if cmd, ok := converted.(*bast.CmdExpr); ok {
+			recv = append(recv, &bast.CmdSubst{Tok: btok.DollParen, X: cmd})
+		} else {
+			recv = append(recv, converted)
+		}
 	}
 
 	return &bast.CmdExpr{
@@ -1089,6 +1107,14 @@ func (b *BashTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
 	var x bast.Expr
 	if node.X != nil {
 		x = b.Convert(node.X).(bast.Expr)
+		if _, ok := node.X.(*hast.StringLiteral); ok {
+			return &bast.ExprStmt{
+				X: &bast.CmdExpr{
+					Name: &bast.Ident{Name: "echo"},
+					Recv: []bast.Expr{x},
+				},
+			}
+		}
 	} else {
 		// 如果没有返回值，使用默认值 0
 		x = &bast.Word{Val: "0"}
