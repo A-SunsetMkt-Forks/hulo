@@ -7,9 +7,9 @@ import "sort"
 
 // Parameters is the parameters for the hulo command
 type Parameters struct {
-	// Langs is the language to compile.
-	// if not set, all languages will be compiled
-	Langs []string
+	// Targets is the target to compile.
+	// if not set, all targets will be compiled
+	Targets []string
 	// Verbose is the Verbose mode
 	Verbose bool
 	// Version is the Version of the compiler

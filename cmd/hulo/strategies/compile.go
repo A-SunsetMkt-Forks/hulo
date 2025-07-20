@@ -12,9 +12,9 @@ import (
 
 	"github.com/caarlos0/log"
 
+	"github.com/hulo-lang/hulo/internal/config"
 	bash "github.com/hulo-lang/hulo/internal/transpiler/bash"
 	vbs "github.com/hulo-lang/hulo/internal/transpiler/vbs"
-	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/vfs/osfs"
 	"gopkg.in/yaml.v3"
 )
@@ -79,8 +79,8 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 	}
 
 	// 优先级：命令行参数 > huloc.yaml
-	if len(params.Langs) > 0 {
-		huloc.Targets = params.Langs
+	if len(params.Targets) > 0 {
+		huloc.Targets = params.Targets
 	}
 
 	// 如果 targets 中没有指定语言，则默认编译所有

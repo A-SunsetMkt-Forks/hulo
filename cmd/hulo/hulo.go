@@ -50,7 +50,7 @@ hulo main.hl -v
 
 func init() {
 	huloCmd.PersistentFlags().BoolVarP(&params.Version, "version", "V", false, "print the version")
-	huloCmd.PersistentFlags().StringSliceVarP(&params.Langs, "lang", "l", []string{}, "specify languages to compile")
+	huloCmd.PersistentFlags().StringSliceVarP(&params.Targets, "target", "t", []string{}, "specify targets to compile")
 	huloCmd.PersistentFlags().BoolVarP(&params.Verbose, "verbose", "v", false, "enables detailed log")
 	huloCmd.PersistentFlags().StringVarP(&params.OutDir, "outdir", "o", ".", "specify a directory to write the output")
 }
