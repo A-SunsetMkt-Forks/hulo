@@ -12,6 +12,20 @@ import (
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
+type BatchTranspiler struct {
+	opts *config.BatchOptions
+}
+
+func NewBatchTranspiler(opts *config.BatchOptions) *BatchTranspiler {
+	return &BatchTranspiler{
+		opts: opts,
+	}
+}
+
+func (t *BatchTranspiler) Transpile(node hast.Node) (bast.Node, error) {
+	return translate2Batch(t.opts, node), nil
+}
+
 func Translate(opts *config.BatchOptions, node hast.Node) (bast.Node, error) {
 	bnode := translate2Batch(opts, node)
 	return bnode, nil
