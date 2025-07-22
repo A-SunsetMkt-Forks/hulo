@@ -48,15 +48,18 @@ write_header() {
 remove_binary() {
     local install_dir=$1
 
-    write_remove "Removing hulo binary from: $install_dir"
+    write_remove "Removing hulo binaries from: $install_dir"
 
-    local binary_path="$install_dir/hulo"
-    if [ -f "$binary_path" ]; then
-        rm -f "$binary_path"
-        write_success "Binary removed successfully: $binary_path"
-    else
-        write_warning "Binary not found: $binary_path"
-    fi
+    local exe_names=("hulo" "hlpm" "hulo-repl")
+    for exe in "${exe_names[@]}"; do
+        local binary_path="$install_dir/$exe"
+        if [ -f "$binary_path" ]; then
+            rm -f "$binary_path"
+            write_success "Binary removed successfully: $binary_path"
+        else
+            write_warning "Binary not found: $binary_path"
+        fi
+    done
 
     # Remove from PATH in shell config files
     local shell_rc=""
@@ -80,8 +83,8 @@ remove_binary() {
 remove_hulo_modules() {
     write_remove "Removing HULO_MODULES directory"
 
-    # Get HULOPATH from environment or shell config
-    local hulo_path="$HULOPATH"
+    # Get HULO_PATH from environment or shell config
+    local hulo_path="$HULO_PATH"
     if [ -z "$hulo_path" ]; then
         # Try to get from shell config
         local shell_rc=""
@@ -92,7 +95,7 @@ remove_hulo_modules() {
         fi
 
         if [ -n "$shell_rc" ] && [ -f "$shell_rc" ]; then
-            hulo_path=$(grep "export HULOPATH=" "$shell_rc" | sed 's/export HULOPATH="\(.*\)"/\1/' 2>/dev/null || echo "")
+            hulo_path=$(grep "export HULO_PATH=" "$shell_rc" | sed 's/export HULO_PATH="\(.*\)"/\1/' 2>/dev/null || echo "")
         fi
     fi
 
@@ -113,7 +116,7 @@ remove_hulo_modules() {
 }
 
 remove_environment_variable() {
-    write_remove "Removing HULOPATH environment variable"
+    write_remove "Removing HULO_PATH environment variable"
 
     # Remove from shell config files
     local shell_rc=""
@@ -124,36 +127,36 @@ remove_environment_variable() {
     fi
 
     if [ -n "$shell_rc" ] && [ -f "$shell_rc" ]; then
-        if grep -q "export HULOPATH=" "$shell_rc" 2>/dev/null; then
-            sed -i.bak '/export HULOPATH=/d' "$shell_rc"
-            write_info "Removed HULOPATH from user environment variables"
+        if grep -q "export HULO_PATH=" "$shell_rc" 2>/dev/null; then
+            sed -i.bak '/export HULO_PATH=/d' "$shell_rc"
+            write_info "Removed HULO_PATH from user environment variables"
         else
-            write_info "HULOPATH not found in user environment variables"
+            write_info "HULO_PATH not found in user environment variables"
         fi
     fi
 
     # Remove from global profile if exists
     local global_profile="/etc/profile.d/hulo.sh"
     if [ -f "$global_profile" ]; then
-        write_warning "Found global HULOPATH configuration. Administrator privileges may be required."
-        read -p "Do you want to remove the global HULOPATH configuration? (y/N): " confirm
+        write_warning "Found global HULO_PATH configuration. Administrator privileges may be required."
+        read -p "Do you want to remove the global HULO_PATH configuration? (y/N): " confirm
         if [[ $confirm =~ ^[Yy]$ ]]; then
             if sudo rm -f "$global_profile"; then
-                write_success "Removed HULOPATH from global environment variables"
+                write_success "Removed HULO_PATH from global environment variables"
             else
-                write_warning "Failed to remove global HULOPATH (requires administrator privileges)"
+                write_warning "Failed to remove global HULO_PATH (requires administrator privileges)"
             fi
         else
-            write_info "Skipped removal of global HULOPATH"
+            write_info "Skipped removal of global HULO_PATH"
         fi
     else
-        write_info "HULOPATH not found in global environment variables"
+        write_info "HULO_PATH not found in global environment variables"
     fi
 
     # Remove from current session
-    if [ -n "$HULOPATH" ]; then
-        unset HULOPATH
-        write_info "Removed HULOPATH from current session"
+    if [ -n "$HULO_PATH" ]; then
+        unset HULO_PATH
+        write_info "Removed HULO_PATH from current session"
     fi
 }
 

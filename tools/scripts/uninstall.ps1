@@ -41,15 +41,18 @@ function Write-Header($msg) {
 }
 
 function Remove-Binary($installDir) {
-    Write-Remove "Removing hulo binary from: $installDir"
+    Write-Remove "Removing hulo binaries from: $installDir"
 
-    $binaryPath = Join-Path $installDir "hulo.exe"
-    if (Test-Path $binaryPath) {
-        Remove-Item -Path $binaryPath -Force
-        Write-Success "Binary removed successfully: $binaryPath"
-    }
-    else {
-        Write-Warning "Binary not found: $binaryPath"
+    $exeNames = @("hulo.exe", "hlpm.exe", "hulo-repl.exe")
+    foreach ($exe in $exeNames) {
+        $binaryPath = Join-Path $installDir $exe
+        if (Test-Path $binaryPath) {
+            Remove-Item -Path $binaryPath -Force
+            Write-Success "Binary removed successfully: $binaryPath"
+        }
+        else {
+            Write-Warning "Binary not found: $binaryPath"
+        }
     }
 
     # 从 PATH 环境变量中移除安装目录
@@ -68,7 +71,7 @@ function Remove-HuloModules() {
     Write-Remove "Removing HULO_MODULES directory"
 
     # 获取 HULOPATH 环境变量
-    $huloPath = [Environment]::GetEnvironmentVariable("HULOPATH", "User")
+    $huloPath = [Environment]::GetEnvironmentVariable("HULO_PATH", "User")
     if (-not $huloPath) {
         $huloPath = $env:HULOPATH
     }
@@ -92,28 +95,28 @@ function Remove-HuloModules() {
 }
 
 function Remove-EnvironmentVariable() {
-    Write-Remove "Removing HULOPATH environment variable"
+    Write-Remove "Removing HULO_PATH environment variable"
 
     # 检查用户环境变量
-    $userHuloPath = [Environment]::GetEnvironmentVariable("HULOPATH", "User")
+    $userHuloPath = [Environment]::GetEnvironmentVariable("HULO_PATH", "User")
     if ($userHuloPath) {
-        [Environment]::SetEnvironmentVariable("HULOPATH", $null, "User")
-        Write-Info "Removed HULOPATH from user environment variables"
+        [Environment]::SetEnvironmentVariable("HULO_PATH", $null, "User")
+        Write-Info "Removed HULO_PATHv from user environment variables"
     }
     else {
-        Write-Info "HULOPATH not found in user environment variables"
+        Write-Info "HULO_PATH not found in user environment variables"
     }
 
     # 检查全局环境变量
-    $machineHuloPath = [Environment]::GetEnvironmentVariable("HULOPATH", "Machine")
+    $machineHuloPath = [Environment]::GetEnvironmentVariable("HULO_PATH", "Machine")
     if ($machineHuloPath) {
-        Write-Warning "Found global HULOPATH environment variable. Administrator privileges may be required."
-        $confirm = Read-Host "Do you want to try to remove the global HULOPATH? (y/N)"
+        Write-Warning "Found global HULO_PATH environment variable. Administrator privileges may be required."
+        $confirm = Read-Host "Do you want to try to remove the global HULO_PATH? (y/N)"
         if ($confirm -eq 'y' -or $confirm -eq 'Y') {
             # 尝试删除全局环境变量
             $globalRemoved = $false
             try {
-                [Environment]::SetEnvironmentVariable("HULOPATH", $null, "Machine")
+                [Environment]::SetEnvironmentVariable("HULO_PATH", $null, "Machine")
                 $globalRemoved = $true
             }
             catch {
@@ -121,18 +124,18 @@ function Remove-EnvironmentVariable() {
             }
 
             if ($globalRemoved) {
-                Write-Success "Removed HULOPATH from global environment variables"
+                Write-Success "Removed HULO_PATH from global environment variables"
             }
             else {
-                Write-Warning "Failed to remove global HULOPATH (requires administrator privileges)"
+                Write-Warning "Failed to remove global HULO_PATH (requires administrator privileges)"
             }
         }
         else {
-            Write-Info "Skipped removal of global HULOPATH"
+            Write-Info "Skipped removal of global HULO_PATH"
         }
     }
     else {
-        Write-Info "HULOPATH not found in global environment variables"
+        Write-Info "HULO_PATH not found in global environment variables"
     }
 }
 

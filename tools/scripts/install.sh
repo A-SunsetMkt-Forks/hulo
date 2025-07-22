@@ -184,12 +184,12 @@ install_stdlib() {
     mkdir -p "$hulo_modules_dir"
     write_info "Created modules directory: $hulo_modules_dir"
 
-    # Copy all files except executable and archives to HULO_MODULES directory
+    # Copy all files except bin directory and archives to HULO_MODULES directory
     write_step "Copying standard library files to: $hulo_modules_dir"
     local file_count=0
     for item in "$extract_dir"/*; do
         local basename=$(basename "$item")
-        if [ "$basename" != "hulo" ] && [ "$basename" != "hulo.exe" ] && [[ "$basename" != *.zip ]] && [[ "$basename" != *.tar.gz ]]; then
+        if [ "$basename" != "bin" ] && [[ "$basename" != *.zip ]] && [[ "$basename" != *.tar.gz ]]; then
             if [ -d "$item" ]; then
                 cp -r "$item" "$hulo_modules_dir/"
                 ((file_count++))
@@ -201,22 +201,22 @@ install_stdlib() {
     done
     write_success "Standard library installed successfully ($file_count items)"
 
-    # Set HULOPATH environment variable globally
+    # Set HULO_PATH environment variable globally
     local global_profile="/etc/profile.d/hulo.sh"
-    write_step "Configuring HULOPATH environment variable"
+    write_step "Configuring HULO_PATH environment variable"
 
     # Create global profile script
     sudo tee "$global_profile" > /dev/null << EOF
 #!/bin/bash
-export HULOPATH="$hulo_modules_dir"
+export HULO_PATH="$hulo_modules_dir"
 EOF
 
     # Make it executable
     sudo chmod +x "$global_profile"
 
     # Set for current session and display
-    export HULOPATH="$hulo_modules_dir"
-    write_info "HULOPATH set to: $hulo_modules_dir"
+    export HULO_PATH="$hulo_modules_dir"
+    write_info "HULO_PATH set to: $hulo_modules_dir"
     write_info "Global profile created: $global_profile"
 }
 
@@ -281,18 +281,20 @@ main() {
     extract_file "$download_path" "$temp_dir"
 
     # Find binary file
-    local binary_path=""
-    if [ "$os" = "Windows" ]; then
-        binary_path=$(find "$temp_dir" -name "hulo.exe" -type f | head -n 1)
-    else
-        binary_path=$(find "$temp_dir" -name "hulo" -type f | head -n 1)
+    # Find all executables in bin directory
+    local bin_dir="$temp_dir/bin"
+    if [ ! -d "$bin_dir" ]; then
+        write_error_and_exit "bin directory not found in extracted archive"
     fi
 
-    if [ -z "$binary_path" ] || [ ! -f "$binary_path" ]; then
-        write_error_and_exit "Binary file not found in extracted archive"
+    local exe_files=($(find "$bin_dir" -maxdepth 1 -type f -perm -u=x))
+    if [ ${#exe_files[@]} -eq 0 ]; then
+        write_error_and_exit "No executable files found in bin directory"
     fi
 
-    install_binary "$binary_path" "$INSTALL_PATH"
+    for exe in "${exe_files[@]}"; do
+        install_binary "$exe" "$INSTALL_PATH"
+    done
 
     # Install standard library files
     install_stdlib "$temp_dir" "$INSTALL_PATH"
@@ -300,8 +302,8 @@ main() {
     write_header "Installation Summary"
     write_success "Installation completed successfully"
     write_info "You can now use 'hulo' command"
-    write_info "Standard library and modules are available at: $HULOPATH"
-    write_info "HULOPATH environment variable: $HULOPATH"
+    write_info "Standard library and modules are available at: $HULO_PATH"
+    write_info "HULO_PATH environment variable: $HULO_PATH"
 }
 
 main "$@"

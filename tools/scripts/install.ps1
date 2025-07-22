@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.1.0",
+    [string]$Version = "v0.2.0",
     [string]$InstallPath = "$env:USERPROFILE\.local\bin"
 )
 
@@ -148,8 +148,8 @@ function Extract-File($filePath, $extractDir) {
     }
 }
 
-function Install-Binary($binaryPath, $installDir) {
-    Write-Install "Installing hulo binary to: $installDir"
+function Install-Binary($binaryFiles, $installDir) {
+    Write-Install "Installing hulo binaries to: $installDir"
 
     try {
         # 创建安装目录
@@ -158,11 +158,11 @@ function Install-Binary($binaryPath, $installDir) {
             Write-Info "Created installation directory: $installDir"
         }
 
-        # 复制二进制文件
-        $installPath = Join-Path $installDir "hulo.exe"
-        Copy-Item -Path $binaryPath -Destination $installPath -Force
-
-        Write-Success "Binary installed successfully: $installPath"
+        foreach ($file in $binaryFiles) {
+            $installPath = Join-Path $installDir $file.Name
+            Copy-Item -Path $file.FullName -Destination $installPath -Force
+            Write-Success "Binary installed successfully: $installPath"
+        }
 
         # 添加到 PATH 环境变量
         $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
@@ -177,7 +177,7 @@ function Install-Binary($binaryPath, $installDir) {
 
     }
     catch {
-        Write-ErrorAndExit "Failed to install binary: $($_.Exception.Message)"
+        Write-ErrorAndExit "Failed to install binaries: $($_.Exception.Message)"
     }
 }
 
@@ -209,22 +209,22 @@ function Install-StdLib($extractDir, $installDir) {
         }
         Write-Success "Standard library installed successfully ($fileCount items)"
 
-        # 设置 HULOPATH 环境变量指向 HULO_MODULES 目录
-        Write-Step "Configuring HULOPATH environment variable"
+        # 设置 HULO_PATH 环境变量指向 HULO_MODULES 目录
+        Write-Step "Configuring HULO_PATH environment variable"
 
         # 直接设置为用户环境变量（不需要管理员权限）
-        $result = cmd /c "setx HULOPATH `"$huloModulesDir`"" 2>&1
+        $result = cmd /c "setx HULO_PATH `"$huloModulesDir`"" 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Info "HULOPATH set to: $huloModulesDir"
+            Write-Info "HULO_PATH set to: $huloModulesDir"
         }
         else {
             # 如果 setx 失败，使用 PowerShell 方法
-            [Environment]::SetEnvironmentVariable("HULOPATH", $huloModulesDir, "User")
-            Write-Info "HULOPATH set to: $huloModulesDir (fallback method)"
+            [Environment]::SetEnvironmentVariable("HULO_PATH", $huloModulesDir, "User")
+            Write-Info "HULO_PATH set to: $huloModulesDir (fallback method)"
         }
 
         # 设置当前会话的环境变量
-        $env:HULOPATH = $huloModulesDir
+        $env:HULO_PATH = $huloModulesDir
 
     }
     catch {
@@ -294,26 +294,18 @@ function Main {
 
         Extract-File $downloadPath $tempDir
 
-        $binaryPath = ""
-        if ($os -eq "Windows") {
-            $binaryPath = Get-ChildItem -Path $tempDir -Name "hulo.exe" -Recurse | Select-Object -First 1
-            if ($binaryPath) {
-                $binaryPath = Join-Path $tempDir $binaryPath
+        $binDir = Join-Path $tempDir "bin"
+        $exeFiles = @()
+        if (Test-Path $binDir) {
+            $exeFiles = Get-ChildItem -Path $binDir -Filter "*.exe" -File
+            if ($exeFiles.Count -eq 0) {
+                Write-ErrorAndExit "No .exe files found in bin directory."
             }
-        }
-        else {
-            $binaryPath = Get-ChildItem -Path $tempDir -Name "hulo" -Recurse | Select-Object -First 1
-            if ($binaryPath) {
-                $binaryPath = Join-Path $tempDir $binaryPath
-            }
-
+        } else {
+            Write-ErrorAndExit "bin directory not found in extracted archive."
         }
 
-        if (-not $binaryPath -or -not (Test-Path $binaryPath)) {
-            Write-ErrorAndExit "Binary file not found in extracted archive"
-        }
-
-        Install-Binary $binaryPath $InstallPath
+        Install-Binary $exeFiles $InstallPath
 
         Write-Info "Binary installation completed, proceeding to install standard library..."
         Write-Info "About to call Install-StdLib with tempDir: $tempDir, InstallPath: $InstallPath"
@@ -324,13 +316,13 @@ function Main {
         Write-Success "Installation completed successfully!"
         Write-Info "You can now use 'hulo' command"
         # 获取环境变量值（优先检查用户，然后检查当前会话）
-        $huloPath = [Environment]::GetEnvironmentVariable('HULOPATH', 'User')
-        if (-not $huloPath) {
-            $huloPath = $env:HULOPATH
+        $HULO_PATH = [Environment]::GetEnvironmentVariable('HULO_PATH', 'User')
+        if (-not $HULO_PATH) {
+            $HULO_PATH = $env:HULO_PATH
         }
 
-        Write-Info "Standard library and modules are available at: $huloPath"
-        Write-Info "HULOPATH environment variable: $huloPath"
+        Write-Info "Standard library and modules are available at: $HULO_PATH"
+        Write-Info "HULO_PATH environment variable: $HULO_PATH"
     }
     finally {
         if (Test-Path $tempDir) {
