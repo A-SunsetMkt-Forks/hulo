@@ -4,6 +4,7 @@
 package ast
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +41,7 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 	switch node := node.(type) {
 	case *File:
 		return p.visitFile(node)
-	case *BlcokStmt:
+	case *BlockStmt:
 		return p.visitBlcokStmt(node)
 	case *FuncDecl:
 		return p.visitFuncDecl(node)
@@ -147,6 +148,10 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitDoUntilStmt(node)
 	case *LabelStmt:
 		return p.visitLabelStmt(node)
+	case *IfStmt:
+		return p.visitIfStmt(node)
+	case *ReturnStmt:
+		return p.visitReturnStmt(node)
 	case *WorkflowDecl:
 		return p.visitWorkflowDecl(node)
 	case *ParallelDecl:
@@ -158,6 +163,37 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
 	}
+}
+
+func (p *prettyPrinter) visitReturnStmt(node *ReturnStmt) Visitor {
+	p.indentWrite("return ")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
+	p.indentWrite("if ")
+	Walk(p, node.Cond)
+
+	Walk(p, node.Body)
+
+	for node.Else != nil {
+		switch el := node.Else.(type) {
+		case *IfStmt:
+			p.indentWrite("else if ")
+			Walk(p, el.Cond)
+
+			Walk(p, el.Body)
+
+			node.Else = el.Else
+		case *BlockStmt:
+			p.indentWrite("else")
+			Walk(p, el)
+			node.Else = nil
+		}
+	}
+	return nil
 }
 
 func (p *prettyPrinter) visitParallelDecl(node *ParallelDecl) Visitor {
@@ -520,7 +556,7 @@ func (p *prettyPrinter) visitProcessDecl(node *ProcessDecl) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitBlcokStmt(node *BlcokStmt) Visitor {
+func (p *prettyPrinter) visitBlcokStmt(node *BlockStmt) Visitor {
 	p.write("{\n")
 	p.indent++
 	for _, stmt := range node.List {
@@ -693,4 +729,11 @@ func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
 func Print(node Node) {
 	p := prettyPrinter{output: os.Stdout, indentSpace: "  "}
 	p.Visit(node)
+}
+
+func String(node Node) string {
+	var buf bytes.Buffer
+	p := prettyPrinter{output: &buf, indentSpace: "  "}
+	p.Visit(node)
+	return buf.String()
 }

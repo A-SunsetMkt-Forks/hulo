@@ -27,7 +27,7 @@ import (
 func TestFuncDecl(t *testing.T) {
 	ast.Print(&ast.FuncDecl{
 		Name: &ast.Ident{Name: "MyFunction"},
-		Body: &ast.BlcokStmt{
+		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ParamBlock{
 					Attributes: []*ast.Attribute{
@@ -50,7 +50,7 @@ func TestFuncDecl(t *testing.T) {
 					},
 				},
 				&ast.ProcessDecl{
-					Body: &ast.BlcokStmt{
+					Body: &ast.BlockStmt{
 						List: []ast.Stmt{
 							&ast.ExprStmt{
 								X: &ast.CmdExpr{
@@ -114,23 +114,23 @@ func TestHashTable(t *testing.T) {
 */
 func TestTryStmt(t *testing.T) {
 	ast.Print(&ast.TryStmt{
-		Body: &ast.BlcokStmt{
+		Body: &ast.BlockStmt{
 			List: []ast.Stmt{&ast.ExprStmt{X: &ast.StringLit{Val: "try"}}},
 		},
 		Catches: []*ast.CatchClause{
 			{
 				Type: &ast.Ident{Name: "IndexOutOfRangeException"},
-				Body: &ast.BlcokStmt{
+				Body: &ast.BlockStmt{
 					List: []ast.Stmt{&ast.ExprStmt{X: &ast.Lit{Val: "Handling out-of-bounds index, >$_<`n"}}},
 				},
 			},
 			{
-				Body: &ast.BlcokStmt{
+				Body: &ast.BlockStmt{
 					List: []ast.Stmt{&ast.ExprStmt{X: &ast.Lit{Val: "Caught unexpected exception"}}},
 				},
 			},
 		},
-		FinallyBody: &ast.BlcokStmt{
+		FinallyBody: &ast.BlockStmt{
 			List: []ast.Stmt{&ast.ExprStmt{X: &ast.Lit{Val: "# ..."}}},
 		},
 	})
@@ -143,7 +143,7 @@ func TestTryStmt(t *testing.T) {
 */
 func TestTrapStmt(t *testing.T) {
 	ast.Print(&ast.TrapStmt{
-		Body: &ast.BlcokStmt{List: []ast.Stmt{&ast.ExprStmt{X: &ast.Lit{Val: "# ..."}}}},
+		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.ExprStmt{X: &ast.Lit{Val: "# ..."}}}},
 	})
 }
 
@@ -155,7 +155,7 @@ func TestTrapStmt(t *testing.T) {
 func TestDataStmt(t *testing.T) {
 	ast.Print(&ast.DataStmt{
 		Recv: []ast.Expr{&ast.Ident{Name: "-SupportedCommand"}, &ast.Ident{Name: "ConvertTo-Xml"}},
-		Body: &ast.BlcokStmt{List: []ast.Stmt{&ast.ExprStmt{X: &ast.CmdExpr{Cmd: &ast.Ident{Name: "Format-Xml"}, Args: []ast.Expr{&ast.Lit{Val: "string1"}, &ast.Lit{Val: "string2"}, &ast.Lit{Val: "string3"}}}}}},
+		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.ExprStmt{X: &ast.CmdExpr{Cmd: &ast.Ident{Name: "Format-Xml"}, Args: []ast.Expr{&ast.Lit{Val: "string1"}, &ast.Lit{Val: "string2"}, &ast.Lit{Val: "string3"}}}}}},
 	})
 }
 
@@ -185,7 +185,7 @@ func TestSwitchStmt(t *testing.T) {
 		Cases: []*ast.CaseClause{
 			{
 				Cond: &ast.Ident{Name: "a*"},
-				Body: &ast.BlcokStmt{
+				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.Lit{Val: `"a*, $_"`},
@@ -195,7 +195,7 @@ func TestSwitchStmt(t *testing.T) {
 			},
 			{
 				Cond: &ast.Ident{Name: "?B?"},
-				Body: &ast.BlcokStmt{
+				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.Lit{Val: `"?B? , $_"`},
@@ -204,7 +204,7 @@ func TestSwitchStmt(t *testing.T) {
 				},
 			},
 		},
-		Default: &ast.BlcokStmt{
+		Default: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ExprStmt{X: &ast.Lit{Val: `"default, $_"`}},
 			},
@@ -247,7 +247,7 @@ func TestComments(t *testing.T) {
 }
 
 func TestConstrainedVarExpr(t *testing.T) {
-	ast.Print(&ast.BlcokStmt{
+	ast.Print(&ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ExprStmt{
 				X: &ast.CastExpr{
@@ -273,7 +273,7 @@ func TestConstrainedVarExpr(t *testing.T) {
 // [int]::MinValue
 // $t::MaxValue
 func TestExpression(t *testing.T) {
-	ast.Print(&ast.BlcokStmt{
+	ast.Print(&ast.BlockStmt{
 		List: []ast.Stmt{
 			&ast.ExprStmt{
 				X: &ast.BinaryExpr{

@@ -1,0 +1,4 @@
+import "hulo-lang/hello-world" as h
+import "hulo-lang/hello-world/utils_calculate" as uc
+import * from "math"
+import "math"

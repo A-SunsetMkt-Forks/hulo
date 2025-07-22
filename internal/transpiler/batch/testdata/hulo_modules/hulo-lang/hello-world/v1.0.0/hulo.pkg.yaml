@@ -1,0 +1,3 @@
+dependencies:
+main: ./src
+version: v1.0.0

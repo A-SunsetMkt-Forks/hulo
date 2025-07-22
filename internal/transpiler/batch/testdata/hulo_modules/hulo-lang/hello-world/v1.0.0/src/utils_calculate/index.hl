@@ -1,0 +1,3 @@
+pub fn add(a: num, b: num) -> num {
+	return $a + $b
+}

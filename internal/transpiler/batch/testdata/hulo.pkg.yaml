@@ -1,0 +1,3 @@
+dependencies:
+  hulo-lang/hello-world: v1.0.0
+main: ./src/main.hl

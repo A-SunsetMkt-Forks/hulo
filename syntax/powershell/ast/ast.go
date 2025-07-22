@@ -112,45 +112,45 @@ type (
 	ClassDecl struct {
 		Class token.Pos // position of class keyword
 		Name  *Ident
-		Body  *BlcokStmt
+		Body  *BlockStmt
 	}
 
 	EnumDecl struct {
 		Enum token.Pos // position of enum keyword
 		Name *Ident
-		Body *BlcokStmt
+		Body *BlockStmt
 	}
 
 	FuncDecl struct {
 		Function token.Pos // position of function keyword
 		Name     *Ident
-		Body     *BlcokStmt
+		Body     *BlockStmt
 	}
 
 	WorkflowDecl struct {
 		Workflow token.Pos // position of workflow keyword
 		Name     *Ident
-		Body     *BlcokStmt
+		Body     *BlockStmt
 	}
 
 	ParallelDecl struct {
 		Parallel token.Pos // position of parallel keyword
-		Body     *BlcokStmt
+		Body     *BlockStmt
 	}
 
 	SequenceDecl struct {
 		Sequence token.Pos // position of sequence keyword
-		Body     *BlcokStmt
+		Body     *BlockStmt
 	}
 
 	InlinescriptDecl struct {
 		Inlinescript token.Pos // position of inlinescript keyword
-		Body         *BlcokStmt
+		Body         *BlockStmt
 	}
 
 	ProcessDecl struct {
 		Process token.Pos // position of process keyword
-		Body    *BlcokStmt
+		Body    *BlockStmt
 	}
 
 	Attribute struct {
@@ -168,6 +168,8 @@ func (d *SequenceDecl) Pos() token.Pos     { return d.Sequence }
 func (d *InlinescriptDecl) Pos() token.Pos { return d.Inlinescript }
 func (d *ProcessDecl) Pos() token.Pos      { return d.Process }
 func (d *Attribute) Pos() token.Pos        { return d.Lparen }
+func (d *ClassDecl) Pos() token.Pos        { return d.Class }
+func (d *EnumDecl) Pos() token.Pos         { return d.Enum }
 
 func (d *FuncDecl) End() token.Pos         { return d.Body.End() }
 func (d *WorkflowDecl) End() token.Pos     { return d.Body.End() }
@@ -176,11 +178,15 @@ func (d *SequenceDecl) End() token.Pos     { return d.Body.End() }
 func (d *InlinescriptDecl) End() token.Pos { return d.Body.End() }
 func (d *ProcessDecl) End() token.Pos      { return d.Body.End() }
 func (d *Attribute) End() token.Pos        { return d.Rparen }
+func (d *ClassDecl) End() token.Pos        { return d.Body.End() }
+func (d *EnumDecl) End() token.Pos         { return d.Body.End() }
 
 func (*FuncDecl) stmtNode()     {}
 func (*WorkflowDecl) stmtNode() {}
 func (*ProcessDecl) stmtNode()  {}
 func (*Attribute) stmtNode()    {}
+func (*ClassDecl) stmtNode()    {}
+func (*EnumDecl) stmtNode()     {}
 
 type (
 	TypeLit struct {
@@ -485,7 +491,7 @@ func (*GroupExpr) exprNode()          {}
 func (*RedirectExpr) exprNode()       {}
 
 type (
-	BlcokStmt struct {
+	BlockStmt struct {
 		List []Stmt
 	}
 
@@ -502,10 +508,10 @@ type (
 
 	TryStmt struct {
 		Try         token.Pos // position of 'try'
-		Body        *BlcokStmt
+		Body        *BlockStmt
 		Catches     []*CatchClause
 		Finally     token.Pos // position of 'finally'
-		FinallyBody *BlcokStmt
+		FinallyBody *BlockStmt
 	}
 
 	CatchClause struct {
@@ -513,18 +519,18 @@ type (
 		Lbrack token.Pos // position of '['
 		Type   Expr
 		Rbrack token.Pos // position of ']'
-		Body   *BlcokStmt
+		Body   *BlockStmt
 	}
 
 	TrapStmt struct {
 		Trap token.Pos // position of 'trap'
-		Body *BlcokStmt
+		Body *BlockStmt
 	}
 
 	FuncStmt struct {
 		Func Expr
 		Recv []Expr
-		Body *BlcokStmt
+		Body *BlockStmt
 	}
 
 	ForeachStmt struct {
@@ -535,7 +541,7 @@ type (
 		In      token.Pos // position of 'in'
 		Elms    Expr
 		Rparen  token.Pos // position of ')'
-		Body    *BlcokStmt
+		Body    *BlockStmt
 	}
 
 	ForStmt struct {
@@ -545,7 +551,7 @@ type (
 		Cond  Expr
 		Semi2 token.Pos // position of ';'
 		Post  Expr
-		Body  *BlcokStmt
+		Body  *BlockStmt
 	}
 
 	IfStmt struct {
@@ -553,12 +559,13 @@ type (
 		LParen token.Pos // position of '('
 		Cond   Expr
 		RParen token.Pos // position of ')'
-		Body   *BlcokStmt
+		Body   *BlockStmt
 		Else   Stmt
 	}
 
 	ReturnStmt struct {
-		X Expr
+		Return token.Pos // position of 'return'
+		X      Expr
 	}
 
 	ThrowStmt struct {
@@ -574,7 +581,7 @@ type (
 
 	DoWhileStmt struct {
 		Do     token.Pos // position of 'do'
-		Body   *BlcokStmt
+		Body   *BlockStmt
 		While  token.Pos // position of 'while'
 		Lparen token.Pos // position of '('
 		Cond   Expr
@@ -583,7 +590,7 @@ type (
 
 	DoUntilStmt struct {
 		Do     token.Pos // position of 'do'
-		Body   *BlcokStmt
+		Body   *BlockStmt
 		Until  token.Pos // position of 'until'
 		Lparen token.Pos // position of '('
 		Cond   Expr
@@ -595,7 +602,7 @@ type (
 		Lparen token.Pos // position of '('
 		Cond   Expr
 		Rparen token.Pos // position of ')'
-		Body   *BlcokStmt
+		Body   *BlockStmt
 	}
 
 	// continue [label]
@@ -613,19 +620,19 @@ type (
 		Rparen        token.Pos // position of ')'
 		Lbrace        token.Pos // position of '{'
 		Cases         []*CaseClause
-		Default       *BlcokStmt
+		Default       *BlockStmt
 		Rbrace        token.Pos // position of '}'
 	}
 
 	CaseClause struct {
 		Cond Expr
-		Body *BlcokStmt
+		Body *BlockStmt
 	}
 
 	DataStmt struct {
 		Data token.Pos // position of 'data'
 		Recv []Expr
-		Body *BlcokStmt
+		Body *BlockStmt
 	}
 
 	BreakStmt struct {
@@ -634,7 +641,7 @@ type (
 
 	DynamicparamStmt struct {
 		Dynamicparam token.Pos // position of 'dynamicparam'
-		Body         *BlcokStmt
+		Body         *BlockStmt
 	}
 
 	ParamBlock struct {
@@ -664,7 +671,7 @@ const (
 	SwitchPatternExact
 )
 
-func (s *BlcokStmt) Pos() token.Pos        { return s.List[0].Pos() }
+func (s *BlockStmt) Pos() token.Pos        { return s.List[0].Pos() }
 func (x *ExprStmt) Pos() token.Pos         { return x.X.Pos() }
 func (x *AssignStmt) Pos() token.Pos       { return x.Lhs.Pos() }
 func (x *IfStmt) Pos() token.Pos           { return x.If }
@@ -690,8 +697,9 @@ func (x *ParamBlock) Pos() token.Pos {
 }
 func (x *ContinueStmt) Pos() token.Pos { return x.Continue }
 func (x *BreakStmt) Pos() token.Pos    { return x.Break }
+func (x *ReturnStmt) Pos() token.Pos   { return x.Return }
 
-func (s *BlcokStmt) End() token.Pos  { return s.List[len(s.List)-1].End() }
+func (s *BlockStmt) End() token.Pos  { return s.List[len(s.List)-1].End() }
 func (x *ExprStmt) End() token.Pos   { return x.X.End() }
 func (x *AssignStmt) End() token.Pos { return x.Rhs.End() }
 func (x *IfStmt) End() token.Pos {
@@ -717,8 +725,9 @@ func (x *DynamicparamStmt) End() token.Pos { return x.Body.End() }
 func (x *ParamBlock) End() token.Pos       { return x.Rparen }
 func (x *ContinueStmt) End() token.Pos     { return x.Label.End() }
 func (x *BreakStmt) End() token.Pos        { return x.Break + 5 }
+func (x *ReturnStmt) End() token.Pos       { return x.Return }
 
-func (*BlcokStmt) stmtNode()        {}
+func (*BlockStmt) stmtNode()        {}
 func (*ExprStmt) stmtNode()         {}
 func (*AssignStmt) stmtNode()       {}
 func (*FuncStmt) stmtNode()         {}
