@@ -7,10 +7,10 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 
 	// "github.com/hulo-lang/hulo/internal/build/bash"
-	build "github.com/hulo-lang/hulo/internal/transpiler/bash"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/optimizer"
+	build "github.com/hulo-lang/hulo/internal/transpiler/bash"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 )
 
@@ -33,11 +33,13 @@ func Compile(cfg *config.Huloc) error {
 		interpreter.Evaluate(ctx, file)
 	}
 
-	switch cfg.Language {
-	case config.L_BASH:
-		_, err := build.Translate(cfg.CompilerOptions.Bash, file)
-		if err != nil {
-			return err
+	for _, target := range cfg.Targets {
+		switch target {
+		case config.L_BASH:
+			_, err := build.Transpile(cfg, nil, ".")
+			if err != nil {
+				return err
+			}
 		}
 	}
 

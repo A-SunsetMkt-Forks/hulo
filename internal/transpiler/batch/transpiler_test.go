@@ -4,40 +4,33 @@
 package transpiler_test
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/caarlos0/log"
-	build "github.com/hulo-lang/hulo/internal/transpiler/batch"
 	"github.com/hulo-lang/hulo/internal/config"
-	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
-	"github.com/hulo-lang/hulo/syntax/hulo/parser"
+	build "github.com/hulo-lang/hulo/internal/transpiler/batch"
+	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCommandStmt(t *testing.T) {
-	log.SetLevel(log.ErrorLevel)
 	script := `echo "Hello, World!" 3.14 true`
-	node, err := parser.ParseSourceScript(script) // parser.OptionDebuggerDisableTiming(),
-	// parser.OptionDebuggerIgnore("MulDivExpression", "AddSubExpression", "ShiftExpression", "LogicalExpression", "ConditionalExpression"),
-	// parser.OptionDebuggerWatchNode("CommandExpression",
-	// 	func(node hast.Node, pos parser.Position) {
-	// 		fmt.Printf("Entering CommandExpression at %d:%d\n", pos.Line, pos.Column)
-	// 	},
-	// 	func(node hast.Node, result any, err error) {
-	// 		fmt.Printf("Exiting CommandExpression with result: %v\n", result)
-	// 	},
-	// ),
-	// parser.OptionDisplayASTTree(os.Stdout),
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
+	assert.NoError(t, err)
 
-	assert.NoError(t, err)
 	// hast.Print(node)
-	bnode, err := build.Translate(&config.BatchOptions{}, node)
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
 	assert.NoError(t, err)
-	bast.Print(bnode)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }
 
 func TestComment(t *testing.T) {
-	log.SetLevel(log.ErrorLevel)
 	script := `// this is a comment
 
 	/*
@@ -51,32 +44,40 @@ func TestComment(t *testing.T) {
 	 *    is a multi
 	 * comment
 	 */`
-	node, err := parser.ParseSourceScript(script)
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.BatchOptions{
-		CommentSyntax: "::",
-	}, node)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", CompilerOptions: config.CompilerOptions{Batch: &config.BatchOptions{CommentSyntax: "::"}}}, fs, "")
 	assert.NoError(t, err)
-	bast.Print(bnode)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }
 
 func TestAssign(t *testing.T) {
-	log.SetLevel(log.ErrorLevel)
 	script := `let a = 10
 	var b = 3.14
 	const c = "Hello, World!"
 	$d := true`
-	node, err := parser.ParseSourceScript(script)
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.BatchOptions{}, node)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
 	assert.NoError(t, err)
-	bast.Print(bnode)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }
 
 func TestIf(t *testing.T) {
-	log.SetLevel(log.ErrorLevel)
 	script := `
 	$a := 20
 	if $a > 10 {
@@ -84,16 +85,21 @@ func TestIf(t *testing.T) {
 	} else {
 		echo "a is less than or equal to 10"
 	}`
-	node, err := parser.ParseSourceScript(script)
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.BatchOptions{}, node)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
 	assert.NoError(t, err)
-	bast.Print(bnode)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }
 
 func TestLoop(t *testing.T) {
-	// log.SetLevel(log.ErrorLevel)
 	script := `loop {
 		echo "Hello, World!"
 	}
@@ -105,13 +111,87 @@ func TestLoop(t *testing.T) {
 	loop $i := 0; $i < 10; $i++ {
 		echo "Hello, World!"
 	}`
-	node, err := parser.ParseSourceScript(script)
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
-	// hast.Print(node)
-	bnode, err := build.Translate(&config.BatchOptions{}, node)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
 	assert.NoError(t, err)
-	bast.Print(bnode)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }
 
-func TestMatch(t *testing.T) {
+func TestTranspileImport(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"math.hl": `
+			pub fn add(a: num, b: num) -> num {
+				return $a + $b
+			}
+
+			pub fn sub_(a: num, b: num) -> num {
+				return $a - $b
+			}
+
+			pub fn mul(a: num, b: num) -> num {
+				return $a * $b
+			}
+
+			pub fn div(a: num, b: num) -> num {
+				return $a / $b
+			}
+		`,
+		"main.hl": `
+			import "math"
+			import * from "math"
+
+			echo(math.add(1, 2))
+			echo(div(10, 2))
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileMatch(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+			let n = read("Input a number:");
+
+			match $n {
+				0 => echo "The number is 0.",
+				1 => echo "The number is 1.",
+				_ => echo "The number is not 0 or 1."
+			}
+		`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
 }

@@ -852,7 +852,14 @@ channelOutputExpression: BACKARROW variableExpression;
 
 unsafeExpression: UnsafeLiteral;
 
-comptimeExpression: COMPTIME block;
+comptimeExpression:
+    COMPTIME block
+    | COMPTIME WHEN conditionalExpression block comptimeCaseClause* comptimeDefaultClause?
+;
+
+comptimeCaseClause: ELSE WHEN conditionalExpression block;
+
+comptimeDefaultClause: ELSE block;
 
 // -----------------------
 //

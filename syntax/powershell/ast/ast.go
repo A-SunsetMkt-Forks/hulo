@@ -110,15 +110,57 @@ type (
 	}
 
 	ClassDecl struct {
-		Class token.Pos // position of class keyword
-		Name  *Ident
-		Body  *BlockStmt
+		Class      token.Pos // position of class keyword
+		Name       *Ident
+		Ctors      []*ConstructorDecl
+		Properties []*PropertyDecl
+		Methods    []*MethodDecl
+	}
+
+	ConstructorDecl struct {
+		Name   *Ident
+		Lparen token.Pos
+		Params []Expr
+		Rparen token.Pos
+		Body   *BlockStmt
+	}
+
+	PropertyDecl struct {
+		ModPos token.Pos
+		Mod    Modifier
+		Type   Expr
+		Dollar token.Pos
+		Name   *Ident
+		Assign token.Pos
+		Value  Expr
+	}
+
+	MethodDecl struct {
+		StaticPos token.Pos
+		Static    bool
+		Type      Expr
+		Name      *Ident
+		Lparen    token.Pos
+		Params    []Expr
+		Rparen    token.Pos
+		Body      *BlockStmt
 	}
 
 	EnumDecl struct {
-		Enum token.Pos // position of enum keyword
-		Name *Ident
-		Body *BlockStmt
+		Attrs          []*Attribute
+		Enum           token.Pos // position of enum keyword
+		Name           *Ident
+		Colon          token.Pos // position of ':'
+		UnderlyingType *Ident
+		Lbrace         token.Pos // position of '{'
+		List           []*EnumKeyValue
+		Rbrace         token.Pos // position of '}'
+	}
+
+	EnumKeyValue struct {
+		Label  *Ident
+		Assign token.Pos
+		Value  Expr
 	}
 
 	FuncDecl struct {
@@ -161,6 +203,15 @@ type (
 	}
 )
 
+//go:generate stringer -type=Modifier -linecomment
+type Modifier int
+
+const (
+	ModNone   Modifier = iota //
+	ModHidden                 // hidden
+	ModStatic                 // static
+)
+
 func (d *FuncDecl) Pos() token.Pos         { return d.Function }
 func (d *WorkflowDecl) Pos() token.Pos     { return d.Workflow }
 func (d *ParallelDecl) Pos() token.Pos     { return d.Parallel }
@@ -170,6 +221,20 @@ func (d *ProcessDecl) Pos() token.Pos      { return d.Process }
 func (d *Attribute) Pos() token.Pos        { return d.Lparen }
 func (d *ClassDecl) Pos() token.Pos        { return d.Class }
 func (d *EnumDecl) Pos() token.Pos         { return d.Enum }
+func (d *EnumKeyValue) Pos() token.Pos     { return d.Label.Pos() }
+func (d *PropertyDecl) Pos() token.Pos {
+	if d.Mod != ModNone {
+		return d.ModPos
+	}
+	return d.Type.Pos()
+}
+func (d *MethodDecl) Pos() token.Pos {
+	if d.Static {
+		return d.StaticPos
+	}
+	return d.Type.Pos()
+}
+func (d *ConstructorDecl) Pos() token.Pos { return d.Name.Pos() }
 
 func (d *FuncDecl) End() token.Pos         { return d.Body.End() }
 func (d *WorkflowDecl) End() token.Pos     { return d.Body.End() }
@@ -178,15 +243,31 @@ func (d *SequenceDecl) End() token.Pos     { return d.Body.End() }
 func (d *InlinescriptDecl) End() token.Pos { return d.Body.End() }
 func (d *ProcessDecl) End() token.Pos      { return d.Body.End() }
 func (d *Attribute) End() token.Pos        { return d.Rparen }
-func (d *ClassDecl) End() token.Pos        { return d.Body.End() }
-func (d *EnumDecl) End() token.Pos         { return d.Body.End() }
+func (d *ClassDecl) End() token.Pos {
+	if len(d.Properties) > 0 {
+		return d.Properties[len(d.Properties)-1].End()
+	}
+	if len(d.Methods) > 0 {
+		return d.Methods[len(d.Methods)-1].End()
+	}
+	return d.Class + 5
+}
+func (d *EnumDecl) End() token.Pos        { return d.Rbrace }
+func (d *EnumKeyValue) End() token.Pos    { return d.Value.End() }
+func (d *PropertyDecl) End() token.Pos    { return d.Name.End() }
+func (d *MethodDecl) End() token.Pos      { return d.Body.End() }
+func (d *ConstructorDecl) End() token.Pos { return d.Body.End() }
 
-func (*FuncDecl) stmtNode()     {}
-func (*WorkflowDecl) stmtNode() {}
-func (*ProcessDecl) stmtNode()  {}
-func (*Attribute) stmtNode()    {}
-func (*ClassDecl) stmtNode()    {}
-func (*EnumDecl) stmtNode()     {}
+func (*FuncDecl) stmtNode()        {}
+func (*WorkflowDecl) stmtNode()    {}
+func (*ProcessDecl) stmtNode()     {}
+func (*Attribute) stmtNode()       {}
+func (*ClassDecl) stmtNode()       {}
+func (*EnumDecl) stmtNode()        {}
+func (*EnumKeyValue) stmtNode()    {}
+func (*MethodDecl) stmtNode()      {}
+func (*PropertyDecl) stmtNode()    {}
+func (*ConstructorDecl) stmtNode() {}
 
 type (
 	TypeLit struct {
@@ -234,10 +315,10 @@ type (
 	// [attribute-1] [attribute-2] ...
 	// [type]$name
 	Parameter struct {
-		Attributes []*Attribute
-		X          Expr
-		Assign     token.Pos // position of '='
-		Value      Expr
+		Attrs  []*Attribute
+		X      Expr
+		Assign token.Pos // position of '='
+		Value  Expr
 	}
 
 	VarExpr struct {
@@ -386,8 +467,8 @@ type (
 )
 
 func (x *Parameter) Pos() token.Pos {
-	if len(x.Attributes) > 0 {
-		return x.Attributes[0].Pos()
+	if len(x.Attrs) > 0 {
+		return x.Attrs[0].Pos()
 	}
 	return x.X.Pos()
 }
@@ -755,7 +836,7 @@ func (*SequenceDecl) stmtNode()     {}
 func (*InlinescriptDecl) stmtNode() {}
 
 type File struct {
-	Docs  *CommentGroup
+	Docs  []*CommentGroup
 	Name  *Ident
 	Stmts []Stmt
 }

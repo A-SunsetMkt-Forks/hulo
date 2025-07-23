@@ -101,7 +101,10 @@ func (p *prettyPrinter) visitFuncDecl(node *FuncDecl) Visitor {
 }
 
 func (p *prettyPrinter) visitCallStmt(node *CallStmt) Visitor {
-	p.indentWrite("call :")
+	p.indentWrite("call ")
+	if !node.IsFile {
+		p.write(":")
+	}
 	p.write(node.Name)
 	if len(node.Recv) > 0 {
 		p.write(" ")
@@ -124,8 +127,12 @@ func (p *prettyPrinter) visitForStmt(node *ForStmt) Visitor {
 
 func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
 	p.indentWrite("set ")
+	if node.Opt != nil {
+		Walk(p, node.Opt)
+		p.write(" ")
+	}
 	Walk(p, node.Lhs)
-	p.write(" = ")
+	p.write("=")
 	Walk(p, node.Rhs)
 	p.write("\n")
 	return nil
@@ -173,7 +180,7 @@ func (p *prettyPrinter) visitLit(node *Lit) Visitor {
 }
 
 func (p *prettyPrinter) visitSglQuote(node *SglQuote) Visitor {
-	p.write("%%")
+	p.write("%")
 	Walk(p, node.Val)
 	return nil
 }
@@ -182,13 +189,13 @@ func (p *prettyPrinter) visitDblQuote(node *DblQuote) Visitor {
 	if node.DelayedExpansion {
 		p.write("!")
 	} else {
-		p.write("%%")
+		p.write("%")
 	}
 	Walk(p, node.Val)
 	if node.DelayedExpansion {
 		p.write("!")
 	} else {
-		p.write("%%")
+		p.write("%")
 	}
 	return nil
 }
@@ -253,7 +260,7 @@ func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
 		case *IfStmt:
 			p.indentWrite("else if ")
 			Walk(p, el.Cond)
-			p.write("(\n")
+			p.write(" (\n")
 			Walk(p, el.Body)
 			p.indentWrite(")\n")
 			node.Else = el.Else

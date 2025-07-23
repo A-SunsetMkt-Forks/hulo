@@ -460,7 +460,10 @@ type (
 	// A ComptimeStmt node represents a compile-time execution block.
 	ComptimeStmt struct {
 		Comptime token.Pos // position of "comptime"
-		X        Stmt
+		When     token.Pos // position of "when"
+		Cond     Expr      // optional condition
+		Body     Stmt
+		Else     Stmt
 	}
 
 	// An UnsafeStmt node represents an unsafe block.
@@ -659,7 +662,7 @@ func (s *LabelStmt) Pos() token.Pos    { return s.Name.Pos() }
 
 func (s *AssignStmt) End() token.Pos   { return s.Rhs.End() }
 func (s *CmdStmt) End() token.Pos      { return s.Recv[len(s.Recv)-1].End() }
-func (s *ComptimeStmt) End() token.Pos { return s.X.End() }
+func (s *ComptimeStmt) End() token.Pos { return s.Body.End() }
 func (s *UnsafeStmt) End() token.Pos   { return s.EndPos }
 func (s *TryStmt) End() token.Pos      { return s.Body.Rbrace }
 func (s *CatchClause) End() token.Pos  { return s.Body.Rbrace }

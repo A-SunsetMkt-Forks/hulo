@@ -95,7 +95,7 @@ func TestDeclareDecl(t *testing.T) {
 		Stmts: []Stmt{
 			&DeclareDecl{
 				X: &ComptimeStmt{
-					X: &AssignStmt{
+					Body: &AssignStmt{
 						Scope: token.CONST,
 						Lhs:   &Ident{Name: "os"},
 						Rhs:   &StringLiteral{Value: "windows"},

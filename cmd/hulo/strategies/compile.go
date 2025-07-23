@@ -14,6 +14,8 @@ import (
 
 	"github.com/hulo-lang/hulo/internal/config"
 	bash "github.com/hulo-lang/hulo/internal/transpiler/bash"
+	batch "github.com/hulo-lang/hulo/internal/transpiler/batch"
+	pwsh "github.com/hulo-lang/hulo/internal/transpiler/powershell"
 	vbs "github.com/hulo-lang/hulo/internal/transpiler/vbs"
 	"github.com/hulo-lang/hulo/internal/vfs/osfs"
 	"gopkg.in/yaml.v3"
@@ -115,13 +117,23 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 			var results map[string]string
 			var err error
 			switch lang {
-			case config.L_VBSCRIPT:
+			case "vbs", "vbscript":
 				results, err = vbs.Transpile(huloc, localFs, ".")
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}
-			case config.L_BASH:
+			case "bash":
 				results, err = bash.Transpile(huloc, localFs, ".")
+				if err != nil {
+					log.WithError(err).Info("fail to compile")
+				}
+			case "powershell", "pwsh", "ps":
+				results, err = pwsh.Transpile(huloc, localFs, ".")
+				if err != nil {
+					log.WithError(err).Info("fail to compile")
+				}
+			case "batch", "bat":
+				results, err = batch.Transpile(huloc, localFs, ".")
 				if err != nil {
 					log.WithError(err).Info("fail to compile")
 				}

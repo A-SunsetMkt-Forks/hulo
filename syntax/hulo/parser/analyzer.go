@@ -687,9 +687,49 @@ func (a *Analyzer) VisitExpressionList(ctx *generated.ExpressionListContext) any
 // VisitComptimeExpression implements the Visitor interface for ComptimeExpression
 func (a *Analyzer) VisitComptimeExpression(ctx *generated.ComptimeExpressionContext) any {
 	return a.visitWrapper("ComptimeExpression", ctx, func() any {
+		whenClauses := ctx.AllComptimeCaseClause()
+		if len(whenClauses) > 0 {
+			var head, prev *ast.ComptimeStmt
+			for _, when := range whenClauses {
+				cond, _ := accept[ast.Expr](when.ConditionalExpression(), a)
+				body, _ := accept[ast.Stmt](when.Block(), a)
+				node := &ast.ComptimeStmt{
+					Comptime: token.Pos(ctx.GetStart().GetStart()),
+					When:     token.Pos(when.WHEN().GetSymbol().GetStart()),
+					Cond:     cond,
+					Body:     body,
+				}
+				if prev != nil {
+					prev.Else = node
+				} else {
+					head = node
+				}
+				prev = node
+			}
+
+			if ctx.ComptimeDefaultClause() != nil {
+				elseCtx := ctx.ComptimeDefaultClause()
+				elseBody, _ := accept[ast.Stmt](elseCtx.Block(), a)
+				prev.Else = &ast.ComptimeStmt{
+					Comptime: token.Pos(ctx.GetStart().GetStart()),
+					When:     0,
+					Cond:     nil,
+					Body:     elseBody,
+					Else:     nil,
+				}
+			}
+			block, _ := accept[*ast.BlockStmt](ctx.Block(), a)
+			cond, _ := accept[ast.Expr](ctx.ConditionalExpression(), a)
+			return &ast.ComptimeStmt{
+				Cond: cond,
+				Body: block,
+				Else: head,
+			}
+		}
+		// 兼容原有单分支语法
 		block, _ := accept[*ast.BlockStmt](ctx.Block(), a)
 		return &ast.ComptimeStmt{
-			X: block,
+			Body: block,
 		}
 	})
 }
@@ -1775,7 +1815,7 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 
 		if isComptime {
 			return &ast.ComptimeStmt{
-				X: decl,
+				Body: decl,
 			}
 		}
 

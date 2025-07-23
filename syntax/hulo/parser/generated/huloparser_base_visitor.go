@@ -767,6 +767,14 @@ func (v *BasehuloParserVisitor) VisitComptimeExpression(ctx *ComptimeExpressionC
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitComptimeCaseClause(ctx *ComptimeCaseClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitComptimeDefaultClause(ctx *ComptimeDefaultClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitExternDeclaration(ctx *ExternDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }

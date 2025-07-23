@@ -43,6 +43,7 @@ const (
 	L_BASH     = "bash"
 	L_BATCH    = "batch"
 	L_VBSCRIPT = "vbs"
+	L_PWSH     = "powershell"
 )
 
 // ParserOptions is the options for the parser.

@@ -42,7 +42,7 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 	case *File:
 		return p.visitFile(node)
 	case *BlockStmt:
-		return p.visitBlcokStmt(node)
+		return p.visitBlockStmt(node)
 	case *FuncDecl:
 		return p.visitFuncDecl(node)
 	case *ProcessDecl:
@@ -150,6 +150,8 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitLabelStmt(node)
 	case *IfStmt:
 		return p.visitIfStmt(node)
+	case *ThrowStmt:
+		return p.visitThrowStmt(node)
 	case *ReturnStmt:
 		return p.visitReturnStmt(node)
 	case *WorkflowDecl:
@@ -160,9 +162,147 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitSequenceDecl(node)
 	case *InlinescriptDecl:
 		return p.visitInlinescriptDecl(node)
+	case *ClassDecl:
+		return p.visitClassDecl(node)
+	case *EnumDecl:
+		return p.visitEnumDecl(node)
+	case *EnumKeyValue:
+		return p.visitEnumKeyValue(node)
+	case *PropertyDecl:
+		return p.visitPropertyDecl(node)
+	case *MethodDecl:
+		return p.visitMethodDecl(node)
+	case *ConstructorDecl:
+		return p.visitConstructorDecl(node)
 	default:
 		panic("unsupported node type: " + fmt.Sprintf("%T", node))
 	}
+}
+
+func (p *prettyPrinter) visitConstructorDecl(node *ConstructorDecl) Visitor {
+	p.indentWrite("")
+	Walk(p, node.Name)
+	p.write("(")
+	p.visitExprs(node.Params, ", ")
+	p.write(") ")
+	Walk(p, node.Body)
+	return nil
+}
+
+func (p *prettyPrinter) visitMethodDecl(node *MethodDecl) Visitor {
+	p.indentWrite("")
+	if node.Static {
+		p.write("static ")
+	}
+	Walk(p, node.Type)
+	p.write(" ")
+	Walk(p, node.Name)
+	p.write("(")
+	p.visitExprs(node.Params, ", ")
+	p.write(") ")
+	Walk(p, node.Body)
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitPropertyDecl(node *PropertyDecl) Visitor {
+	p.indentWrite("")
+	if node.Mod != ModNone {
+		p.write(node.Mod.String())
+		p.write(" ")
+	}
+	Walk(p, node.Type)
+
+	p.write(" $")
+	Walk(p, node.Name)
+
+	if node.Value != nil {
+		p.write(" = ")
+		Walk(p, node.Value)
+	}
+
+	p.write("\n")
+
+	return nil
+}
+
+func (p *prettyPrinter) visitEnumKeyValue(node *EnumKeyValue) Visitor {
+	p.indentWrite("")
+	Walk(p, node.Label)
+	if node.Value != nil {
+		p.write(" = ")
+		Walk(p, node.Value)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitEnumDecl(node *EnumDecl) Visitor {
+	p.indentWrite("")
+	for _, attr := range node.Attrs {
+		Walk(p, attr)
+	}
+
+	p.write("enum ")
+	Walk(p, node.Name)
+	if node.UnderlyingType != nil {
+		p.write(" : ")
+		Walk(p, node.UnderlyingType)
+	}
+	p.write(" {\n")
+
+	p.indent++
+
+	for _, kv := range node.List {
+		Walk(p, kv)
+	}
+
+	p.indent--
+
+	p.indentWrite("}")
+
+	return nil
+}
+
+func (p *prettyPrinter) visitClassDecl(node *ClassDecl) Visitor {
+	p.indentWrite("class ")
+	Walk(p, node.Name)
+
+	p.write(" {\n")
+
+	p.indent++
+	for _, prop := range node.Properties {
+		Walk(p, prop)
+	}
+
+	if len(node.Properties) > 0 {
+		p.write("\n")
+	}
+
+	for _, ctor := range node.Ctors {
+		Walk(p, ctor)
+	}
+
+	if len(node.Ctors) > 0 {
+		p.write("\n")
+	}
+
+	for _, method := range node.Methods {
+		Walk(p, method)
+	}
+
+	p.indent--
+
+	p.write("}\n")
+
+	return nil
+}
+
+func (p *prettyPrinter) visitThrowStmt(node *ThrowStmt) Visitor {
+	p.indentWrite("throw ")
+	Walk(p, node.X)
+	p.write("\n")
+	return nil
 }
 
 func (p *prettyPrinter) visitReturnStmt(node *ReturnStmt) Visitor {
@@ -173,8 +313,9 @@ func (p *prettyPrinter) visitReturnStmt(node *ReturnStmt) Visitor {
 }
 
 func (p *prettyPrinter) visitIfStmt(node *IfStmt) Visitor {
-	p.indentWrite("if ")
+	p.indentWrite("if (")
 	Walk(p, node.Cond)
+	p.write(") ")
 
 	Walk(p, node.Body)
 
@@ -556,7 +697,7 @@ func (p *prettyPrinter) visitProcessDecl(node *ProcessDecl) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitBlcokStmt(node *BlockStmt) Visitor {
+func (p *prettyPrinter) visitBlockStmt(node *BlockStmt) Visitor {
 	p.write("{\n")
 	p.indent++
 	for _, stmt := range node.List {
@@ -602,7 +743,7 @@ func (p *prettyPrinter) visitParamBlock(node *ParamBlock) Visitor {
 
 	p.indent++
 	for i, param := range node.Params {
-		for _, attr := range param.Attributes {
+		for _, attr := range param.Attrs {
 			p.indentWrite("")
 			Walk(p, attr)
 			p.write("\n")
@@ -675,6 +816,7 @@ func (p *prettyPrinter) visitIndicesExpr(node *IndicesExpr) Visitor {
 }
 
 func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
+	p.indentWrite("")
 	if node.Tok == token.Illegal {
 		node.Tok = token.ASSIGN
 	}
@@ -688,6 +830,11 @@ func (p *prettyPrinter) visitAssignStmt(node *AssignStmt) Visitor {
 }
 
 func (p *prettyPrinter) visitFile(node *File) Visitor {
+	for _, doc := range node.Docs {
+		Walk(p, doc)
+		p.write("\n")
+	}
+
 	for _, stmt := range node.Stmts {
 		Walk(p, stmt)
 	}
@@ -702,7 +849,10 @@ func (p *prettyPrinter) visitHashTable(node *HashTable) Visitor {
 			p.write("; ")
 		}
 	}
-	p.write("}\n")
+	p.write("}")
+	if len(node.Entries) > 0 {
+		p.write("\n")
+	}
 	return nil
 }
 
@@ -726,14 +876,17 @@ func (p *prettyPrinter) visitExprs(exprs []Expr, sep ...string) {
 	}
 }
 
-func Print(node Node) {
-	p := prettyPrinter{output: os.Stdout, indentSpace: "  "}
+func Write(node Node, output io.Writer) {
+	p := prettyPrinter{output: output, indentSpace: "  "}
 	p.Visit(node)
+}
+
+func Print(node Node) {
+	Write(node, os.Stdout)
 }
 
 func String(node Node) string {
 	var buf bytes.Buffer
-	p := prettyPrinter{output: &buf, indentSpace: "  "}
-	p.Visit(node)
+	Write(node, &buf)
 	return buf.String()
 }

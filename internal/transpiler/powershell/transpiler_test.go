@@ -14,8 +14,7 @@ func TestBuildModule(t *testing.T) {
 	fs := memvfs.New()
 	testFiles := map[string]string{
 		"core/unsafe/bash/index.hl": `
-declare fn echo(message: str);
-		`,
+declare fn echo(message: str);`,
 		"my_script.hl": `
 			pub fn greet() {
 				echo "Hello, World!"

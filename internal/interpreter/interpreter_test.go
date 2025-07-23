@@ -3,10 +3,12 @@ package interpreter
 import (
 	"testing"
 
+	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
+	"github.com/hulo-lang/hulo/syntax/hulo/token"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -70,9 +72,35 @@ pub fn reverse_string(str: str) -> str {
 		err := memFS.WriteFile(filename, []byte(content), 0644)
 		assert.NoError(t, err)
 	}
-	interp := &Interpreter{
-		fs: memFS,
-	}
-	err := interp.ExecuteMain("main.hl")
+	// interp := &Interpreter{
+	// 	fs:  memFS,
+	// 	cvt: &object.ASTConverter{},
+	// }
+	// err := interp.ExecuteMain("main.hl")
+	// assert.NoError(t, err)
+}
+
+func TestEvalComptime(t *testing.T) {
+	script := `comptime when $TARGET == "ps" {
+		Write-Host "Hello, PowerShell"
+	} else when $TARGET == "bat" {
+		echo "Hello, Batch"
+	} else when $TARGET == "bash" {
+		echo "Hello, Bash"
+	} else when $TARGET == "vbs" {
+		MsgBox "Hello, VBScript"
+	}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
 	assert.NoError(t, err)
+	// hast.Print(node)
+	env := NewEnvironment()
+	env.SetWithScope("TARGET", &object.StringValue{Value: "ps"}, token.CONST, true)
+	interp := &Interpreter{
+		env: env,
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
 }

@@ -73,6 +73,7 @@ type (
 	AssignStmt struct {
 		Docs   *CommentGroup // associated documentation; or nil
 		Set    token.Pos     // position of "set" keyword
+		Opt    Expr          // optional expression
 		Lhs    Expr          // left-hand side of assignment
 		Assign token.Pos     // position of "="
 		Rhs    Expr          // right-hand side of assignment
@@ -81,11 +82,12 @@ type (
 	// A CallStmt node represents a call statement.
 	// call :label arguments
 	CallStmt struct {
-		Docs  *CommentGroup // associated documentation; or nil
-		Call  token.Pos     // position of "call" keyword
-		Colon token.Pos     // position of ":"
-		Name  string        // name of the function to call
-		Recv  []Expr        // arguments to the function
+		Docs   *CommentGroup // associated documentation; or nil
+		Call   token.Pos     // position of "call" keyword
+		Colon  token.Pos     // position of ":"
+		Name   string        // name of the function to call
+		Recv   []Expr        // arguments to the function
+		IsFile bool          // whether the function is a file
 	}
 
 	// A FuncDecl node represents a function declaration.
@@ -335,6 +337,7 @@ type Comment struct {
 
 func (c *Comment) Pos() token.Pos { return c.TokPos }
 func (c *Comment) End() token.Pos { return c.TokPos + token.Pos(len(c.Text)) }
+func (c *Comment) stmtNode()      {}
 
 // A CommentGroup represents a sequence of comments.
 // Comment groups are used to associate documentation with AST nodes
@@ -344,6 +347,7 @@ type CommentGroup struct {
 
 func (c *CommentGroup) Pos() token.Pos { return c.Comments[0].Pos() }
 func (c *CommentGroup) End() token.Pos { return c.Comments[len(c.Comments)-1].End() }
+func (c *CommentGroup) stmtNode()      {}
 
 // ----------------------------------------------------------------------------
 // File

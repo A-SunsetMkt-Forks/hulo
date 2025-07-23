@@ -577,6 +577,12 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#comptimeExpression.
 	VisitComptimeExpression(ctx *ComptimeExpressionContext) interface{}
 
+	// Visit a parse tree produced by huloParser#comptimeCaseClause.
+	VisitComptimeCaseClause(ctx *ComptimeCaseClauseContext) interface{}
+
+	// Visit a parse tree produced by huloParser#comptimeDefaultClause.
+	VisitComptimeDefaultClause(ctx *ComptimeDefaultClauseContext) interface{}
+
 	// Visit a parse tree produced by huloParser#externDeclaration.
 	VisitExternDeclaration(ctx *ExternDeclarationContext) interface{}
 

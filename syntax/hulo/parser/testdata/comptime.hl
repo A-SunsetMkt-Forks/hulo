@@ -1,7 +1,24 @@
-comptime { echo "Hello, World!" }
+// comptime {
+//     echo "Hello, World!"
+//     if $target == "windows" {
+//         echo "Windows"
+//     } else {
+//         echo "Not Windows"
+//     }
+// }
 
-echo!("Hello, World!")
+comptime when $TARGET == "ps" {
+    Write-Host "Hello, PowerShell"
+} else when $TARGET == "bat" {
+    echo "Hello, Batch"
+} else when $TARGET == "bash" {
+    echo "Hello, Bash"
+} else when $TARGET == "vbs" {
+    MsgBox "Hello, VBScript"
+}
 
-echo! "Hello, World!"
+// echo!("Hello, World!")
+
+// echo! "Hello, World!"
 
 // echo!(str("Hello, World!"))

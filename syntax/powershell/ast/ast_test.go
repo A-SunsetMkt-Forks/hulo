@@ -35,7 +35,7 @@ func TestFuncDecl(t *testing.T) {
 					},
 					Params: []*ast.Parameter{
 						{
-							Attributes: []*ast.Attribute{
+							Attrs: []*ast.Attribute{
 								{Name: &ast.Ident{Name: "Parameter"}, Recv: []ast.Expr{&ast.BinaryExpr{
 									X:  &ast.Ident{Name: "ValueFromPipeline"},
 									Op: token.ASSIGN,
@@ -381,6 +381,230 @@ func TestMultiStringLit(t *testing.T) {
 					Index: &ast.StringLit{Val: "FirstName"},
 				},
 			},
+		},
+	})
+}
+
+/*
+	class Book {
+	    # Class properties
+	    [string]   $Title
+	    [string]   $Author
+	    [string]   $Synopsis
+	    [string]   $Publisher
+	    [datetime] $PublishDate
+	    [int]      $PageCount
+	    [string[]] $Tags
+	    # Default constructor
+	    Book() { $this.Init(@{}) }
+	    # Convenience constructor from hashtable
+	    Book([hashtable]$Properties) { $this.Init($Properties) }
+	    # Common constructor for title and author
+	    Book([string]$Title, [string]$Author) {
+	        $this.Init(@{Title = $Title; Author = $Author })
+	    }
+	    # Shared initializer method
+	    [void] Init([hashtable]$Properties) {
+	        foreach ($Property in $Properties.Keys) {
+	            $this.$Property = $Properties.$Property
+	        }
+	    }
+	    # Method to calculate reading time as 2 minutes per page
+	    [timespan] GetReadingTime() {
+	        if ($this.PageCount -le 0) {
+	            throw 'Unable to determine reading time from page count.'
+	        }
+	        $Minutes = $this.PageCount * 2
+	        return [timespan]::new(0, $Minutes, 0)
+	    }
+	    # Method to calculate how long ago a book was published
+	    [timespan] GetPublishedAge() {
+	        if (
+	            $null -eq $this.PublishDate -or
+	            $this.PublishDate -eq [datetime]::MinValue
+	        ) { throw 'PublishDate not defined' }
+
+			return (Get-Date) - $this.PublishDate
+	    }
+	    # Method to return a string representation of the book
+	    [string] ToString() {
+	        return "$($this.Title) by $($this.Author) ($($this.PublishDate.Year))"
+	    }
+	}
+
+	$Book = [Book]::new(@{
+		Title       = 'The Hobbit'
+		Author      = 'J.R.R. Tolkien'
+		Publisher   = 'George Allen & Unwin'
+		PublishDate = '1937-09-21'
+		PageCount   = 310
+		Tags        = @('Fantasy', 'Adventure')
+	})
+
+$Book
+$Time = $Book.GetReadingTime()
+$Time = @($Time.Hours, 'hours and', $Time.Minutes, 'minutes') -join ' '
+$Age  = [Math]::Floor($Book.GetPublishedAge().TotalDays / 365.25)
+*/
+func TestClassDecl(t *testing.T) {
+	ast.Print(&ast.ClassDecl{
+		Name: &ast.Ident{Name: "Book"},
+		Properties: []*ast.PropertyDecl{
+			{Name: &ast.Ident{Name: "Title"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "string"}}},
+			{Name: &ast.Ident{Name: "Author"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "string"}}},
+			{Name: &ast.Ident{Name: "Synopsis"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "string"}}},
+			{Name: &ast.Ident{Name: "Publisher"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "string"}}},
+			{Name: &ast.Ident{Name: "PublishDate"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "datetime"}}},
+			{Name: &ast.Ident{Name: "PageCount"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "int"}}},
+			{Name: &ast.Ident{Name: "Tags"}, Type: &ast.TypeLit{Name: &ast.Ident{Name: "string[]"}}},
+		},
+		Ctors: []*ast.ConstructorDecl{
+			{
+				Name: &ast.Ident{Name: "Book"},
+				Body: &ast.BlockStmt{List: []ast.Stmt{&ast.ExprStmt{X: &ast.SelectExpr{
+					X: &ast.VarExpr{X: &ast.Ident{Name: "this"}},
+					Sel: &ast.CallExpr{
+						Func: &ast.Ident{Name: "Init"},
+						Recv: []ast.Expr{&ast.HashTable{Entries: []*ast.HashEntry{}}},
+					},
+				}}},
+				},
+			},
+		},
+		Methods: []*ast.MethodDecl{
+			{
+				Name: &ast.Ident{Name: "Init"},
+				Type: &ast.TypeLit{Name: &ast.Ident{Name: "void"}},
+				Params: []ast.Expr{&ast.Parameter{X: &ast.CastExpr{
+					Type: &ast.Ident{Name: "hashtable"},
+					X:    &ast.VarExpr{X: &ast.Ident{Name: "Properties"}},
+				}}},
+				Body: &ast.BlockStmt{List: []ast.Stmt{
+					&ast.ForeachStmt{
+						Elm: &ast.VarExpr{X: &ast.Ident{Name: "Property"}},
+						Elms: &ast.SelectExpr{
+							X:   &ast.VarExpr{X: &ast.Ident{Name: "Properties"}},
+							Sel: &ast.Ident{Name: "Keys"},
+						},
+						Body: &ast.BlockStmt{List: []ast.Stmt{
+							&ast.AssignStmt{
+								Lhs: &ast.SelectExpr{
+									X:   &ast.VarExpr{X: &ast.Ident{Name: "this"}},
+									Sel: &ast.VarExpr{X: &ast.Ident{Name: "Property"}},
+								},
+								Rhs: &ast.SelectExpr{
+									X:   &ast.VarExpr{X: &ast.Ident{Name: "Properties"}},
+									Sel: &ast.VarExpr{X: &ast.Ident{Name: "Property"}},
+								},
+							},
+						}},
+					},
+				}}},
+			{
+				Name: &ast.Ident{Name: "GetReadingTime"},
+				Type: &ast.TypeLit{Name: &ast.Ident{Name: "timespan"}},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.IfStmt{
+							Cond: &ast.BinaryExpr{
+								X:  &ast.VarExpr{X: &ast.Ident{Name: "PageCount"}},
+								Op: token.LE,
+								Y:  &ast.Lit{Val: "0"},
+							},
+							Body: &ast.BlockStmt{
+								List: []ast.Stmt{
+									&ast.ThrowStmt{
+										X: &ast.StringLit{Val: "Unable to determine reading time from page count."},
+									},
+								},
+							},
+						},
+						&ast.AssignStmt{
+							Lhs: &ast.VarExpr{X: &ast.Ident{Name: "Minutes"}},
+							Rhs: &ast.BinaryExpr{
+								X:  &ast.VarExpr{X: &ast.Ident{Name: "PageCount"}},
+								Op: token.MUL,
+								Y:  &ast.Lit{Val: "2"},
+							},
+						},
+						&ast.ReturnStmt{
+							X: &ast.StaticMemberAccess{
+								X: &ast.TypeLit{Name: &ast.Ident{Name: "timespan"}},
+								Y: &ast.CallExpr{
+									Func: &ast.Ident{Name: "new"},
+									Recv: []ast.Expr{
+										&ast.Lit{Val: "0"},
+										&ast.VarExpr{X: &ast.Ident{Name: "Minutes"}},
+										&ast.Lit{Val: "0"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: &ast.Ident{Name: "GetPublishedAge"},
+				Type: &ast.TypeLit{Name: &ast.Ident{Name: "timespan"}},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.IfStmt{
+							Cond: &ast.BinaryExpr{
+								X: &ast.BinaryExpr{
+									X:  &ast.VarExpr{X: &ast.Ident{Name: "null"}},
+									Op: token.EQ,
+									Y:  &ast.VarExpr{X: &ast.Ident{Name: "PublishDate"}},
+								},
+								Op: token.OR,
+								Y: &ast.BinaryExpr{
+									X:  &ast.VarExpr{X: &ast.Ident{Name: "PublishDate"}},
+									Op: token.EQ,
+									Y: &ast.StaticMemberAccess{
+										X: &ast.TypeLit{Name: &ast.Ident{Name: "datetime"}},
+										Y: &ast.Ident{Name: "MinValue"},
+									},
+								},
+							},
+							Body: &ast.BlockStmt{
+								List: []ast.Stmt{
+									&ast.ThrowStmt{
+										X: &ast.StringLit{Val: "PublishDate not defined"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: &ast.Ident{Name: "ToString"},
+				Type: &ast.TypeLit{Name: &ast.Ident{Name: "string"}},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ReturnStmt{
+							X: &ast.StringLit{Val: "$($this.Title) by $($this.Author) ($($this.PublishDate.Year))"},
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+/*
+	enum TaskState {
+	    ToDo
+	    Doing = 2
+	    Done
+	}
+*/
+func TestEnumDecl(t *testing.T) {
+	ast.Print(&ast.EnumDecl{
+		Name: &ast.Ident{Name: "TaskState"},
+		List: []*ast.EnumKeyValue{
+			{Label: &ast.Ident{Name: "ToDo"}},
+			{Label: &ast.Ident{Name: "Doing"}, Value: &ast.NumericLit{Val: "2"}},
+			{Label: &ast.Ident{Name: "Done"}},
 		},
 	})
 }

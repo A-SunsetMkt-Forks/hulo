@@ -917,7 +917,24 @@ func (p *prettyPrinter) visitObjectLiteralExpr(n *ObjectLiteralExpr) Visitor {
 }
 
 func (p *prettyPrinter) visitComptimeStmt(n *ComptimeStmt) Visitor {
-	Walk(p, n.X)
+	p.indentWrite("comptime")
+	if n.Cond != nil {
+		p.write(" when ")
+		Walk(p, n.Cond)
+	}
+	Walk(p, n.Body)
+	for n.Else != nil {
+		switch el := n.Else.(type) {
+		case *ComptimeStmt:
+			p.write("else")
+			if el.Cond != nil {
+				p.write(" when ")
+				Walk(p, el.Cond)
+			}
+			Walk(p, el.Body)
+			n.Else = el.Else
+		}
+	}
 	p.write("\n")
 	return nil
 }
@@ -1521,7 +1538,7 @@ func (p *prettyPrinter) visitEnumDecl(n *EnumDecl) Visitor {
 	if n.Modifiers != nil {
 		p.visitModifiers(n.Modifiers)
 	}
-	fmt.Printf("enum %s", n.Name)
+	fmt.Printf("enum %s", n.Name.Name)
 
 	// Print type parameters
 	if n.TypeParams != nil {
@@ -1589,14 +1606,14 @@ func (p *prettyPrinter) visitEnumDecl(n *EnumDecl) Visitor {
 	case *ADTEnumBody:
 		p.write(" {\n")
 		for i, variant := range body.Variants {
-			fmt.Printf("%s  %s", indentStr, variant.Name)
+			fmt.Printf("%s  %s", indentStr, variant.Name.Name)
 			if variant.Fields != nil {
 				p.write(" {")
 				for j, field := range variant.Fields.List {
 					if j > 0 {
 						p.write(", ")
 					}
-					fmt.Printf("%s: %s", field.Name, field.Type)
+					fmt.Printf("%s: %s", field.Name.Name, field.Type)
 				}
 				p.write("}")
 			}

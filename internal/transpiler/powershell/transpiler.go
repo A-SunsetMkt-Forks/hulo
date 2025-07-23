@@ -240,6 +240,10 @@ func (p *PowerShellTranspiler) ConvertImport(node *hast.Import) past.Node {
 }
 
 func (p *PowerShellTranspiler) ConvertFile(node *hast.File) past.Node {
+	docs := make([]*past.CommentGroup, len(node.Docs))
+	for i, d := range node.Docs {
+		docs[i] = p.Convert(d).(*past.CommentGroup)
+	}
 	var stmts []past.Stmt
 	for _, stmt := range node.Stmts {
 		converted := p.Convert(stmt)
@@ -250,6 +254,7 @@ func (p *PowerShellTranspiler) ConvertFile(node *hast.File) past.Node {
 		}
 	}
 	return &past.File{
+		Docs:  docs,
 		Stmts: stmts,
 	}
 }
@@ -272,9 +277,20 @@ func (p *PowerShellTranspiler) ConvertFuncDecl(node *hast.FuncDecl) past.Node {
 func (p *PowerShellTranspiler) ConvertAssignStmt(node *hast.AssignStmt) past.Node {
 	lhs := p.Convert(node.Lhs)
 	rhs := p.Convert(node.Rhs)
+
+	if lhs == nil || rhs == nil {
+		return nil
+	}
+
+	lhsExpr, ok1 := lhs.(past.Expr)
+	rhsExpr, ok2 := rhs.(past.Expr)
+	if !ok1 || !ok2 {
+		return nil
+	}
+
 	return &past.AssignStmt{
-		Lhs: lhs.(past.Expr),
-		Rhs: rhs.(past.Expr),
+		Lhs: lhsExpr,
+		Rhs: rhsExpr,
 	}
 }
 
@@ -528,9 +544,20 @@ func (p *PowerShellTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteral
 			if key == nil || value == nil {
 				return nil
 			}
-			keyIdent, ok1 := key.(*past.Ident)
+
+			// 处理键，可能是字符串字面量或标识符
+			var keyIdent *past.Ident
+			if keyStr, ok := key.(*past.StringLit); ok {
+				// 将字符串字面量转换为标识符
+				keyIdent = &past.Ident{Name: keyStr.Val}
+			} else if keyId, ok := key.(*past.Ident); ok {
+				keyIdent = keyId
+			} else {
+				return nil
+			}
+
 			valueExpr, ok2 := value.(past.Expr)
-			if !ok1 || !ok2 {
+			if !ok2 {
 				return nil
 			}
 			entries = append(entries, &past.HashEntry{Key: keyIdent, Value: valueExpr})
@@ -602,7 +629,24 @@ func (p *PowerShellTranspiler) ConvertSwitchStmt(node *hast.MatchStmt) past.Node
 		}
 		cases = append(cases, caseClause)
 	}
-	return &past.SwitchStmt{Value: valueExpr, Cases: cases}
+
+	var defaultBody *past.BlockStmt
+	if node.Default != nil {
+		if node.Default.Body != nil {
+			converted := p.Convert(node.Default.Body)
+			if block, ok := converted.(*past.BlockStmt); ok {
+				defaultBody = block
+			} else {
+				defaultBody = &past.BlockStmt{
+					List: []past.Stmt{converted.(past.Stmt)},
+				}
+			}
+		} else {
+			defaultBody = &past.BlockStmt{List: []past.Stmt{}}
+		}
+	}
+
+	return &past.SwitchStmt{Value: valueExpr, Cases: cases, Default: defaultBody}
 }
 
 func (p *PowerShellTranspiler) ConvertCaseClause(node *hast.CaseClause) past.Node {
