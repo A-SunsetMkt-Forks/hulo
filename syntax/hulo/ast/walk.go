@@ -133,8 +133,13 @@ func Walk(v Visitor, node Node) {
 		}
 
 	case *AnyLiteral, *StringLiteral, *NumericLiteral,
-		*TrueLiteral, *FalseLiteral, *Ident:
+		*TrueLiteral, *FalseLiteral, *Ident, *Comment:
 		// 叶子节点，无需遍历子节点
+
+	case *CommentGroup:
+		for _, cmt := range n.List {
+			Walk(v, cmt)
+		}
 
 	case *BlockStmt:
 		for _, stmt := range n.List {

@@ -1,11 +1,14 @@
-// comptime {
-//     echo "Hello, World!"
-//     if $target == "windows" {
-//         echo "Windows"
-//     } else {
-//         echo "Not Windows"
-//     }
-// }
+comptime {
+    let a = 1
+    let b = $a + 2
+    echo "b is $b"
+    echo "Hello, World!"
+    if $target == "windows" {
+        echo "Windows"
+    } else {
+        echo "Not Windows"
+    }
+}
 
 comptime when $TARGET == "ps" {
     Write-Host "Hello, PowerShell"

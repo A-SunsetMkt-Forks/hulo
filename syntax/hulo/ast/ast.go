@@ -692,6 +692,7 @@ func (s *LabelStmt) End() token.Pos    { return s.Colon }
 func (*AssignStmt) stmtNode()   {}
 func (*CmdStmt) stmtNode()      {}
 func (*ComptimeStmt) stmtNode() {}
+func (*ComptimeStmt) exprNode() {}
 func (*UnsafeStmt) stmtNode()   {}
 func (*TryStmt) stmtNode()      {}
 func (*CatchClause) stmtNode()  {}

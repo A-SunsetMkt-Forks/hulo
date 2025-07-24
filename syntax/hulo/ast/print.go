@@ -1387,7 +1387,10 @@ func (p *prettyPrinter) visitTypeParameter(n *TypeParameter) Visitor {
 }
 
 func (p *prettyPrinter) visitAssignStmt(n *AssignStmt) Visitor {
-	Walk(p, n.Docs)
+	p.indentWrite("")
+	if n.Docs != nil {
+		Walk(p, n.Docs)
+	}
 	if n.Scope != 0 {
 		p.write(n.Scope.String())
 		p.write(" ")

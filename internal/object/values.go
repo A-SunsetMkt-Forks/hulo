@@ -57,6 +57,10 @@ func (n *NumberValue) Type() Type {
 	return numberType
 }
 
+func (n *NumberValue) Clone() *NumberValue {
+	return &NumberValue{Value: new(big.Float).Set(n.Value)}
+}
+
 // BoolValue represents the boolean value.
 type BoolValue struct {
 	Value bool
@@ -72,6 +76,10 @@ func (b *BoolValue) Interface() any {
 
 func (b *BoolValue) Type() Type {
 	return boolType
+}
+
+func (b *BoolValue) Clone() *BoolValue {
+	return &BoolValue{Value: b.Value}
 }
 
 // ErrorValue represents the error value.
@@ -106,6 +114,10 @@ func (s *StringValue) Interface() any {
 
 func (s *StringValue) Type() Type {
 	return stringType
+}
+
+func (s *StringValue) Clone() *StringValue {
+	return &StringValue{Value: s.Value}
 }
 
 // ==================== 数组值类型 ====================

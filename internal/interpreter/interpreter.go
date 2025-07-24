@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/internal/core"
 	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
@@ -39,6 +40,8 @@ func (interp *Interpreter) shouldBreak(node ast.Node) bool {
 }
 
 func (interp *Interpreter) Eval(node ast.Node) ast.Node {
+	log.Debugf("enter %T", node)
+	defer log.Debugf("exit %T", node)
 	switch node := node.(type) {
 	/// Static World
 	case *ast.File:
@@ -66,7 +69,33 @@ func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 			Body: newBody.(*ast.BlockStmt),
 			Else: newElse,
 		}
+	case *ast.AssignStmt:
+		newLhs := interp.Eval(node.Lhs)
+		newRhs := interp.Eval(node.Rhs)
 
+		// comptime {1+2} 的时候返回的是 ExprStmt
+		if es, ok := newRhs.(*ast.ExprStmt); ok {
+			newRhs = es.X
+		}
+		return &ast.AssignStmt{
+			Scope: node.Scope,
+			Lhs:   newLhs.(ast.Expr),
+			Tok:   node.Tok,
+			Rhs:   newRhs.(ast.Expr),
+		}
+	case *ast.ExprStmt:
+		newX := interp.Eval(node.X)
+		if v, ok := newX.(ast.Stmt); ok {
+			return v
+		}
+		return &ast.ExprStmt{
+			X: newX.(ast.Expr),
+		}
+	case *ast.ReturnStmt:
+		newX := interp.Eval(node.X)
+		return &ast.ReturnStmt{
+			X: newX.(ast.Expr),
+		}
 	/// Dynamic World
 
 	case *ast.Import:
@@ -114,11 +143,13 @@ func (w *WarpValue) Text() string {
 	return "ast.Node"
 }
 
-func (w *WarpValue) Interface() interface{} {
+func (w *WarpValue) Interface() any {
 	return w.AST
 }
 
 func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
+	log.Debugf("enter %T", node)
+	defer log.Debugf("exit %T", node)
 	switch node := node.(type) {
 	case *ast.BlockStmt:
 		// 默认最后一行为给编译器的值
@@ -126,7 +157,11 @@ func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
 			return &WarpValue{AST: node.List[0]}
 		}
 		for _, stmt := range node.List {
-			interp.executeComptimeStmt(stmt)
+			obj := interp.executeComptimeStmt(stmt)
+			if returnValue, ok := obj.(*ReturnValue); ok {
+				log.Debugf("return value: %T", returnValue.Value)
+				return returnValue
+			}
 		}
 
 	case *ast.Import:
@@ -137,10 +172,213 @@ func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
 		return interp.executeAssignStmt(node)
 	case *ast.TypeDecl:
 		return interp.executeTypeDecl(node)
+	case *ast.ReturnStmt:
+		return interp.executeReturnStmt(node)
+	case *ast.IfStmt:
+		return interp.executeIfStmt(node)
+	case *ast.ForStmt:
+		return interp.executeForStmt(node)
+	case *ast.WhileStmt:
+		return interp.executeWhileStmt(node)
+	case *ast.DoWhileStmt:
+		return interp.executeDoWhileStmt(node)
+	case *ast.MatchStmt:
+		return interp.executeMatchStmt(node)
+	case *ast.FuncDecl:
+		return interp.executeFuncDecl(node)
 	default:
 		panic("unknown comptime statement:" + fmt.Sprintf("%T", node))
 	}
 	return nil
+}
+
+func (interp *Interpreter) executeFuncDecl(node *ast.FuncDecl) object.Value {
+	name := node.Name.Name
+
+	builder := object.NewFunctionBuilder(name)
+
+	// 参数
+	for _, param := range node.Recv {
+		var paramName string
+		var paramType object.Type
+		if p, ok := param.(*ast.Parameter); ok {
+			paramName = p.Name.Name
+			var err error
+			paramType, err = interp.cvt.ConvertType(p.Type)
+			if err != nil {
+				paramType = object.GetAnyType()
+			}
+		} else if id, ok := param.(*ast.Ident); ok {
+			paramName = id.Name
+			paramType = object.GetAnyType()
+		} else {
+			paramName = "param"
+			paramType = object.GetAnyType()
+		}
+		builder = builder.WithParameter(paramName, paramType)
+	}
+
+	// 返回类型
+	retType := object.GetAnyType()
+	if node.Type != nil {
+		if ft, ok := node.Type.(*ast.FunctionType); ok {
+			if ft.RetVal != nil {
+				if t, err := interp.cvt.ConvertType(ft.RetVal); err == nil {
+					retType = t
+				}
+			}
+		}
+	}
+	builder = builder.WithReturnType(retType)
+	builder = builder.WithBody(node)
+
+	newFnType := builder.Build()
+
+	fnValue, exists := interp.env.GetValue(name)
+	if exists {
+		if v, ok := fnValue.(*object.FunctionValue); ok {
+			fnType := v.Type().(*object.FunctionType)
+			sigs := newFnType.Signatures()
+			for _, sig := range sigs {
+				if sig != nil {
+					fnType.AppendSignatures([]*object.FunctionSignature{sig})
+				}
+			}
+			return nil
+		}
+	}
+	interp.env.Set(name, object.NewFunctionValue(newFnType))
+	return nil
+}
+
+func (interp *Interpreter) executeMatchStmt(node *ast.MatchStmt) object.Value {
+	prevEnv := interp.env
+	interp.env = interp.env.Fork()
+	defer func() { interp.env = prevEnv }()
+
+	lv := interp.executeComptimeExpr(node.Expr)
+	for _, clause := range node.Cases {
+		if clause.Cond != nil {
+			rv := interp.executeComptimeExpr(clause.Cond)
+			if rv.Text() == lv.Text() {
+				return interp.executeComptimeStmt(clause.Body)
+			}
+		}
+	}
+
+	if node.Default != nil {
+		return interp.executeComptimeStmt(node.Default.Body)
+	}
+	return nil
+}
+
+func (interp *Interpreter) executeDoWhileStmt(node *ast.DoWhileStmt) object.Value {
+	prevEnv := interp.env
+	interp.env = interp.env.Fork()
+	defer func() { interp.env = prevEnv }()
+
+	for {
+		interp.executeComptimeStmt(node.Body)
+		cond := interp.executeComptimeExpr(node.Cond)
+		if cond == object.FALSE {
+			break
+		}
+	}
+	return nil
+}
+
+func (interp *Interpreter) executeWhileStmt(node *ast.WhileStmt) object.Value {
+	prevEnv := interp.env
+	interp.env = interp.env.Fork()
+	defer func() { interp.env = prevEnv }()
+
+	for {
+		cond := interp.executeComptimeExpr(node.Cond)
+		if cond == object.FALSE {
+			break
+		}
+		interp.executeComptimeStmt(node.Body)
+	}
+	return nil
+}
+
+func (interp *Interpreter) executeForStmt(node *ast.ForStmt) object.Value {
+	prevEnv := interp.env
+	interp.env = interp.env.Fork()
+	defer func() { interp.env = prevEnv }()
+
+	if node.Init != nil {
+		interp.executeComptimeStmt(node.Init)
+	}
+	for {
+		cond := true
+		if node.Cond != nil {
+			condValue := interp.executeComptimeExpr(node.Cond)
+			if boolVal, ok := condValue.(interface{ Interface() any }); ok {
+				if v, ok := boolVal.Interface().(bool); ok {
+					cond = v
+				} else {
+					cond = false
+				}
+			} else {
+				cond = false
+			}
+		}
+		if !cond {
+			break
+		}
+		result := interp.executeComptimeStmt(node.Body)
+		if returnValue, ok := result.(*ReturnValue); ok {
+			return returnValue
+		}
+		if node.Post != nil {
+			interp.executeComptimeExpr(node.Post)
+		}
+	}
+	return nil
+}
+
+func (interp *Interpreter) executeIfStmt(node *ast.IfStmt) object.Value {
+	cond := interp.executeComptimeExpr(node.Cond)
+	if cond == object.TRUE {
+		return interp.executeComptimeStmt(node.Body)
+	}
+	for node.Else != nil {
+		switch el := node.Else.(type) {
+		case *ast.IfStmt:
+			cond = interp.executeComptimeExpr(el.Cond)
+			if cond == object.TRUE {
+				return interp.executeComptimeStmt(el.Body)
+			}
+			node.Else = el.Else
+		case *ast.BlockStmt:
+			return interp.executeComptimeStmt(el)
+		}
+	}
+	return nil
+}
+
+type ReturnValue struct {
+	Value object.Value
+}
+
+func (r *ReturnValue) Type() object.Type {
+	return r.Value.Type()
+}
+
+func (r *ReturnValue) Text() string {
+	return r.Value.Text()
+}
+
+func (r *ReturnValue) Interface() any {
+	return r.Value.Interface()
+}
+
+func (interp *Interpreter) executeReturnStmt(node *ast.ReturnStmt) object.Value {
+	if node.X == nil {
+		return &ReturnValue{Value: object.NULL}
+	}
+	return &ReturnValue{Value: interp.executeComptimeExpr(node.X)}
 }
 
 func (interp *Interpreter) executeTypeDecl(node *ast.TypeDecl) object.Value {
@@ -167,6 +405,8 @@ func (interp *Interpreter) executeComptimeExpr(node ast.Expr) object.Value {
 		return interp.executeBinaryExpr(node)
 	case *ast.RefExpr:
 		return interp.executeIdent(node.X.(*ast.Ident))
+	case *ast.IncDecExpr:
+		return interp.executeIncDecExpr(node)
 	default:
 		value, err := interp.cvt.ConvertValue(node)
 		if value == nil || err != nil {
@@ -174,7 +414,29 @@ func (interp *Interpreter) executeComptimeExpr(node ast.Expr) object.Value {
 		}
 		return value
 	}
-	return nil
+}
+
+func (interp *Interpreter) executeIncDecExpr(node *ast.IncDecExpr) object.Value {
+	var name string
+	if ident, ok := node.X.(*ast.Ident); ok {
+		name = ident.Name
+	} else if ref, ok := node.X.(*ast.RefExpr); ok {
+		name = ref.X.(*ast.Ident).Name
+	}
+
+	value, ok := interp.env.GetValue(name)
+	if !ok {
+		return &object.ErrorValue{Value: "variable not found"}
+	}
+	if num, ok := value.(*object.NumberValue); ok {
+		if node.Tok == token.INC {
+			num.Value.Add(num.Value, big.NewFloat(1))
+		} else {
+			num.Value.Sub(num.Value, big.NewFloat(1))
+		}
+	}
+	interp.env.Assign(name, value)
+	return value
 }
 
 func (interp *Interpreter) executeCmdExpr(node *ast.CmdExpr) object.Value {
@@ -266,15 +528,15 @@ func (interp *Interpreter) executeBinaryExprNumber(lhs, rhs object.Value, op tok
 
 	switch op {
 	case token.PLUS:
-		return &object.NumberValue{Value: lv.Add(lv, rv)}
+		return &object.NumberValue{Value: new(big.Float).Add(lv, rv)}
 	case token.MINUS:
-		return &object.NumberValue{Value: lv.Sub(lv, rv)}
+		return &object.NumberValue{Value: new(big.Float).Sub(lv, rv)}
 	case token.ASTERISK:
-		return &object.NumberValue{Value: lv.Mul(lv, rv)}
+		return &object.NumberValue{Value: new(big.Float).Mul(lv, rv)}
 	case token.SLASH:
-		return &object.NumberValue{Value: lv.Quo(lv, rv)}
+		return &object.NumberValue{Value: new(big.Float).Quo(lv, rv)}
 	// case token.MOD:
-	// return &object.NumberValue{Value: lv.Mod(lv, rv)}
+	// 	return &object.NumberValue{Value: new(big.Float).Mod(lv, rv)}
 	case token.LT:
 		return interp.nativeBoolObject(lv.Cmp(rv) < 0)
 	case token.GT:
@@ -364,6 +626,25 @@ func (interp *Interpreter) executePackageSelector(pkg object.Value, selector ast
 func (interp *Interpreter) object2Node(v object.Value) ast.Node {
 	if warp, ok := v.(*WarpValue); ok {
 		return warp.AST
+	}
+	if returnValue, ok := v.(*ReturnValue); ok {
+		switch returnValue.Value.Type().Kind() {
+		case object.O_NUM:
+			return &ast.NumericLiteral{
+				Value: returnValue.Value.Text(),
+			}
+		case object.O_STR:
+			return &ast.StringLiteral{
+				Value: returnValue.Value.Interface().(string),
+			}
+		case object.O_BOOL:
+			if returnValue.Value.Interface().(bool) {
+				return &ast.TrueLiteral{}
+			}
+			return &ast.FalseLiteral{}
+		case object.O_NULL:
+			return &ast.NullLiteral{}
+		}
 	}
 	return nil
 }
@@ -478,12 +759,15 @@ func evalExpressions(ctx *Context, exprs []ast.Expr) []object.Value {
 }
 
 func (interp *Interpreter) executeIdent(node *ast.Ident) object.Value {
-	v, ok := interp.env.Get(node.Name)
-	if !ok {
-		return &object.ErrorValue{Value: fmt.Sprintf("identifier %s not found", node.Name)}
+	if v, ok := interp.env.GetValue(node.Name); ok {
+		return v
 	}
 
-	return v
+	if builtin, ok := builtin[node.Name]; ok {
+		return builtin
+	}
+
+	return &object.ErrorValue{Value: fmt.Sprintf("identifier %s not found", node.Name)}
 }
 
 func (interp *Interpreter) executeAssignStmt(node *ast.AssignStmt) object.Value {
@@ -497,7 +781,6 @@ func (interp *Interpreter) executeAssignStmt(node *ast.AssignStmt) object.Value 
 	// 根据左值类型处理
 	switch lhs := node.Lhs.(type) {
 	case *ast.Ident:
-		// 简单变量声明/赋值
 		return interp.handleIdentAssignment(lhs, rhsValue, node.Scope, node.Tok)
 	case *ast.RefExpr:
 		return interp.handleRefExprAssignment(lhs, rhsValue, node.Scope, node.Tok)
@@ -507,11 +790,51 @@ func (interp *Interpreter) executeAssignStmt(node *ast.AssignStmt) object.Value 
 }
 
 func (interp *Interpreter) handleRefExprAssignment(ref *ast.RefExpr, value object.Value, scope token.Token, assignTok token.Token) object.Value {
-	// err := interp.env.Assign(ref.X.String(), value)
-	// if err != nil {
-	// 	return &object.ErrorValue{Value: err.Error()}
-	// }
-	// return nil
+	name := ref.X.(*ast.Ident).Name
+
+	var err error
+	switch assignTok {
+	case token.COLON_ASSIGN:
+		err = interp.env.Declare(ref.X.(*ast.Ident).Name, cloneValue(value), token.LET)
+	case token.ASSIGN:
+		err = interp.env.Assign(name, value)
+	case token.PLUS_ASSIGN:
+		oldValue, ok := interp.env.GetValue(name)
+		if !ok {
+			return &object.ErrorValue{Value: "variable not found"}
+		}
+		if num, ok := oldValue.(*object.NumberValue); ok {
+			num.Value.Add(num.Value, value.(*object.NumberValue).Value)
+		}
+	case token.MINUS_ASSIGN:
+		oldValue, ok := interp.env.GetValue(name)
+		if !ok {
+			return &object.ErrorValue{Value: "variable not found"}
+		}
+		if num, ok := oldValue.(*object.NumberValue); ok {
+			num.Value.Sub(num.Value, value.(*object.NumberValue).Value)
+		}
+	case token.ASTERISK_ASSIGN:
+		oldValue, ok := interp.env.GetValue(name)
+		if !ok {
+			return &object.ErrorValue{Value: "variable not found"}
+		}
+		if num, ok := oldValue.(*object.NumberValue); ok {
+			num.Value.Mul(num.Value, value.(*object.NumberValue).Value)
+		}
+	case token.SLASH_ASSIGN:
+		oldValue, ok := interp.env.GetValue(name)
+		if !ok {
+			return &object.ErrorValue{Value: "variable not found"}
+		}
+		if num, ok := oldValue.(*object.NumberValue); ok {
+			num.Value.Quo(num.Value, value.(*object.NumberValue).Value)
+		}
+	}
+
+	if err != nil {
+		return &object.ErrorValue{Value: err.Error()}
+	}
 	return nil
 }
 
@@ -523,12 +846,12 @@ func (interp *Interpreter) handleIdentAssignment(ident *ast.Ident, value object.
 		// 简单赋值
 		if scope != token.ILLEGAL {
 			// 这是变量声明
-			if err := interp.env.Declare(name, value, scope); err != nil {
+			if err := interp.env.Declare(name, cloneValue(value), scope); err != nil {
 				return &object.ErrorValue{Value: err.Error()}
 			}
 		} else {
 			// 这是变量重新赋值
-			if err := interp.env.Assign(name, value); err != nil {
+			if err := interp.env.Assign(name, cloneValue(value)); err != nil {
 				return &object.ErrorValue{Value: err.Error()}
 			}
 		}
@@ -536,13 +859,27 @@ func (interp *Interpreter) handleIdentAssignment(ident *ast.Ident, value object.
 
 	case token.COLON_ASSIGN:
 		// := 声明并赋值（类似 Go）
-		if err := interp.env.Declare(name, value, token.LET); err != nil {
+		if err := interp.env.Declare(name, cloneValue(value), token.LET); err != nil {
 			return &object.ErrorValue{Value: err.Error()}
 		}
 		return value
 
 	default:
 		return &object.ErrorValue{Value: "unsupported assignment operator"}
+	}
+}
+
+// cloneValue 工具函数
+func cloneValue(value object.Value) object.Value {
+	switch v := value.(type) {
+	case *object.NumberValue:
+		return v.Clone()
+	case *object.StringValue:
+		return v.Clone()
+	case *object.BoolValue:
+		return v.Clone()
+	default:
+		return value // 其他类型暂时直接返回
 	}
 }
 

@@ -80,7 +80,8 @@ pub fn reverse_string(str: str) -> str {
 	// assert.NoError(t, err)
 }
 
-func TestEvalComptime(t *testing.T) {
+func TestEvalComptimeWhen(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
 	script := `comptime when $TARGET == "ps" {
 		Write-Host "Hello, PowerShell"
 	} else when $TARGET == "bat" {
@@ -99,6 +100,176 @@ func TestEvalComptime(t *testing.T) {
 	env.SetWithScope("TARGET", &object.StringValue{Value: "ps"}, token.CONST, true)
 	interp := &Interpreter{
 		env: env,
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestEvalComptimeAssign(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
+	script := `let x = comptime {
+		let a = 1
+		let b = $a + 2
+		echo "b is" $b
+		if $b == 3 {
+			echo "b is 3"
+			if $a == 1 {
+				echo "a is 1";
+				nop
+			}
+		} else {
+			echo "b is not 3";
+			nop
+		}
+		return $b
+	}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestEvalComptimeFor(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
+	script := `let x = comptime {
+			let a = 0
+			loop $i := 0; $i < 10;  {
+				echo "i is" $i;
+				$a += $i;
+				$i++;
+			}
+			return $a
+		}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestEvalComptimeWhile(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
+	script := `let x = comptime {
+			let a = 0
+			loop $a < 10 {
+				echo "a is" $a;
+				$a++;
+			}
+			return $a
+		}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestEvalComptimeDoWhile(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
+	script := `let x = comptime {
+			let a = 15
+			do {
+				MsgBox "Hello, World!";
+				$a--;
+			} loop ($a > 10)
+			return $a
+		}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestComptimeMatch(t *testing.T) {
+	// log.SetLevel(log.DebugLevel)
+	script := `let x = comptime {
+		let a = 1
+		match $a {
+			1 => { echo "a is 1"; nop },
+			2 => { echo "a is 2"; nop },
+			_ => { echo "a is not 1 or 2"; nop },
+		}
+		return $a
+	}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestComptimeFunc(t *testing.T) {
+	script := `let x = comptime {
+		fn add(a: num, b: num) -> num {
+			return $a + $b
+		}
+
+		fn add(a: str, b: str) -> str {
+			return $a + $b
+		}
+
+		echo add(1, 2);
+		echo add("Hello, ", "World!");
+		return add("Hello, ", "World!")
+	}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
+		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestComptimeComment(t *testing.T) {
+	script := `let x = comptime {
+		// this is a comment
+		1 + 2
+	}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env: NewEnvironment(),
 		cvt: &object.ASTConverter{},
 	}
 	node = interp.Eval(node)

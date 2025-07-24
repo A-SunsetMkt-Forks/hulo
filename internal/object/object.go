@@ -246,7 +246,7 @@ func (t *ObjectType) Implements(u Type) bool {
 }
 
 func (t *ObjectType) AssignableTo(u Type) bool {
-	return t.Kind() == u.Kind()
+	return t.Kind() == u.Kind() || u.Kind() == O_ANY
 }
 
 func (t *ObjectType) ConvertibleTo(u Type) bool {

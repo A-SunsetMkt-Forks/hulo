@@ -39,8 +39,8 @@ func (e *Environment) Fork() *Environment {
 	return env
 }
 
-// Get 获取变量值，按优先级查找：const -> let -> var
-func (e *Environment) Get(name string) (object.Value, bool) {
+// GetValue 获取变量值，按优先级查找：const -> let -> var
+func (e *Environment) GetValue(name string) (object.Value, bool) {
 	// 先查找 const
 	if info, ok := e.consts[name]; ok {
 		return info.Value, true
@@ -55,7 +55,7 @@ func (e *Environment) Get(name string) (object.Value, bool) {
 	}
 	// 如果当前环境没有，查找外层环境
 	if e.outer != nil {
-		return e.outer.Get(name)
+		return e.outer.GetValue(name)
 	}
 	return nil, false
 }

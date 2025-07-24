@@ -33,15 +33,15 @@ func TestEnvironment_DeclareAndGet(t *testing.T) {
 	}
 
 	// 测试获取变量
-	if value, ok := env.Get("PI"); !ok || value != constValue {
+	if value, ok := env.GetValue("PI"); !ok || value != constValue {
 		t.Errorf("Failed to get const variable PI")
 	}
 
-	if value, ok := env.Get("message"); !ok || value != letValue {
+	if value, ok := env.GetValue("message"); !ok || value != letValue {
 		t.Errorf("Failed to get let variable message")
 	}
 
-	if value, ok := env.Get("flag"); !ok || value != varValue {
+	if value, ok := env.GetValue("flag"); !ok || value != varValue {
 		t.Errorf("Failed to get var variable flag")
 	}
 
@@ -92,7 +92,7 @@ func TestEnvironment_Reassign(t *testing.T) {
 	}
 
 	// 验证新值
-	if value, ok := env.Get("x"); !ok || value != newValue {
+	if value, ok := env.GetValue("x"); !ok || value != newValue {
 		t.Errorf("Failed to get reassigned value")
 	}
 }
@@ -117,7 +117,7 @@ func TestEnvironment_ConstReassign(t *testing.T) {
 	}
 
 	// 验证原值未改变
-	if value, ok := env.Get("PI"); !ok || value != constValue {
+	if value, ok := env.GetValue("PI"); !ok || value != constValue {
 		t.Errorf("Const variable value should not change")
 	}
 }
@@ -142,7 +142,7 @@ func TestEnvironment_DuplicateDeclaration(t *testing.T) {
 	}
 
 	// 验证原值未改变
-	if value, ok := env.Get("x"); !ok || value != value1 {
+	if value, ok := env.GetValue("x"); !ok || value != value1 {
 		t.Errorf("Original variable value should not change")
 	}
 }
@@ -159,7 +159,7 @@ func TestEnvironment_OuterScope(t *testing.T) {
 	}
 
 	// 在内层获取变量
-	if value, ok := inner.Get("x"); !ok || value != outerValue {
+	if value, ok := inner.GetValue("x"); !ok || value != outerValue {
 		t.Errorf("Failed to get variable from outer scope")
 	}
 
@@ -171,12 +171,12 @@ func TestEnvironment_OuterScope(t *testing.T) {
 	}
 
 	// 验证内层的新值
-	if value, ok := inner.Get("x"); !ok || value != innerValue {
+	if value, ok := inner.GetValue("x"); !ok || value != innerValue {
 		t.Errorf("Failed to get reassigned value in inner scope")
 	}
 
 	// 验证外层值也改变了（因为内层修改了外层的变量）
-	if value, ok := outer.Get("x"); !ok || value != innerValue {
+	if value, ok := outer.GetValue("x"); !ok || value != innerValue {
 		t.Errorf("Outer scope value should be updated when inner scope modifies it")
 	}
 }

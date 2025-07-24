@@ -27,6 +27,15 @@ var (
 	boolType   = NewBoolType()
 )
 
+func GetAnyType() Type    { return anyType }
+func GetVoidType() Type   { return voidType }
+func GetNeverType() Type  { return neverType }
+func GetNullType() Type   { return nullType }
+func GetErrorType() Type  { return errorType }
+func GetStringType() Type { return stringType }
+func GetNumberType() Type { return numberType }
+func GetBoolType() Type   { return boolType }
+
 type StringType struct {
 	*ObjectType
 }
@@ -845,6 +854,79 @@ func NewGenericFunction(name string, typeParams []string, constraints map[string
 	}
 }
 
+// FunctionBuilder 函数构建器
+type FunctionBuilder struct {
+	name          string
+	builtin       BuiltinFunction
+	params        []*Parameter
+	variadicParam *Parameter
+	returnType    Type
+	body          *ast.FuncDecl
+}
+
+// NewFunctionBuilder 创建一个新的函数构建器
+func NewFunctionBuilder(name string) *FunctionBuilder {
+	return &FunctionBuilder{
+		name:       name,
+		params:     make([]*Parameter, 0),
+		returnType: GetVoidType(), // 默认返回类型
+	}
+}
+
+// WithBuiltin 设置内置函数实现
+func (fb *FunctionBuilder) WithBuiltin(builtin BuiltinFunction) *FunctionBuilder {
+	fb.builtin = builtin
+	return fb
+}
+
+// WithParameter 添加位置参数
+func (fb *FunctionBuilder) WithParameter(name string, typ Type) *FunctionBuilder {
+	fb.params = append(fb.params, NewParameter(name, typ))
+	return fb
+}
+
+// WithOptionalParameter 添加可选参数
+func (fb *FunctionBuilder) WithOptionalParameter(name string, typ Type, defaultValue Value) *FunctionBuilder {
+	fb.params = append(fb.params, NewOptionalParameter(name, typ, defaultValue))
+	return fb
+}
+
+// WithVariadicParameter 设置可变参数
+func (fb *FunctionBuilder) WithVariadicParameter(name string, typ Type) *FunctionBuilder {
+	fb.variadicParam = NewVariadicParameter(name, typ)
+	return fb
+}
+
+// WithReturnType 设置返回类型
+func (fb *FunctionBuilder) WithReturnType(returnType Type) *FunctionBuilder {
+	fb.returnType = returnType
+	return fb
+}
+
+// WithBody 设置函数体（用于非内置函数）
+func (fb *FunctionBuilder) WithBody(body *ast.FuncDecl) *FunctionBuilder {
+	fb.body = body
+	return fb
+}
+
+// Build 构建FunctionType
+func (fb *FunctionBuilder) Build() *FunctionType {
+	signature := &FunctionSignature{
+		positionalParams: fb.params,
+		variadicParam:    fb.variadicParam,
+		returnType:       fb.returnType,
+		builtin:          fb.builtin,
+		body:             fb.body,
+	}
+
+	return &FunctionType{
+		name:        fb.name,
+		signatures:  []*FunctionSignature{signature},
+		visible:     true,
+		GenericBase: nil,
+	}
+}
+
 func (ft *FunctionType) Name() string {
 	return ft.name
 }
@@ -854,7 +936,25 @@ func (ft *FunctionType) Kind() ObjKind {
 }
 
 func (ft *FunctionType) Text() string {
-	return "fn"
+	typeParams := ""
+	if ft.GenericBase != nil {
+		if len(ft.GenericBase.typeParams) > 0 {
+			typeParams = "<" + strings.Join(ft.GenericBase.typeParams, ", ") + ">"
+		}
+	}
+	params := ""
+	if len(ft.signatures) > 0 {
+		for i, param := range ft.signatures[0].positionalParams {
+			params += param.name + ":" + param.typ.Text()
+			if i < len(ft.signatures[0].positionalParams)-1 {
+				params += ", "
+			}
+		}
+		if ft.signatures[0].variadicParam != nil {
+			params += ft.signatures[0].variadicParam.name + ":..." + ft.signatures[0].variadicParam.typ.Text() + ", "
+		}
+	}
+	return fmt.Sprintf("fn %s%s(%s) -> %s", ft.name, typeParams, params, ft.signatures[0].returnType.Text())
 }
 
 func (ft *FunctionType) AssignableTo(t Type) bool {
@@ -921,6 +1021,7 @@ func (ft *FunctionType) calculateMatchScore(args []Value, namedArgs map[string]V
 	if sig.variadicParam != nil {
 		for i := posParamCount; i < len(args); i++ {
 			argType := args[i].Type()
+			fmt.Println(argType, sig.variadicParam.typ.Name())
 			if !argType.AssignableTo(sig.variadicParam.typ) {
 				return -1, fmt.Errorf("variadic argument %d cannot be assigned to parameter %s", i, sig.variadicParam.name)
 			}
@@ -1127,6 +1228,36 @@ type Parameter struct {
 	// 命名参数相关
 	isNamed  bool
 	required bool
+}
+
+// NewParameter 创建一个新的参数
+func NewParameter(name string, typ Type) *Parameter {
+	return &Parameter{
+		name:     name,
+		typ:      typ,
+		required: true,
+	}
+}
+
+// NewOptionalParameter 创建一个可选参数
+func NewOptionalParameter(name string, typ Type, defaultValue Value) *Parameter {
+	return &Parameter{
+		name:         name,
+		typ:          typ,
+		optional:     true,
+		defaultValue: defaultValue,
+		required:     false,
+	}
+}
+
+// NewVariadicParameter 创建一个可变参数
+func NewVariadicParameter(name string, typ Type) *Parameter {
+	return &Parameter{
+		name:     name,
+		typ:      typ,
+		variadic: true,
+		required: true,
+	}
 }
 
 type OperatorOverload struct {
@@ -4119,4 +4250,12 @@ func (gb *GenericBase) getCachedInstance(typeKey string) Type {
 
 func (gb *GenericBase) cacheInstance(typeKey string, instance Type) {
 	gb.instances[typeKey] = instance
+}
+
+func (ft *FunctionType) AppendSignatures(sigs []*FunctionSignature) {
+	ft.signatures = append(ft.signatures, sigs...)
+}
+
+func (ft *FunctionType) Signatures() []*FunctionSignature {
+	return ft.signatures
 }

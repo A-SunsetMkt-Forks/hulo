@@ -92,7 +92,7 @@ func (fe *FunctionEvaluatorImpl) convertResultToInterface(result ast.Node) (inte
 		return fe.convertBasicLitToInterface(result)
 	case *ast.Ident:
 		// 从环境中获取变量值
-		if value, found := fe.interpreter.env.Get(result.Name); found {
+		if value, found := fe.interpreter.env.GetValue(result.Name); found {
 			return value.Interface(), nil
 		}
 		return nil, nil
