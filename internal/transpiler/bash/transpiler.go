@@ -6,12 +6,15 @@ package transpiler
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"slices"
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/interpreter"
+	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
 	btok "github.com/hulo-lang/hulo/syntax/bash/token"
@@ -43,6 +46,12 @@ type BashTranspiler struct {
 }
 
 func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
+	env := interpreter.NewEnvironment()
+	env.SetWithScope("TARGET", &object.StringValue{Value: "bash"}, htok.CONST, true)
+	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
+	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
+	interp := interpreter.NewInterpreter(env)
+
 	return &BashTranspiler{
 		opts: opts,
 		vfs:  vfs,
@@ -57,6 +66,7 @@ func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
 				stack:   container.NewMapSet[string](),
 				order:   make([]string, 0),
 			},
+			interp: interp,
 		},
 		modules: make(map[string]*Module),
 		// 初始化符号管理

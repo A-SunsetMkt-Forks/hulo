@@ -1,3 +1,6 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package interpreter
 
 import (
@@ -141,10 +144,9 @@ func TestEvalComptimeFor(t *testing.T) {
 	// log.SetLevel(log.DebugLevel)
 	script := `let x = comptime {
 			let a = 0
-			loop $i := 0; $i < 10;  {
+			loop $i := 0; $i < 10; $i++ {
 				echo "i is" $i;
 				$a += $i;
-				$i++;
 			}
 			return $a
 		}`

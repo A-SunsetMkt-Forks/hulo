@@ -5,9 +5,12 @@ package transpiler
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/interpreter"
+	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
@@ -75,6 +78,12 @@ func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]str
 }
 
 func NewPowerShellTranspiler(opts *config.Huloc, vfs vfs.VFS) *PowerShellTranspiler {
+	env := interpreter.NewEnvironment()
+	env.SetWithScope("TARGET", &object.StringValue{Value: "powershell"}, htok.CONST, true)
+	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
+	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
+	interp := interpreter.NewInterpreter(env)
+
 	return &PowerShellTranspiler{
 		opts: opts,
 		vfs:  vfs,
@@ -89,6 +98,7 @@ func NewPowerShellTranspiler(opts *config.Huloc, vfs vfs.VFS) *PowerShellTranspi
 				stack:   container.NewMapSet[string](),
 				order:   make([]string, 0),
 			},
+			interp: interp,
 		},
 		modules: make(map[string]*Module),
 		// 初始化符号管理
@@ -289,7 +299,7 @@ func (p *PowerShellTranspiler) ConvertAssignStmt(node *hast.AssignStmt) past.Nod
 	}
 
 	return &past.AssignStmt{
-		Lhs: lhsExpr,
+		Lhs: &past.VarExpr{X: lhsExpr},
 		Rhs: rhsExpr,
 	}
 }

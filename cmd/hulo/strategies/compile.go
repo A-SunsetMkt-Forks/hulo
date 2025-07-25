@@ -87,14 +87,14 @@ func (c *CompileStrategy) Execute(params *Parameters, args []string) error {
 
 	// 如果 targets 中没有指定语言，则默认编译所有
 	if len(huloc.Targets) == 0 {
-		huloc.Targets = append(huloc.Targets, config.L_VBSCRIPT, config.L_BASH)
+		huloc.Targets = append(huloc.Targets, "bash", "vbs", "ps", "bat")
 	}
 
 	if len(huloc.OutDir) == 0 {
 		huloc.OutDir = "."
 	}
 
-	if len(params.OutDir) > 0 {
+	if params.OutDir != "." {
 		huloc.OutDir = params.OutDir
 	}
 

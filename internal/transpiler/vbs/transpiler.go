@@ -6,12 +6,15 @@ package transpiler
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/interpreter"
+	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
@@ -51,6 +54,12 @@ type VBScriptTranspiler struct {
 }
 
 func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler {
+	env := interpreter.NewEnvironment()
+	env.SetWithScope("TARGET", &object.StringValue{Value: "vbs"}, htok.CONST, true)
+	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
+	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
+	interp := interpreter.NewInterpreter(env)
+
 	return &VBScriptTranspiler{
 		opts:             opts,
 		vfs:              vfs,
@@ -67,6 +76,7 @@ func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler 
 				order:   make([]string, 0),
 			},
 			externalVBS: make(map[string]string),
+			interp:      interp,
 		},
 		modules: make(map[string]*Module),
 

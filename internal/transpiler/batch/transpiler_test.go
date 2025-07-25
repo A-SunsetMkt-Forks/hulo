@@ -100,7 +100,7 @@ func TestIf(t *testing.T) {
 }
 
 func TestLoop(t *testing.T) {
-	script := `loop {
+	script := `loop $a < 10 {
 		echo "Hello, World!"
 	}
 
@@ -115,7 +115,61 @@ func TestLoop(t *testing.T) {
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", EnableMangle: true}, fs, "")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileForIn(t *testing.T) {
+	script := `let arr: list<num> = [1, 2, 3, 4, 5]
+
+loop $item in $arr {
+    echo $item
+}
+
+loop $i in [0, 1, 2] {
+	echo $i
+}`
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
+	assert.NoError(t, err)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileForOf(t *testing.T) {
+	script := `let config: map<str, str> = {"host": "localhost", "port": "8080"}
+loop ($key, $value) of $config {
+    echo "$key = $value"
+}
+loop ($key, _) of $config {
+    echo $key
+}
+
+loop (_, $value) of $config {
+    echo $value
+}
+
+loop $key of $config {
+    echo $key
+}`
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
+	assert.NoError(t, err)
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {

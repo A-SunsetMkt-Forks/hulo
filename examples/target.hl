@@ -1,0 +1,9 @@
+comptime when $TARGET == "powershell" {
+	Write-Host "Hello, PowerShell"
+} else when $TARGET == "batch" {
+	echo "Hello, Batch"
+} else when $TARGET == "bash" {
+	echo "Hello, Bash"
+} else when $TARGET == "vbs" {
+	MsgBox "Hello, VBScript"
+}

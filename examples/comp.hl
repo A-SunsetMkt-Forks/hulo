@@ -1,0 +1,16 @@
+let a = comptime {
+    let sum = 0
+    loop $i := 0; $i < 10; $i++ {
+        echo $i;
+        $sum += $i;
+    }
+    return $sum
+}
+
+comptime when $TARGET == "vbs" {
+    MsgBox $a
+} else when $TARGET == "powershell" {
+    Write-Output $a
+} else  {
+    echo $a
+}

@@ -39,13 +39,6 @@ type CompilerOptions struct {
 	VBScript *VBScriptOptions `yaml:"vbs"`
 }
 
-const (
-	L_BASH     = "bash"
-	L_BATCH    = "batch"
-	L_VBSCRIPT = "vbs"
-	L_PWSH     = "powershell"
-)
-
 // ParserOptions is the options for the parser.
 type ParserOptions struct {
 	// ShowASTTree is the option to show the AST tree.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/interpreter"
 	"github.com/hulo-lang/hulo/internal/util"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
@@ -294,6 +295,8 @@ type ModuleManager struct {
 	resolver *DependencyResolver
 
 	options *config.Huloc
+
+	interp *interpreter.Interpreter
 }
 
 type DependencyResolver struct {
@@ -439,6 +442,8 @@ func (mm *ModuleManager) loadModule(filePath string) (*Module, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse file %s: %w", filePath, err)
 	}
+
+	ast = mm.interp.Eval(ast).(*hast.File)
 
 	// 提取导入信息
 	imports, dependencies := mm.extractImports(ast, filePath)

@@ -1,3 +1,6 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package interpreter
 
 import (
@@ -31,6 +34,13 @@ type Interpreter struct {
 	cvt object.Converter
 }
 
+func NewInterpreter(env *Environment) *Interpreter {
+	return &Interpreter{
+		env: env,
+		cvt: &object.ASTConverter{},
+	}
+}
+
 func (interp *Interpreter) shouldBreak(node ast.Node) bool {
 	// pos := node.Pos()
 	if bp, ok := interp.debugger.breakpoints["file"][1]; ok {
@@ -45,87 +55,479 @@ func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 	switch node := node.(type) {
 	/// Static World
 	case *ast.File:
-		file := &ast.File{
-			Docs:  node.Docs,
-			Name:  node.Name,
-			Decls: node.Decls,
-		}
-		for _, stmt := range node.Stmts {
-			file.Stmts = append(file.Stmts, interp.Eval(stmt).(ast.Stmt))
-		}
-		return file
-
+		return interp.rebuildFile(node)
 	case *ast.IfStmt:
-		newCond := interp.Eval(node.Cond)
-		newBody := interp.Eval(node.Body)
-		var newElse ast.Stmt
-		if node.Else != nil {
-			newElse = interp.Eval(node.Else).(ast.Stmt)
-		}
-
-		return &ast.IfStmt{
-			If:   node.If,
-			Cond: newCond.(ast.Expr),
-			Body: newBody.(*ast.BlockStmt),
-			Else: newElse,
-		}
+		return interp.rebuildIfStmt(node)
 	case *ast.AssignStmt:
-		newLhs := interp.Eval(node.Lhs)
-		newRhs := interp.Eval(node.Rhs)
-
-		// comptime {1+2} 的时候返回的是 ExprStmt
-		if es, ok := newRhs.(*ast.ExprStmt); ok {
-			newRhs = es.X
-		}
-		return &ast.AssignStmt{
-			Scope: node.Scope,
-			Lhs:   newLhs.(ast.Expr),
-			Tok:   node.Tok,
-			Rhs:   newRhs.(ast.Expr),
-		}
+		return interp.rebuildAssignStmt(node)
 	case *ast.ExprStmt:
-		newX := interp.Eval(node.X)
-		if v, ok := newX.(ast.Stmt); ok {
-			return v
-		}
-		return &ast.ExprStmt{
-			X: newX.(ast.Expr),
-		}
+		return interp.rebuildExprStmt(node)
 	case *ast.ReturnStmt:
-		newX := interp.Eval(node.X)
-		return &ast.ReturnStmt{
-			X: newX.(ast.Expr),
-		}
+		return interp.rebuildReturnStmt(node)
+	case *ast.ForStmt:
+		return interp.rebuildForStmt(node)
+	case *ast.ForeachStmt:
+		return interp.rebuildForeachStmt(node)
+	case *ast.WhileStmt:
+		return interp.rebuildWhileStmt(node)
+	case *ast.DoWhileStmt:
+		return interp.rebuildDoWhileStmt(node)
+	case *ast.MatchStmt:
+		return interp.rebuildMatchStmt(node)
+	case *ast.FuncDecl:
+		return interp.rebuildFuncDecl(node)
+	case *ast.CommentGroup:
+		return interp.rebuildCommentGroup(node)
+	case *ast.UnsafeStmt:
+		return interp.rebuildUnsafeStmt(node)
+	case *ast.ExternDecl:
+		return interp.rebuildExternDecl(node)
+	case *ast.CallExpr:
+		return interp.rebuildCallExpr(node)
+	case *ast.CmdExpr:
+		return interp.rebuildCmdExpr(node)
+	case *ast.Ident:
+		return interp.rebuildIdent(node)
+	case *ast.NumericLiteral:
+		return interp.rebuildNumericLiteral(node)
+	case *ast.StringLiteral:
+		return interp.rebuildStringLiteral(node)
+	case *ast.TrueLiteral:
+		return interp.rebuildTrueLiteral(node)
+	case *ast.FalseLiteral:
+		return interp.rebuildFalseLiteral(node)
+	case *ast.NullLiteral:
+		return interp.rebuildNullLiteral(node)
+	case *ast.ArrayLiteralExpr:
+		return interp.rebuildArrayLiteralExpr(node)
+	case *ast.ObjectLiteralExpr:
+		return interp.rebuildObjectLiteralExpr(node)
+	case *ast.RefExpr:
+		return interp.rebuildRefExpr(node)
+	case *ast.IncDecExpr:
+		return interp.rebuildIncDecExpr(node)
+	case *ast.BinaryExpr:
+		return interp.rebuildBinaryExpr(node)
+	case *ast.SelectExpr:
+		return interp.rebuildSelectExpr(node)
+	case *ast.TypeDecl:
+		return interp.rebuildTypeDecl(node)
+	case *ast.BlockStmt:
+		return interp.rebuildBlockStmt(node)
+	case *ast.Parameter:
+		return interp.rebuildParameter(node)
+	case *ast.ClassDecl:
+		return interp.rebuildClassDecl(node)
+	case *ast.DeclareDecl:
+		return interp.rebuildDeclareDecl(node)
+	case *ast.EnumDecl:
+		return interp.rebuildEnumDecl(node)
+	case *ast.ModAccessExpr:
+		return interp.rebuildModAccessExpr(node)
 	/// Dynamic World
 
 	case *ast.Import:
 
 	case *ast.ComptimeStmt:
 		if node.Cond != nil {
-			evaluatedObject := interp.executeComptimeWhenStmt(node)
+			evaluatedObject := interp.evalComptimeWhenStmt(node)
 			return interp.object2Node(evaluatedObject)
 		}
-		evaluatedObject := interp.executeComptimeStmt(node.Body)
+		evaluatedObject := interp.evalComptimeStmt(node.Body)
 		return interp.object2Node(evaluatedObject)
 
 	case *ast.ComptimeExpr:
-		evaluatedObject := interp.executeComptimeExpr(node)
+		evaluatedObject := interp.evalComptimeExpr(node)
 		return interp.object2Node(evaluatedObject)
 	}
 	return node
 }
 
-func (interp *Interpreter) executeComptimeWhenStmt(node *ast.ComptimeStmt) object.Value {
-	evaluatedObject := interp.executeComptimeExpr(node.Cond)
+func (interp *Interpreter) rebuildForeachStmt(node *ast.ForeachStmt) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildTypeDecl(node *ast.TypeDecl) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildEnumDecl(node *ast.EnumDecl) ast.Node {
+	var newBody ast.EnumBody
+	switch body := node.Body.(type) {
+	case *ast.BasicEnumBody:
+		newValues := make([]*ast.EnumValue, len(body.Values))
+		for i, v := range body.Values {
+			newValues[i] = &ast.EnumValue{
+				Docs:  v.Docs,
+				Name:  v.Name,
+				Value: interp.Eval(v.Value).(ast.Expr),
+			}
+		}
+		newBody = &ast.BasicEnumBody{
+			Lbrace: body.Lbrace,
+			Values: newValues,
+			Rbrace: body.Rbrace,
+		}
+	case *ast.ADTEnumBody:
+		newValues := make([]*ast.EnumVariant, len(body.Variants))
+		for i, v := range body.Variants {
+			newValues[i] = &ast.EnumVariant{
+				Docs:   v.Docs,
+				Name:   v.Name,
+				Fields: v.Fields,
+			}
+		}
+		newMethods := make([]ast.Stmt, len(body.Methods))
+		for i, m := range body.Methods {
+			newMethods[i] = interp.Eval(m).(ast.Stmt)
+		}
+		newBody = &ast.ADTEnumBody{
+			Lbrace:   body.Lbrace,
+			Variants: newValues,
+			Methods:  newMethods,
+			Rbrace:   body.Rbrace,
+		}
+	case *ast.AssociatedEnumBody:
+		newFields := make([]*ast.Field, len(body.Fields.List))
+		for i, f := range body.Fields.List {
+			newFields[i] = &ast.Field{
+				Docs:      f.Docs,
+				Modifiers: f.Modifiers,
+				Name:      f.Name,
+				Type:      interp.Eval(f.Type).(ast.Expr),
+				Value:     interp.Eval(f.Value).(ast.Expr),
+			}
+		}
+		newValues := make([]*ast.EnumValue, len(body.Values))
+		for i, v := range body.Values {
+			newValues[i] = &ast.EnumValue{
+				Docs:  v.Docs,
+				Name:  v.Name,
+				Value: interp.Eval(v.Value).(ast.Expr),
+			}
+		}
+		newMethods := make([]ast.Stmt, len(body.Methods))
+		for i, m := range body.Methods {
+			newMethods[i] = interp.Eval(m).(ast.Stmt)
+		}
+		newBody = &ast.AssociatedEnumBody{
+			Lbrace:  body.Lbrace,
+			Fields:  &ast.FieldList{List: newFields},
+			Values:  newValues,
+			Methods: newMethods,
+			Rbrace:  body.Rbrace,
+		}
+	}
+
+	return &ast.EnumDecl{
+		Docs:       node.Docs,
+		Decs:       node.Decs,
+		Modifiers:  node.Modifiers,
+		Name:       node.Name,
+		TypeParams: node.TypeParams,
+		Body:       newBody,
+	}
+}
+
+func (interp *Interpreter) rebuildModAccessExpr(node *ast.ModAccessExpr) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildParameter(node *ast.Parameter) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildClassDecl(node *ast.ClassDecl) ast.Node {
+	newFields := make([]*ast.Field, len(node.Fields.List))
+	for i, f := range node.Fields.List {
+		newFields[i] = &ast.Field{
+			Docs:      f.Docs,
+			Modifiers: f.Modifiers,
+			Name:      f.Name,
+			Type:      interp.Eval(f.Type).(ast.Expr),
+			Value:     interp.Eval(f.Value).(ast.Expr),
+		}
+	}
+
+	newCtos := make([]*ast.ConstructorDecl, len(node.Ctors))
+	for i, c := range node.Ctors {
+		newInitFields := make([]ast.Expr, len(c.InitFields))
+		for i, f := range c.InitFields {
+			newInitFields[i] = interp.Eval(f).(ast.Expr)
+		}
+		newCtorBody := interp.Eval(c.Body).(*ast.BlockStmt)
+		newCtos[i] = &ast.ConstructorDecl{
+			Docs:       c.Docs,
+			Decs:       c.Decs,
+			Modifiers:  c.Modifiers,
+			ClsName:    node.Name,
+			Name:       c.Name,
+			Body:       newCtorBody,
+			InitFields: newInitFields,
+		}
+	}
+
+	newMethods := make([]*ast.FuncDecl, len(node.Methods))
+	for i, m := range node.Methods {
+		newMethods[i] = interp.Eval(m).(*ast.FuncDecl)
+	}
+
+	return &ast.ClassDecl{
+		Docs:      node.Docs,
+		Decs:      node.Decs,
+		Modifiers: node.Modifiers,
+		Name:      node.Name,
+		Fields:    &ast.FieldList{List: newFields},
+		Ctors:     newCtos,
+		Methods:   newMethods,
+	}
+}
+
+func (interp *Interpreter) rebuildDeclareDecl(node *ast.DeclareDecl) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildBlockStmt(node *ast.BlockStmt) ast.Node {
+	newList := make([]ast.Stmt, len(node.List))
+	for i, s := range node.List {
+		newList[i] = interp.Eval(s).(ast.Stmt)
+	}
+	return &ast.BlockStmt{List: newList}
+}
+
+func (interp *Interpreter) rebuildSelectExpr(node *ast.SelectExpr) ast.Node {
+	newX := interp.Eval(node.X)
+	newY := interp.Eval(node.Y)
+	return &ast.SelectExpr{X: newX.(ast.Expr), Y: newY.(ast.Expr)}
+}
+
+func (interp *Interpreter) rebuildBinaryExpr(node *ast.BinaryExpr) ast.Node {
+	newX := interp.Eval(node.X)
+	newY := interp.Eval(node.Y)
+	return &ast.BinaryExpr{X: newX.(ast.Expr), Op: node.Op, Y: newY.(ast.Expr)}
+}
+
+func (interp *Interpreter) rebuildRefExpr(node *ast.RefExpr) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildIncDecExpr(node *ast.IncDecExpr) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildObjectLiteralExpr(node *ast.ObjectLiteralExpr) ast.Node {
+	newFields := make([]ast.Expr, len(node.Props))
+	for i, f := range node.Props {
+		kv := interp.Eval(f).(*ast.KeyValueExpr)
+		newFields[i] = &ast.KeyValueExpr{
+			Key:   interp.Eval(kv.Key).(ast.Expr),
+			Value: interp.Eval(kv.Value).(ast.Expr),
+		}
+	}
+	return &ast.ObjectLiteralExpr{Props: newFields}
+}
+
+func (interp *Interpreter) rebuildNullLiteral(node *ast.NullLiteral) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildArrayLiteralExpr(node *ast.ArrayLiteralExpr) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildTrueLiteral(node *ast.TrueLiteral) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildFalseLiteral(node *ast.FalseLiteral) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildNumericLiteral(node *ast.NumericLiteral) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildStringLiteral(node *ast.StringLiteral) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildIdent(node *ast.Ident) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildCmdExpr(node *ast.CmdExpr) ast.Node {
+	newCmd := interp.Eval(node.Cmd)
+	newArgs := make([]ast.Expr, len(node.Args))
+	for i, a := range node.Args {
+		newArgs[i] = interp.Eval(a).(ast.Expr)
+	}
+	return &ast.CmdExpr{Cmd: newCmd.(ast.Expr), Args: newArgs}
+}
+
+func (interp *Interpreter) rebuildCallExpr(node *ast.CallExpr) ast.Node {
+	newFun := interp.Eval(node.Fun)
+	newRecv := make([]ast.Expr, len(node.Recv))
+	for i, r := range node.Recv {
+		newRecv[i] = interp.Eval(r).(ast.Expr)
+	}
+	return &ast.CallExpr{Fun: newFun.(ast.Expr), Recv: newRecv}
+}
+
+func (interp *Interpreter) rebuildUnsafeStmt(node *ast.UnsafeStmt) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildExternDecl(node *ast.ExternDecl) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildCommentGroup(node *ast.CommentGroup) ast.Node {
+	return node
+}
+
+func (interp *Interpreter) rebuildForStmt(node *ast.ForStmt) ast.Node {
+	newInit := interp.Eval(node.Init)
+	newCond := interp.Eval(node.Cond)
+	newPost := interp.Eval(node.Post)
+	newBody := interp.Eval(node.Body)
+
+	return &ast.ForStmt{
+		Init: newInit.(ast.Stmt),
+		Cond: newCond.(ast.Expr),
+		Post: newPost.(ast.Expr),
+		Body: newBody.(*ast.BlockStmt),
+	}
+}
+
+func (interp *Interpreter) rebuildWhileStmt(node *ast.WhileStmt) ast.Node {
+	newCond := interp.Eval(node.Cond)
+	newBody := interp.Eval(node.Body)
+	return &ast.WhileStmt{
+		Cond: newCond.(ast.Expr),
+		Body: newBody.(*ast.BlockStmt),
+	}
+}
+
+func (interp *Interpreter) rebuildDoWhileStmt(node *ast.DoWhileStmt) ast.Node {
+	newBody := interp.Eval(node.Body)
+	newCond := interp.Eval(node.Cond)
+	return &ast.DoWhileStmt{
+		Body: newBody.(*ast.BlockStmt),
+		Cond: newCond.(ast.Expr),
+	}
+}
+
+func (interp *Interpreter) rebuildMatchStmt(node *ast.MatchStmt) ast.Node {
+	newExpr := interp.Eval(node.Expr)
+	newCases := make([]*ast.CaseClause, len(node.Cases))
+	for i, c := range node.Cases {
+		newCases[i] = &ast.CaseClause{
+			Cond: interp.Eval(c.Cond).(ast.Expr),
+			Body: interp.Eval(c.Body).(*ast.BlockStmt),
+		}
+	}
+	var newDefault *ast.CaseClause
+	if node.Default != nil {
+		newDefault = &ast.CaseClause{
+			Cond: nil,
+			Body: interp.Eval(node.Default.Body).(*ast.BlockStmt),
+		}
+	}
+	return &ast.MatchStmt{
+		Expr:    newExpr.(ast.Expr),
+		Cases:   newCases,
+		Default: newDefault,
+	}
+}
+
+func (interp *Interpreter) rebuildFuncDecl(node *ast.FuncDecl) ast.Node {
+	newRecv := make([]ast.Expr, len(node.Recv))
+	for i, r := range node.Recv {
+		newRecv[i] = interp.Eval(r).(ast.Expr)
+	}
+	newBody := interp.Eval(node.Body).(*ast.BlockStmt)
+	return &ast.FuncDecl{
+		Docs:      node.Docs,
+		Modifiers: node.Modifiers,
+		Recv:      newRecv,
+		Name:      node.Name,
+		Type:      node.Type,
+		Body:      newBody,
+	}
+}
+
+func (interp *Interpreter) rebuildReturnStmt(node *ast.ReturnStmt) ast.Node {
+	newX := interp.Eval(node.X)
+	return &ast.ReturnStmt{
+		X: newX.(ast.Expr),
+	}
+}
+
+func (interp *Interpreter) rebuildExprStmt(node *ast.ExprStmt) ast.Node {
+	newX := interp.Eval(node.X)
+	if v, ok := newX.(ast.Stmt); ok {
+		return v
+	}
+	return &ast.ExprStmt{
+		X: newX.(ast.Expr),
+	}
+}
+
+func (interp *Interpreter) rebuildAssignStmt(node *ast.AssignStmt) ast.Node {
+	newLhs := interp.Eval(node.Lhs)
+	newRhs := interp.Eval(node.Rhs)
+
+	// comptime {1+2} 的时候返回的是 ExprStmt
+	if es, ok := newRhs.(*ast.ExprStmt); ok {
+		newRhs = es.X
+	}
+	return &ast.AssignStmt{
+		Scope: node.Scope,
+		Lhs:   newLhs.(ast.Expr),
+		Tok:   node.Tok,
+		Rhs:   newRhs.(ast.Expr),
+	}
+}
+
+func (interp *Interpreter) rebuildIfStmt(node *ast.IfStmt) ast.Node {
+	newCond := interp.Eval(node.Cond)
+	newBody := interp.Eval(node.Body)
+	var newElse ast.Stmt
+	if node.Else != nil {
+		newElse = interp.Eval(node.Else).(ast.Stmt)
+	}
+
+	return &ast.IfStmt{
+		If:   node.If,
+		Cond: newCond.(ast.Expr),
+		Body: newBody.(*ast.BlockStmt),
+		Else: newElse,
+	}
+}
+
+func (interp *Interpreter) rebuildFile(node *ast.File) ast.Node {
+	file := &ast.File{
+		Docs:  node.Docs,
+		Name:  node.Name,
+		Decls: node.Decls,
+	}
+	for _, stmt := range node.Stmts {
+		file.Stmts = append(file.Stmts, interp.Eval(stmt).(ast.Stmt))
+	}
+	return file
+}
+
+func (interp *Interpreter) evalComptimeWhenStmt(node *ast.ComptimeStmt) object.Value {
+	evaluatedObject := interp.evalComptimeExpr(node.Cond)
 	if evaluatedObject == object.TRUE {
-		return interp.executeComptimeStmt(node.Body)
+		return interp.evalComptimeStmt(node.Body)
 	}
 	if node.Else != nil {
 		if elseStmt, ok := node.Else.(*ast.ComptimeStmt); ok {
 			if elseStmt.Cond != nil {
-				return interp.executeComptimeWhenStmt(elseStmt)
+				return interp.evalComptimeWhenStmt(elseStmt)
 			}
-			return interp.executeComptimeStmt(elseStmt.Body)
+			return interp.evalComptimeStmt(elseStmt.Body)
 		}
 	}
 	return &object.ErrorValue{Value: "comptime when statement is not true"}
@@ -147,7 +549,7 @@ func (w *WarpValue) Interface() any {
 	return w.AST
 }
 
-func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
+func (interp *Interpreter) evalComptimeStmt(node ast.Stmt) object.Value {
 	log.Debugf("enter %T", node)
 	defer log.Debugf("exit %T", node)
 	switch node := node.(type) {
@@ -157,7 +559,7 @@ func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
 			return &WarpValue{AST: node.List[0]}
 		}
 		for _, stmt := range node.List {
-			obj := interp.executeComptimeStmt(stmt)
+			obj := interp.evalComptimeStmt(stmt)
 			if returnValue, ok := obj.(*ReturnValue); ok {
 				log.Debugf("return value: %T", returnValue.Value)
 				return returnValue
@@ -167,32 +569,32 @@ func (interp *Interpreter) executeComptimeStmt(node ast.Stmt) object.Value {
 	case *ast.Import:
 		// return interp.executeImport(node)
 	case *ast.ExprStmt:
-		return interp.executeComptimeExpr(node.X)
+		return interp.evalComptimeExpr(node.X)
 	case *ast.AssignStmt:
-		return interp.executeAssignStmt(node)
+		return interp.evalAssignStmt(node)
 	case *ast.TypeDecl:
-		return interp.executeTypeDecl(node)
+		return interp.evalTypeDecl(node)
 	case *ast.ReturnStmt:
-		return interp.executeReturnStmt(node)
+		return interp.evalReturnStmt(node)
 	case *ast.IfStmt:
-		return interp.executeIfStmt(node)
+		return interp.evalIfStmt(node)
 	case *ast.ForStmt:
-		return interp.executeForStmt(node)
+		return interp.evalForStmt(node)
 	case *ast.WhileStmt:
-		return interp.executeWhileStmt(node)
+		return interp.evalWhileStmt(node)
 	case *ast.DoWhileStmt:
-		return interp.executeDoWhileStmt(node)
+		return interp.evalDoWhileStmt(node)
 	case *ast.MatchStmt:
-		return interp.executeMatchStmt(node)
+		return interp.evalMatchStmt(node)
 	case *ast.FuncDecl:
-		return interp.executeFuncDecl(node)
+		return interp.evalFuncDecl(node)
 	default:
 		panic("unknown comptime statement:" + fmt.Sprintf("%T", node))
 	}
 	return nil
 }
 
-func (interp *Interpreter) executeFuncDecl(node *ast.FuncDecl) object.Value {
+func (interp *Interpreter) evalFuncDecl(node *ast.FuncDecl) object.Value {
 	name := node.Name.Name
 
 	builder := object.NewFunctionBuilder(name)
@@ -251,35 +653,35 @@ func (interp *Interpreter) executeFuncDecl(node *ast.FuncDecl) object.Value {
 	return nil
 }
 
-func (interp *Interpreter) executeMatchStmt(node *ast.MatchStmt) object.Value {
+func (interp *Interpreter) evalMatchStmt(node *ast.MatchStmt) object.Value {
 	prevEnv := interp.env
 	interp.env = interp.env.Fork()
 	defer func() { interp.env = prevEnv }()
 
-	lv := interp.executeComptimeExpr(node.Expr)
+	lv := interp.evalComptimeExpr(node.Expr)
 	for _, clause := range node.Cases {
 		if clause.Cond != nil {
-			rv := interp.executeComptimeExpr(clause.Cond)
+			rv := interp.evalComptimeExpr(clause.Cond)
 			if rv.Text() == lv.Text() {
-				return interp.executeComptimeStmt(clause.Body)
+				return interp.evalComptimeStmt(clause.Body)
 			}
 		}
 	}
 
 	if node.Default != nil {
-		return interp.executeComptimeStmt(node.Default.Body)
+		return interp.evalComptimeStmt(node.Default.Body)
 	}
 	return nil
 }
 
-func (interp *Interpreter) executeDoWhileStmt(node *ast.DoWhileStmt) object.Value {
+func (interp *Interpreter) evalDoWhileStmt(node *ast.DoWhileStmt) object.Value {
 	prevEnv := interp.env
 	interp.env = interp.env.Fork()
 	defer func() { interp.env = prevEnv }()
 
 	for {
-		interp.executeComptimeStmt(node.Body)
-		cond := interp.executeComptimeExpr(node.Cond)
+		interp.evalComptimeStmt(node.Body)
+		cond := interp.evalComptimeExpr(node.Cond)
 		if cond == object.FALSE {
 			break
 		}
@@ -287,33 +689,33 @@ func (interp *Interpreter) executeDoWhileStmt(node *ast.DoWhileStmt) object.Valu
 	return nil
 }
 
-func (interp *Interpreter) executeWhileStmt(node *ast.WhileStmt) object.Value {
+func (interp *Interpreter) evalWhileStmt(node *ast.WhileStmt) object.Value {
 	prevEnv := interp.env
 	interp.env = interp.env.Fork()
 	defer func() { interp.env = prevEnv }()
 
 	for {
-		cond := interp.executeComptimeExpr(node.Cond)
+		cond := interp.evalComptimeExpr(node.Cond)
 		if cond == object.FALSE {
 			break
 		}
-		interp.executeComptimeStmt(node.Body)
+		interp.evalComptimeStmt(node.Body)
 	}
 	return nil
 }
 
-func (interp *Interpreter) executeForStmt(node *ast.ForStmt) object.Value {
+func (interp *Interpreter) evalForStmt(node *ast.ForStmt) object.Value {
 	prevEnv := interp.env
 	interp.env = interp.env.Fork()
 	defer func() { interp.env = prevEnv }()
 
 	if node.Init != nil {
-		interp.executeComptimeStmt(node.Init)
+		interp.evalComptimeStmt(node.Init)
 	}
 	for {
 		cond := true
 		if node.Cond != nil {
-			condValue := interp.executeComptimeExpr(node.Cond)
+			condValue := interp.evalComptimeExpr(node.Cond)
 			if boolVal, ok := condValue.(interface{ Interface() any }); ok {
 				if v, ok := boolVal.Interface().(bool); ok {
 					cond = v
@@ -327,32 +729,32 @@ func (interp *Interpreter) executeForStmt(node *ast.ForStmt) object.Value {
 		if !cond {
 			break
 		}
-		result := interp.executeComptimeStmt(node.Body)
+		result := interp.evalComptimeStmt(node.Body)
 		if returnValue, ok := result.(*ReturnValue); ok {
 			return returnValue
 		}
 		if node.Post != nil {
-			interp.executeComptimeExpr(node.Post)
+			interp.evalComptimeExpr(node.Post)
 		}
 	}
 	return nil
 }
 
-func (interp *Interpreter) executeIfStmt(node *ast.IfStmt) object.Value {
-	cond := interp.executeComptimeExpr(node.Cond)
+func (interp *Interpreter) evalIfStmt(node *ast.IfStmt) object.Value {
+	cond := interp.evalComptimeExpr(node.Cond)
 	if cond == object.TRUE {
-		return interp.executeComptimeStmt(node.Body)
+		return interp.evalComptimeStmt(node.Body)
 	}
 	for node.Else != nil {
 		switch el := node.Else.(type) {
 		case *ast.IfStmt:
-			cond = interp.executeComptimeExpr(el.Cond)
+			cond = interp.evalComptimeExpr(el.Cond)
 			if cond == object.TRUE {
-				return interp.executeComptimeStmt(el.Body)
+				return interp.evalComptimeStmt(el.Body)
 			}
 			node.Else = el.Else
 		case *ast.BlockStmt:
-			return interp.executeComptimeStmt(el)
+			return interp.evalComptimeStmt(el)
 		}
 	}
 	return nil
@@ -374,14 +776,14 @@ func (r *ReturnValue) Interface() any {
 	return r.Value.Interface()
 }
 
-func (interp *Interpreter) executeReturnStmt(node *ast.ReturnStmt) object.Value {
+func (interp *Interpreter) evalReturnStmt(node *ast.ReturnStmt) object.Value {
 	if node.X == nil {
 		return &ReturnValue{Value: object.NULL}
 	}
-	return &ReturnValue{Value: interp.executeComptimeExpr(node.X)}
+	return &ReturnValue{Value: interp.evalComptimeExpr(node.X)}
 }
 
-func (interp *Interpreter) executeTypeDecl(node *ast.TypeDecl) object.Value {
+func (interp *Interpreter) evalTypeDecl(node *ast.TypeDecl) object.Value {
 	typ, err := interp.cvt.ConvertType(node.Value)
 	if err != nil {
 		return &object.ErrorValue{Value: err.Error()}
@@ -391,22 +793,22 @@ func (interp *Interpreter) executeTypeDecl(node *ast.TypeDecl) object.Value {
 	return nil
 }
 
-func (interp *Interpreter) executeComptimeExpr(node ast.Expr) object.Value {
+func (interp *Interpreter) evalComptimeExpr(node ast.Expr) object.Value {
 	switch node := node.(type) {
 	case *ast.Ident:
-		return interp.executeIdent(node)
+		return interp.evalIdent(node)
 	case *ast.SelectExpr:
 		return interp.executeSelectExpr(node)
 	case *ast.CallExpr:
 		return interp.executeCallExpr(node)
 	case *ast.CmdExpr:
-		return interp.executeCmdExpr(node)
+		return interp.evalCmdExpr(node)
 	case *ast.BinaryExpr:
-		return interp.executeBinaryExpr(node)
+		return interp.evalBinaryExpr(node)
 	case *ast.RefExpr:
-		return interp.executeIdent(node.X.(*ast.Ident))
+		return interp.evalIdent(node.X.(*ast.Ident))
 	case *ast.IncDecExpr:
-		return interp.executeIncDecExpr(node)
+		return interp.evalIncDecExpr(node)
 	default:
 		value, err := interp.cvt.ConvertValue(node)
 		if value == nil || err != nil {
@@ -416,7 +818,7 @@ func (interp *Interpreter) executeComptimeExpr(node ast.Expr) object.Value {
 	}
 }
 
-func (interp *Interpreter) executeIncDecExpr(node *ast.IncDecExpr) object.Value {
+func (interp *Interpreter) evalIncDecExpr(node *ast.IncDecExpr) object.Value {
 	var name string
 	if ident, ok := node.X.(*ast.Ident); ok {
 		name = ident.Name
@@ -439,8 +841,8 @@ func (interp *Interpreter) executeIncDecExpr(node *ast.IncDecExpr) object.Value 
 	return value
 }
 
-func (interp *Interpreter) executeCmdExpr(node *ast.CmdExpr) object.Value {
-	fn := interp.executeComptimeExpr(node.Cmd)
+func (interp *Interpreter) evalCmdExpr(node *ast.CmdExpr) object.Value {
+	fn := interp.evalComptimeExpr(node.Cmd)
 
 	switch fn.Type().Kind() {
 	case object.O_FUNC:
@@ -461,7 +863,7 @@ func (interp *Interpreter) executeCmdExpr(node *ast.CmdExpr) object.Value {
 }
 
 func (interp *Interpreter) executeCallExpr(node *ast.CallExpr) object.Value {
-	fn := interp.executeComptimeExpr(node.Fun)
+	fn := interp.evalComptimeExpr(node.Fun)
 
 	switch fn.Type().Kind() {
 	case object.O_FUNC:
@@ -484,7 +886,7 @@ func (interp *Interpreter) executeCallExpr(node *ast.CallExpr) object.Value {
 func (interp *Interpreter) executeExprList(exprs []ast.Expr) []object.Value {
 	values := make([]object.Value, len(exprs))
 	for i, expr := range exprs {
-		values[i] = interp.executeComptimeExpr(expr)
+		values[i] = interp.evalComptimeExpr(expr)
 		if values[i] == nil {
 			return []object.Value{&object.ErrorValue{Value: "failed to evaluate expression"}}
 		}
@@ -492,9 +894,9 @@ func (interp *Interpreter) executeExprList(exprs []ast.Expr) []object.Value {
 	return values
 }
 
-func (interp *Interpreter) executeBinaryExpr(node *ast.BinaryExpr) object.Value {
-	lhs := interp.executeComptimeExpr(node.X)
-	rhs := interp.executeComptimeExpr(node.Y)
+func (interp *Interpreter) evalBinaryExpr(node *ast.BinaryExpr) object.Value {
+	lhs := interp.evalComptimeExpr(node.X)
+	rhs := interp.evalComptimeExpr(node.Y)
 
 	switch {
 	case lhs.Type().Kind() == object.O_NUM && rhs.Type().Kind() == object.O_NUM:
@@ -603,7 +1005,7 @@ func (interp *Interpreter) executeBasicLit(node *ast.BasicLit) object.Value {
 }
 
 func (interp *Interpreter) executeSelectExpr(node *ast.SelectExpr) object.Value {
-	lhs := interp.executeComptimeExpr(node.X)
+	lhs := interp.evalComptimeExpr(node.X)
 
 	switch lhs.Type().Kind() {
 	case object.O_STR:
@@ -758,7 +1160,7 @@ func evalExpressions(ctx *Context, exprs []ast.Expr) []object.Value {
 	return nil
 }
 
-func (interp *Interpreter) executeIdent(node *ast.Ident) object.Value {
+func (interp *Interpreter) evalIdent(node *ast.Ident) object.Value {
 	if v, ok := interp.env.GetValue(node.Name); ok {
 		return v
 	}
@@ -770,9 +1172,9 @@ func (interp *Interpreter) executeIdent(node *ast.Ident) object.Value {
 	return &object.ErrorValue{Value: fmt.Sprintf("identifier %s not found", node.Name)}
 }
 
-func (interp *Interpreter) executeAssignStmt(node *ast.AssignStmt) object.Value {
+func (interp *Interpreter) evalAssignStmt(node *ast.AssignStmt) object.Value {
 	// 计算右值
-	rhsValue := interp.executeComptimeExpr(node.Rhs)
+	rhsValue := interp.evalComptimeExpr(node.Rhs)
 	// TODO: hulo 支持 let a: null 这种语法，所以可能没值也合法
 	if rhsValue == nil {
 		return &object.ErrorValue{Value: "failed to evaluate right-hand side expression"}

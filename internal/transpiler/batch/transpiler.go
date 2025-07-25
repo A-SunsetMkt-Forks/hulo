@@ -5,9 +5,12 @@ package transpiler
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/interpreter"
+	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
 	btok "github.com/hulo-lang/hulo/syntax/batch/token"
@@ -29,7 +32,7 @@ type BatchTranspiler struct {
 
 	moduleManager *ModuleManager
 
-	vfs vfs.VFS
+	fs vfs.VFS
 
 	modules        map[string]*Module
 	currentModule  *Module
@@ -37,15 +40,19 @@ type BatchTranspiler struct {
 
 	globalSymbols *SymbolTable
 
-	scopeStack container.Stack[ScopeType]
-
-	currentScope *Scope
+	counter uint64
 }
 
 func NewBatchTranspiler(opts *config.Huloc, vfs vfs.VFS) *BatchTranspiler {
+	env := interpreter.NewEnvironment()
+	env.SetWithScope("TARGET", &object.StringValue{Value: "batch"}, htok.CONST, true)
+	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
+	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
+	interp := interpreter.NewInterpreter(env)
+
 	return &BatchTranspiler{
 		opts: opts,
-		vfs:  vfs,
+		fs:   vfs,
 		// 初始化模块管理
 		moduleManager: &ModuleManager{
 			options:  opts,
@@ -57,13 +64,11 @@ func NewBatchTranspiler(opts *config.Huloc, vfs vfs.VFS) *BatchTranspiler {
 				stack:   container.NewMapSet[string](),
 				order:   make([]string, 0),
 			},
+			interp: interp,
 		},
 		modules: make(map[string]*Module),
 		// 初始化符号管理
 		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
-
-		// 初始化作用域管理
-		scopeStack: container.NewArrayStack[ScopeType](),
 	}
 }
 
@@ -105,17 +110,11 @@ func (bt *BatchTranspiler) Convert(node hast.Node) bast.Node {
 	case *hast.ExprStmt:
 		return &bast.ExprStmt{X: bt.Convert(node.X).(bast.Expr)}
 	case *hast.AssignStmt:
-		lhs := bt.Convert(node.Lhs).(bast.Expr)
-		rhs := bt.Convert(node.Rhs).(bast.Expr)
-		return &bast.AssignStmt{Lhs: lhs, Rhs: rhs}
+		return bt.ConvertAssignStmt(node)
 	case *hast.RefExpr:
-		return &bast.Lit{Val: node.X.(*hast.Ident).Name}
+		return bt.ConvertRefExpr(node)
 	case *hast.CmdExpr:
-		args := make([]bast.Expr, len(node.Args))
-		for i, r := range node.Args {
-			args[i] = bt.Convert(r).(bast.Expr)
-		}
-		return &bast.CmdExpr{Name: bt.Convert(node.Cmd).(bast.Expr), Recv: args}
+		return bt.ConvertCmdExpr(node)
 	case *hast.CallExpr:
 		return bt.ConvertCallExpr(node)
 	case *hast.Ident:
@@ -135,74 +134,28 @@ func (bt *BatchTranspiler) Convert(node hast.Node) bast.Node {
 	case *hast.BlockStmt:
 		return bt.ConvertBlockStmt(node)
 	case *hast.WhileStmt:
-		// emulate while with for and if
-		// for ;; cond; do (body)
-		cond := bt.Convert(node.Cond).(bast.Expr)
-		body := bt.Convert(node.Body).(bast.Stmt)
-		return &bast.ForStmt{
-			X:    &bast.Lit{Val: ""},
-			List: &bast.Lit{Val: ""},
-			Body: &bast.BlockStmt{List: []bast.Stmt{
-				&bast.IfStmt{Cond: cond, Body: body},
-			}},
-		}
+		return bt.ConvertWhileStmt(node)
 	case *hast.DoWhileStmt:
-		// emulate do-while: body; for ;; cond; do (body)
-		body := bt.Convert(node.Body).(bast.Stmt)
-		cond := bt.Convert(node.Cond).(bast.Expr)
-		return &bast.BlockStmt{List: []bast.Stmt{
-			body.(bast.Stmt),
-			&bast.ForStmt{
-				X:    &bast.Lit{Val: ""},
-				List: &bast.Lit{Val: ""},
-				Body: &bast.BlockStmt{List: []bast.Stmt{
-					&bast.IfStmt{Cond: cond, Body: body},
-				}},
-			},
-		}}
+		return bt.ConvertDoWhileStmt(node)
 	case *hast.ForStmt:
-		// emulate for: init; for ;; cond; do (body; post)
-		init := bt.Convert(node.Init).(bast.Stmt)
-		cond := bt.Convert(node.Cond).(bast.Expr)
-		post := bt.Convert(node.Post).(bast.Expr)
-		body := bt.Convert(node.Body).(bast.Stmt)
-		return &bast.BlockStmt{List: []bast.Stmt{
-			init,
-			&bast.ForStmt{
-				X:    &bast.Lit{Val: ""},
-				List: &bast.Lit{Val: ""},
-				Body: &bast.BlockStmt{List: []bast.Stmt{
-					&bast.IfStmt{Cond: cond, Body: &bast.BlockStmt{List: []bast.Stmt{body, &bast.ExprStmt{X: post}}}},
-				}},
-			},
-		}}
+		return bt.ConvertForStmt(node)
 	case *hast.ForeachStmt:
-		// batch 不原生支持 foreach，降级为注释
-		return &bast.Comment{Text: "foreach not supported in batch, skipped"}
+		return bt.ConvertForeachStmt(node)
 	case *hast.ReturnStmt:
-		expr, ok := bt.Convert(node.X).(bast.Expr)
-		if ok {
-			bt.Emit(&bast.ExprStmt{X: expr})
-		}
-		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":eof"}}}}
+		return bt.ConvertReturnStmt(node)
 	case *hast.BreakStmt:
 		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":break"}}}}
 	case *hast.ContinueStmt:
 		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":continue"}}}}
 	case *hast.ArrayLiteralExpr:
-		return &bast.Lit{Val: "[array]"}
+		return bt.ConvertArrayLiteralExpr(node)
 	case *hast.ObjectLiteralExpr:
 		return &bast.Lit{Val: "[object]"}
 	case *hast.UnaryExpr:
 		x := bt.Convert(node.X).(bast.Expr)
 		return &bast.UnaryExpr{Op: Token(node.Op), X: x}
 	case *hast.IncDecExpr:
-		x := bt.Convert(node.X).(bast.Expr)
-		if node.Tok.String() == "++" {
-			return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{x, &bast.Lit{Val: "+1"}}}}
-		} else {
-			return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{x, &bast.Lit{Val: "-1"}}}}
-		}
+		return bt.ConvertIncDecExpr(node)
 	case *hast.LabelStmt:
 		return &bast.LabelStmt{Name: node.Name.Name}
 	case *hast.FuncDecl:
@@ -211,57 +164,207 @@ func (bt *BatchTranspiler) Convert(node hast.Node) bast.Node {
 		// 只在 CallExpr 里处理，这里降级为字面量
 		return &bast.Lit{Val: "[select not supported]"}
 	case *hast.Import:
-		if node.ImportSingle != nil {
-			return &bast.CallStmt{
-				Name:   node.ImportSingle.Path + ".bat",
-				IsFile: true,
-			}
-		}
-		if node.ImportAll != nil {
-			return &bast.CallStmt{
-				Name:   node.ImportAll.Path + ".bat",
-				IsFile: true,
-			}
-		}
-		return nil
+		return bt.ConvertImport(node)
 	case *hast.MatchStmt:
-		// 用 if-else 链模拟 match
-		var firstIf *bast.IfStmt
-		var currentIf *bast.IfStmt
-		var name string
-		if id, ok := node.Expr.(*hast.Ident); ok {
-			name = id.Name
-		} else if ref, ok := node.Expr.(*hast.RefExpr); ok {
-			name = ref.X.(*hast.Ident).Name
-		}
-		for _, cc := range node.Cases {
-			cond := bt.Convert(cc.Cond).(bast.Expr)
-			body := bt.Convert(cc.Body).(bast.Stmt)
-			ifStmt := &bast.IfStmt{Cond: &bast.BinaryExpr{X: &bast.DblQuote{Val: &bast.Lit{Val: name}}, Op: btok.EQU, Y: cond}, Body: body}
-			if firstIf == nil {
-				firstIf = ifStmt
-				currentIf = ifStmt
-			} else {
-				currentIf.Else = ifStmt
-				currentIf = ifStmt
-			}
-		}
-		if node.Default != nil {
-			defaultBody := bt.Convert(node.Default.Body).(bast.Stmt)
-			currentIf.Else = defaultBody
-		}
-		if firstIf == nil {
-			return &bast.Lit{Val: "[empty match]"}
-		}
-		return firstIf
+		return bt.ConvertMatchStmt(node)
 	case *hast.TryStmt, *hast.CatchClause, *hast.ThrowStmt:
 		return &bast.Comment{Text: "try/catch/throw not supported in batch, skipped"}
 	case *hast.DeclareDecl, *hast.ExternDecl, *hast.Parameter, *hast.ComptimeStmt:
 		return &bast.Comment{Text: "declaration/extern/parameter/comptime not supported in batch, skipped"}
 	default:
-		fmt.Printf("unsupported node type: %T\n", node)
-		return &bast.Lit{Val: "[unsupported]"}
+		panic(fmt.Sprintf("unsupported node type: %T", node))
 	}
+}
+
+func (bt *BatchTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
+	bt.currentModule.Symbols.PushScope(LoopScope, bt.currentModule)
+	defer bt.currentModule.Symbols.PopScope()
+
+	x := bt.Convert(node.Index).(bast.Expr)
+	elems := bt.Convert(node.Var).(bast.Expr)
+
+	body := bt.Convert(node.Body).(*bast.BlockStmt)
+	return &bast.ForStmt{
+		X:    x,
+		List: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "("}, elems, &bast.Lit{Val: ")"}}},
+		Body: body,
+	}
+}
+
+func (bt *BatchTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
+	parts := make([]bast.Expr, len(node.Elems))
+	for i, r := range node.Elems {
+		parts[i] = bt.Convert(r).(bast.Expr)
+	}
+	return &bast.Word{Parts: parts}
+}
+
+func (bt *BatchTranspiler) ConvertImport(node *hast.Import) bast.Node {
+	if node.ImportSingle != nil {
+		return &bast.CallStmt{
+			Name:   node.ImportSingle.Path + ".bat",
+			IsFile: true,
+		}
+	}
+	if node.ImportAll != nil {
+		return &bast.CallStmt{
+			Name:   node.ImportAll.Path + ".bat",
+			IsFile: true,
+		}
+	}
+	return nil
+}
+
+func (bt *BatchTranspiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
+	scope := bt.currentModule.Symbols.CurrentScope()
+	if scope != nil && scope.Type == AssignScope {
+		return &bast.Lit{Val: node.X.(*hast.Ident).Name}
+	}
+	return &bast.DblQuote{Val: &bast.Lit{Val: node.X.(*hast.Ident).Name}}
+}
+
+func (bt *BatchTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
+	args := make([]bast.Expr, len(node.Args))
+	for i, r := range node.Args {
+		args[i] = bt.Convert(r).(bast.Expr)
+	}
+	return &bast.CmdExpr{Name: bt.Convert(node.Cmd).(bast.Expr), Recv: args}
+}
+
+func (bt *BatchTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
+	expr, ok := bt.Convert(node.X).(bast.Expr)
+	if ok {
+		bt.Emit(&bast.ExprStmt{X: expr})
+	}
+	return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":eof"}}}}
+}
+
+func (bt *BatchTranspiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
+	// 用 if-else 链模拟 match
+	var firstIf *bast.IfStmt
+	var currentIf *bast.IfStmt
+	var name string
+	if id, ok := node.Expr.(*hast.Ident); ok {
+		name = id.Name
+	} else if ref, ok := node.Expr.(*hast.RefExpr); ok {
+		name = ref.X.(*hast.Ident).Name
+	}
+	for _, cc := range node.Cases {
+		cond := bt.Convert(cc.Cond).(bast.Expr)
+		body := bt.Convert(cc.Body).(bast.Stmt)
+		ifStmt := &bast.IfStmt{Cond: &bast.BinaryExpr{X: &bast.DblQuote{Val: &bast.Lit{Val: name}}, Op: btok.EQU, Y: cond}, Body: body}
+		if firstIf == nil {
+			firstIf = ifStmt
+			currentIf = ifStmt
+		} else {
+			currentIf.Else = ifStmt
+			currentIf = ifStmt
+		}
+	}
+	if node.Default != nil {
+		defaultBody := bt.Convert(node.Default.Body).(bast.Stmt)
+		currentIf.Else = defaultBody
+	}
+	if firstIf == nil {
+		return &bast.Lit{Val: "[empty match]"}
+	}
+	return firstIf
+}
+
+func (bt *BatchTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
+	bt.currentModule.Symbols.PushScope(AssignScope, bt.currentModule)
+	x := bt.Convert(node.X).(bast.Expr)
+	bt.currentModule.Symbols.PopScope()
+	if node.Tok.String() == "++" {
+		return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{&bast.DblQuote{Val: x}, &bast.Lit{Val: "+1"}}}}
+	} else {
+		return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{&bast.DblQuote{Val: x}, &bast.Lit{Val: "-1"}}}}
+	}
+}
+
+func (bt *BatchTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
+	lhs := bt.Convert(node.Lhs).(bast.Expr)
+	rhs := bt.Convert(node.Rhs).(bast.Expr)
+	return &bast.AssignStmt{Lhs: lhs, Rhs: rhs}
+}
+
+func (bt *BatchTranspiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) bast.Node {
+	// emulate do-while: body; for ;; cond; do (body)
+	bt.currentModule.Symbols.PushScope(LoopScope, bt.currentModule)
+	defer bt.currentModule.Symbols.PopScope()
+
+	loopName := fmt.Sprintf("loop_%d", bt.counter)
+	bt.counter++
+
+	body := bt.Convert(node.Body).(bast.Stmt)
+	cond := bt.Convert(node.Cond).(bast.Expr)
+
+	ifStmt := &bast.IfStmt{Cond: cond, Body: &bast.BlockStmt{List: []bast.Stmt{&bast.GotoStmt{Label: loopName}}}}
+	return &bast.BlockStmt{List: []bast.Stmt{&bast.LabelStmt{Name: loopName}, body, ifStmt}}
+}
+
+func (bt *BatchTranspiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
+	bt.currentModule.Symbols.PushScope(LoopScope, bt.currentModule)
+	defer bt.currentModule.Symbols.PopScope()
+
+	loopName := fmt.Sprintf("loop_%d", bt.counter)
+	endName := fmt.Sprintf("end_%d", bt.counter)
+	bt.counter++
+
+	stmts := []bast.Stmt{&bast.GotoStmt{Label: loopName}}
+	if node.Cond != nil {
+		cond := bt.Convert(node.Cond).(bast.Expr)
+		ifStmt := &bast.IfStmt{Cond: &bast.UnaryExpr{Op: btok.NOT, X: cond}, Body: &bast.BlockStmt{List: []bast.Stmt{&bast.GotoStmt{Label: endName}}}}
+		stmts = append(stmts, ifStmt)
+	}
+
+	body := bt.Convert(node.Body).(bast.Stmt)
+	stmts = append(stmts, body, &bast.GotoStmt{Label: endName})
+
+	return &bast.BlockStmt{List: stmts}
+}
+
+func (bt *BatchTranspiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
+	bt.currentModule.Symbols.PushScope(LoopScope, bt.currentModule)
+	defer bt.currentModule.Symbols.PopScope()
+
+	loopName := fmt.Sprintf("loop_%d", bt.counter)
+	bt.counter++
+
+	// Convert for loop components
+	init := bt.Convert(node.Init).(bast.Stmt)
+	cond := bt.Convert(node.Cond).(bast.Expr)
+	post := bt.Convert(node.Post).(bast.Stmt)
+	body := bt.Convert(node.Body).(bast.Stmt)
+
+	// For loop structure in batch:
+	// init
+	// :loop_label
+	// if not cond goto :end
+	// body
+	// post
+	// goto :loop_label
+	// :end
+
+	endLabel := fmt.Sprintf("end_%d", bt.counter-1)
+
+	// Create the loop structure
+	loopStmts := []bast.Stmt{
+		init,                            // initialization
+		&bast.LabelStmt{Name: loopName}, // loop start label
+		&bast.IfStmt{ // condition check
+			Cond: &bast.UnaryExpr{Op: btok.NOT, X: cond},
+			Body: &bast.BlockStmt{List: []bast.Stmt{
+				&bast.GotoStmt{Label: endLabel},
+			}},
+		},
+		body,                            // loop body
+		post,                            // post iteration
+		&bast.GotoStmt{Label: loopName}, // jump back to loop start
+		&bast.LabelStmt{Name: endLabel}, // loop end label
+	}
+
+	return &bast.BlockStmt{List: loopStmts}
 }
 
 func (bt *BatchTranspiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
@@ -328,10 +431,14 @@ func (bt *BatchTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 		var lhs, rhs bast.Expr
 		top := bt.currentModule.Symbols.CurrentScope()
 
-		if top.Type == FunctionScope {
+		switch top.Type {
+		case FunctionScope:
 			lhs = &bast.SglQuote{Val: &bast.Lit{Val: "1"}}
 			rhs = &bast.SglQuote{Val: &bast.Lit{Val: "2"}}
-		} else {
+		case LoopScope:
+			bt.Emit(&bast.ExprStmt{})
+			return nil
+		default:
 			lhs = bt.Convert(node.X).(bast.Expr)
 			rhs = bt.Convert(node.Y).(bast.Expr)
 		}

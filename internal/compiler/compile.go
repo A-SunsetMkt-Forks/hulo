@@ -35,7 +35,7 @@ func Compile(cfg *config.Huloc) error {
 
 	for _, target := range cfg.Targets {
 		switch target {
-		case config.L_BASH:
+		case "bash":
 			_, err := build.Transpile(cfg, nil, ".")
 			if err != nil {
 				return err

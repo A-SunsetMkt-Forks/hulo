@@ -1021,7 +1021,6 @@ func (ft *FunctionType) calculateMatchScore(args []Value, namedArgs map[string]V
 	if sig.variadicParam != nil {
 		for i := posParamCount; i < len(args); i++ {
 			argType := args[i].Type()
-			fmt.Println(argType, sig.variadicParam.typ.Name())
 			if !argType.AssignableTo(sig.variadicParam.typ) {
 				return -1, fmt.Errorf("variadic argument %d cannot be assigned to parameter %s", i, sig.variadicParam.name)
 			}

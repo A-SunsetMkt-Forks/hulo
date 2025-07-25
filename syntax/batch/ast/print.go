@@ -161,6 +161,9 @@ func (p *prettyPrinter) visitWord(node *Word) Visitor {
 
 func (p *prettyPrinter) visitUnaryExpr(node *UnaryExpr) Visitor {
 	p.write(node.Op.String())
+	if node.Op == token.NOT {
+		p.write(" ")
+	}
 	Walk(p, node.X)
 	return nil
 }
