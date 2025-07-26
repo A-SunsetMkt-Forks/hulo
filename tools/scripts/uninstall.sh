@@ -7,13 +7,6 @@ set -e
 
 INSTALL_PATH=${1:-"$HOME/.local/bin"}
 
-# Colors for output
-INFO_COLOR='\033[1;36m'
-SUCCESS_COLOR='\033[1;32m'
-ERROR_COLOR='\033[1;31m'
-WARNING_COLOR='\033[1;33m'
-NC='\033[0m' # No Color
-
 write_info() {
     echo -e "[INFO] $1"
 }

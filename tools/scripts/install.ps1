@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.2.0",
+    [string]$Version = "latest",
     [string]$InstallPath = "$env:USERPROFILE\.local\bin"
 )
 
@@ -10,7 +10,8 @@ $SuccessColor = "Green"
 $ErrorColor = "Red"
 $WarningColor = "Yellow"
 
-$BaseUrl = "https://github.com/hulo-lang/hulo/releases/download/$Version"
+# 移除固定的 BaseUrl，改为动态构建
+# $BaseUrl = "https://github.com/hulo-lang/hulo/releases/download/$Version"
 
 function Write-Info($msg) {
     Write-Host "[INFO] $msg" -ForegroundColor $InfoColor
@@ -49,6 +50,32 @@ function Write-Header($msg) {
     Write-Host ""
     Write-Host "=== $msg ===" -ForegroundColor White
     Write-Host ""
+}
+
+function Get-LatestVersion {
+    Write-Info "Fetching latest version from GitHub..."
+
+    try {
+        # 使用 GitHub API 获取最新 release
+        $apiUrl = "https://api.github.com/repos/hulo-lang/hulo/releases/latest"
+        $response = Invoke-RestMethod -Uri $apiUrl -UseBasicParsing
+
+        if ($response.tag_name) {
+            $latestVersion = $response.tag_name
+            Write-Success "Latest version found: $latestVersion"
+            return $latestVersion
+        }
+        else {
+            Write-ErrorAndExit "Failed to get latest version from GitHub API"
+        }
+    }
+    catch {
+        Write-ErrorAndExit "Failed to fetch latest version: $($_.Exception.Message)"
+    }
+}
+
+function Get-BaseUrl($version) {
+    return "https://github.com/hulo-lang/hulo/releases/download/$version"
 }
 
 function Get-OperatingSystem {
@@ -91,7 +118,7 @@ function Get-FileExtension($os) {
     }
 }
 
-function Download-File($url, $outputPath) {
+function Get-FileFromUrl($url, $outputPath) {
     Write-Download "Downloading from: $url"
 
     try {
@@ -103,7 +130,7 @@ function Download-File($url, $outputPath) {
     }
 }
 
-function Verify-Checksum($filePath, $expectedChecksum) {
+function Test-Checksum($filePath, $expectedChecksum) {
     Write-Verify "Verifying SHA256 checksum..."
 
     try {
@@ -122,7 +149,7 @@ function Verify-Checksum($filePath, $expectedChecksum) {
     }
 }
 
-function Extract-File($filePath, $extractDir) {
+function Expand-ArchiveFile($filePath, $extractDir) {
     Write-Step "Extracting archive: $filePath"
 
     try {
@@ -213,7 +240,7 @@ function Install-StdLib($extractDir, $installDir) {
         Write-Step "Configuring HULO_PATH environment variable"
 
         # 直接设置为用户环境变量（不需要管理员权限）
-        $result = cmd /c "setx HULO_PATH `"$huloModulesDir`"" 2>&1
+        cmd /c "setx HULO_PATH `"$huloModulesDir`"" 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Info "HULO_PATH set to: $huloModulesDir"
         }
@@ -236,19 +263,24 @@ function Main {
     Write-Host "Hulo Installer $Version"
     Write-Host "================================"
 
+    if ($Version -eq "latest") {
+        $Version = Get-LatestVersion
+    }
+
     $os = Get-OperatingSystem
     $arch = Get-Architecture
     $extension = Get-FileExtension $os
 
     $filename = "hulo_${os}_${arch}.${extension}"
-    $downloadUrl = "$BaseUrl/$filename"
+    $baseUrl = Get-BaseUrl $Version
+    $downloadUrl = "$baseUrl/$filename"
 
     Write-Info "Downloading from: $downloadUrl"
     $tempDir = Join-Path $env:TEMP "hulo-install-$(Get-Random)"
     $downloadPath = Join-Path $tempDir $filename
 
     # 动态获取 checksums.txt 文件
-    $checksumsUrl = "$BaseUrl/checksums.txt"
+    $checksumsUrl = "$baseUrl/checksums.txt"
     Write-Info "Downloading checksums from: $checksumsUrl"
 
     try {
@@ -288,11 +320,11 @@ function Main {
     try {
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-        Download-File $downloadUrl $downloadPath
+        Get-FileFromUrl $downloadUrl $downloadPath
 
-        Verify-Checksum $downloadPath $expectedChecksum
+        Test-Checksum $downloadPath $expectedChecksum
 
-        Extract-File $downloadPath $tempDir
+        Expand-ArchiveFile $downloadPath $tempDir
 
         $binDir = Join-Path $tempDir "bin"
         $exeFiles = @()
@@ -301,7 +333,8 @@ function Main {
             if ($exeFiles.Count -eq 0) {
                 Write-ErrorAndExit "No .exe files found in bin directory."
             }
-        } else {
+        }
+        else {
             Write-ErrorAndExit "bin directory not found in extracted archive."
         }
 
