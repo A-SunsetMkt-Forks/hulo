@@ -9,7 +9,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-> Hulo is a modern, batch-oriented programming language that compiles to Bash, PowerShell, and VBScript. It is designed to unify scripting across platforms with a clean and consistent DSL.
+> Hulo /ˈhjuːloʊ/ is a modern, batch-oriented programming language that compiles to Bash, PowerShell, and VBScript. It is designed to unify scripting across platforms with a clean and consistent DSL.
 
 ## 📦 Install
 
@@ -60,8 +60,9 @@ echo "Hello, World!"
 
 Run `hulo hello.hl`, and it will compile into:
 * `hello.sh` for Unix-like systems
-* `hello.ps1` for Windows
-* `hello.vbs` if VBScript output is enabled
+* `hello.ps1` for Windows PowerShell
+* `hello.bat` for Windows Batch
+* `hello.vbs` for Windows VBScript
 * And more targets in future releases!
 
 ## 📖 Documentation
@@ -69,6 +70,7 @@ Run `hulo hello.hl`, and it will compile into:
 - **[Official Docs](https://hulo-lang.github.io/docs)** - Complete language reference
 - **[Examples](./examples/)** - Code examples
 - **[Discussions](https://github.com/hulo-lang/hulo/discussions)** - Ask questions and share ideas
+- **[Hulo Dev](https://github.com/hulo-lang/hulo-dev)** - Learn compiler construction by building Hulo language step by step - from lexer to code generation
 
 ## 🤝 Contributing
 

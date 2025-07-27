@@ -9,7 +9,7 @@
 
 [English](README.md) | 简体中文
 
-> Hulo 是一个现代化的、面向批处理的编程语言，可以编译为 Bash、PowerShell 和 VBScript。它旨在通过简洁一致的 DSL 来统一跨平台的脚本编写。
+> Hulo /ˈhjuːloʊ/ 是一个现代化的、面向批处理的编程语言，可以编译为 Bash、PowerShell 和 VBScript。它旨在通过简洁一致的 DSL 来统一跨平台的脚本编写。
 
 ## 📦 安装
 
@@ -61,8 +61,9 @@ echo "Hello, World!"
 
 运行 `hulo hello.hl`，它将编译为：
 * Unix 系统的 `hello.sh`
-* Windows 的 `hello.ps1`
-* 如果启用了 VBScript 输出，则为 `hello.vbs`
+* Windows PowerShell 的 `hello.ps1`
+* Windows 批处理的 `hello.bat`
+* Windows VBScript 的 `hello.vbs`
 * 未来版本中将支持更多目标平台！
 
 ## 📖 文档
@@ -70,6 +71,7 @@ echo "Hello, World!"
 - **[官方文档](https://hulo-lang.github.io/docs)** - 完整的语言参考
 - **[示例](./examples/)** - 代码示例
 - **[讨论](https://github.com/hulo-lang/hulo/discussions)** - 提问和分享想法
+- **[Hulo Dev](https://github.com/hulo-lang/hulo-dev)** - 从零开始学习构建Hulo语言编译器 - 从词法分析器到代码生成
 
 ## 🤝 贡献方式
 

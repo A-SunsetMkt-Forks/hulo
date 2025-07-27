@@ -1,6 +1,23 @@
 # 📜 Changelog
 
-## [v0.2.0]() - 2025-07-19
+## [v0.3.0](https://github.com/hulo-lang/hulo/releases/tag/v0.3.0) - 2025-07-26
+
+### Added
+
+- Batch transpiler support
+- PowerShell transpiler support
+- Interpreter integration with transpilers
+  - `comptime` keyword for compile-time evaluation
+  - AST transformation based on computed values
+- Enhanced AST manipulation and optimization
+- Improved installation scripts with automatic version detection
+
+### Fixed
+
+- Installation script cross-platform compatibility issues
+- Transpiler output consistency across target languages
+
+## [v0.2.0](https://github.com/hulo-lang/hulo/releases/tag/v0.2.0) - 2025-07-19
 
 ### Added
 
@@ -25,7 +42,7 @@
 
 - Environmental variable `HULOPATH` renamed to `HULO_PATH`
 
-## [v0.1.0](https://github.com/hulo-lang/hulo/commit/c119ee825f518af1cb2a6fbe8012ed265970cbd2) - 2025-07-13
+## [v0.1.0](https://github.com/hulo-lang/hulo/releases/tag/v0.1.0) - 2025-07-13
 
 ### Added
 
