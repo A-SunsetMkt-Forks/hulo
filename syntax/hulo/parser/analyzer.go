@@ -3525,40 +3525,53 @@ func (a *Analyzer) VisitExternItem(ctx *generated.ExternItemContext) any {
 func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
 	return a.visitWrapper("UnsafeExpression", ctx, func() any {
 		// Handle unsafe block: unsafe { ... }
-		if ctx.UnsafeStringLiteral() != nil {
-			unsafeStringLiteral := ctx.UnsafeStringLiteral()
+		if ctx.UnsafeLiteral() != nil {
+			unsafeBlock := ctx.UnsafeLiteral()
 			// Get the text from the UnsafeBlock token
-			blockText := unsafeStringLiteral.GetText()
+			blockText := unsafeBlock.GetText()
 
-			// Remove the "unsafe {" prefix and "}" suffix
-			if len(blockText) > 2 { // "unsafe {" is 8 characters
-				blockText = blockText[2 : len(blockText)-1]
-			}
+			// Extract content inside unsafe { ... }
+			// The format is: "unsafe { content }"
+			content := extractUnsafeContent(blockText)
 
 			return &ast.UnsafeStmt{
-				Unsafe: token.Pos(unsafeStringLiteral.GetSymbol().GetStart()),
-				Start:  token.Pos(unsafeStringLiteral.GetSymbol().GetStart()),
-				Text:   blockText, // Get the text inside the block
-				EndPos: token.Pos(unsafeStringLiteral.GetSymbol().GetStop()),
-			}
-		}
-
-		// Handle unsafe literal: [[ ... ]]
-		if ctx.UnsafeStringLiteral() != nil {
-			text := ctx.UnsafeStringLiteral().GetText()
-			// Remove the [[ and ]] delimiters
-			if len(text) >= 4 {
-				text = text[2 : len(text)-2]
-			}
-			return &ast.UnsafeStmt{
-				Unsafe: token.Pos(ctx.UnsafeStringLiteral().GetSymbol().GetStart()),
-				Text:   text,
-				EndPos: token.Pos(ctx.UnsafeStringLiteral().GetSymbol().GetStop()),
+				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
+				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
+				Text:   content, // The extracted content inside the block
+				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
 			}
 		}
 
 		return nil
 	})
+}
+
+// extractUnsafeContent extracts the content between __UNSAFE_BEGIN__ and __UNSAFE_END__
+// Handles the format: "__UNSAFE_BEGIN__content__UNSAFE_END__" and returns "content"
+func extractUnsafeContent(blockText string) string {
+	beginMarker := "__UNSAFE_BEGIN__"
+	endMarker := "__UNSAFE_END__"
+
+	// Find the begin marker
+	startIdx := strings.Index(blockText, beginMarker)
+	if startIdx == -1 {
+		return ""
+	}
+
+	// Find the end marker
+	endIdx := strings.Index(blockText, endMarker)
+	if endIdx == -1 {
+		return ""
+	}
+
+	// Extract content between markers
+	contentStart := startIdx + len(beginMarker)
+	content := blockText[contentStart:endIdx]
+
+	// Trim leading/trailing whitespace
+	content = strings.TrimSpace(content)
+
+	return content
 }
 
 // convertTokenType 将 ANTLR token 类型转换为 Hulo token 类型

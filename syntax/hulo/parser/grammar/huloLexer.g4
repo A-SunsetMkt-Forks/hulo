@@ -172,12 +172,7 @@ BOOL : 'bool';
 ANY  : 'any';
 VOID : 'void';
 
-UnsafeLiteral: DOUBLE_LBRACK (BACKSLASH RBRACK | ~[\]])* DOUBLE_RBRACK;
-
-// UnsafeBlock: LBRACE (BACKSLASH RBRACE | ~[}])* RBRACE;
-
-DOUBLE_LBRACK : '[[';
-DOUBLE_RBRACK : ']]';
+UnsafeLiteral: '__UNSAFE_BEGIN__' .*? '__UNSAFE_END__';
 
 fragment TRUE  : 'true';
 fragment FALSE : 'false';

@@ -1,7 +1,7 @@
-unsafe {
+__UNSAFE_BEGIN__
 	MsgBox "Hello, World!"
 	Dim count
-}
+__UNSAFE_END__
 
 extern count: num
 echo $count
