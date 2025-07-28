@@ -1,0 +1,6 @@
+dependencies:
+  opencmd/core: v1.0.0-beta
+  opencmd/grep: v1.0.0
+  opencmd/findstr: v1.0.0
+main: ./src
+version: v1.0.0

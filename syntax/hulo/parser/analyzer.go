@@ -3522,44 +3522,44 @@ func (a *Analyzer) VisitExternItem(ctx *generated.ExternItemContext) any {
 }
 
 // VisitUnsafeExpression implements the Visitor interface for UnsafeExpression
-// func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
-// 	return a.visitWrapper("UnsafeExpression", ctx, func() any {
-// 		// Handle unsafe block: unsafe { ... }
-// 		if ctx.UnsafeBlock() != nil {
-// 			unsafeBlock := ctx.UnsafeBlock()
-// 			// Get the text from the UnsafeBlock token
-// 			blockText := unsafeBlock.GetText()
+func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
+	return a.visitWrapper("UnsafeExpression", ctx, func() any {
+		// Handle unsafe block: unsafe { ... }
+		if ctx.UnsafeStringLiteral() != nil {
+			unsafeStringLiteral := ctx.UnsafeStringLiteral()
+			// Get the text from the UnsafeBlock token
+			blockText := unsafeStringLiteral.GetText()
 
-// 			// Remove the "unsafe {" prefix and "}" suffix
-// 			if len(blockText) > 2 { // "unsafe {" is 8 characters
-// 				blockText = blockText[2 : len(blockText)-1]
-// 			}
+			// Remove the "unsafe {" prefix and "}" suffix
+			if len(blockText) > 2 { // "unsafe {" is 8 characters
+				blockText = blockText[2 : len(blockText)-1]
+			}
 
-// 			return &ast.UnsafeStmt{
-// 				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
-// 				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
-// 				Text:   blockText, // Get the text inside the block
-// 				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
-// 			}
-// 		}
+			return &ast.UnsafeStmt{
+				Unsafe: token.Pos(unsafeStringLiteral.GetSymbol().GetStart()),
+				Start:  token.Pos(unsafeStringLiteral.GetSymbol().GetStart()),
+				Text:   blockText, // Get the text inside the block
+				EndPos: token.Pos(unsafeStringLiteral.GetSymbol().GetStop()),
+			}
+		}
 
-// 		// Handle unsafe literal: [[ ... ]]
-// 		if ctx.UnsafeLiteral() != nil {
-// 			text := ctx.UnsafeLiteral().GetText()
-// 			// Remove the [[ and ]] delimiters
-// 			if len(text) >= 4 {
-// 				text = text[2 : len(text)-2]
-// 			}
-// 			return &ast.UnsafeStmt{
-// 				Unsafe: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStart()),
-// 				Text:   text,
-// 				EndPos: token.Pos(ctx.UnsafeLiteral().GetSymbol().GetStop()),
-// 			}
-// 		}
+		// Handle unsafe literal: [[ ... ]]
+		if ctx.UnsafeStringLiteral() != nil {
+			text := ctx.UnsafeStringLiteral().GetText()
+			// Remove the [[ and ]] delimiters
+			if len(text) >= 4 {
+				text = text[2 : len(text)-2]
+			}
+			return &ast.UnsafeStmt{
+				Unsafe: token.Pos(ctx.UnsafeStringLiteral().GetSymbol().GetStart()),
+				Text:   text,
+				EndPos: token.Pos(ctx.UnsafeStringLiteral().GetSymbol().GetStop()),
+			}
+		}
 
-// 		return nil
-// 	})
-// }
+		return nil
+	})
+}
 
 // convertTokenType 将 ANTLR token 类型转换为 Hulo token 类型
 func (a *Analyzer) convertTokenType(antlrTokenType int) token.Token {

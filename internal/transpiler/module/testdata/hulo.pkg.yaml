@@ -1,3 +1,6 @@
 dependencies:
   hulo-lang/hello-world: v1.0.0
+  opencmd/grep: v1.0.0
+  opencmd/findstr: v1.0.0
+  hulo-lang/cmd: v1.0.0
 main: ./src/main.hl

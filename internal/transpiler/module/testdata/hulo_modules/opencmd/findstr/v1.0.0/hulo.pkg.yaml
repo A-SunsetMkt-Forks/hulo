@@ -1,0 +1,4 @@
+dependencies:
+  opencmd/core: v1.0.0-beta
+main: ./src
+version: v1.0.0

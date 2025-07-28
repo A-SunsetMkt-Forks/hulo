@@ -1,4 +1,4 @@
-package transpiler
+package module
 
 import (
 	"os"
@@ -72,3 +72,27 @@ pub fn mul(a: num, b: num) => $a * $b`,
 }
 
 // TODO Mock 工具自动生成代码进行单元测试
+
+func TestMangle(t *testing.T) {
+	_ = `
+	var a = 1
+	{
+		let a = 2
+	}
+
+	{
+		let a = 3
+	}
+
+	{
+		echo $a
+	}
+
+	loop $a := 0; $a < 10; $a++ {
+		echo $a
+	}
+
+	fn test() {}`
+
+
+}

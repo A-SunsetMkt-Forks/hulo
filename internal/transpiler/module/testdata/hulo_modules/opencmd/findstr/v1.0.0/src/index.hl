@@ -1,0 +1,3 @@
+import "opencmd/core"
+
+pub fn findstr() {}

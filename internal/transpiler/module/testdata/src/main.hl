@@ -2,3 +2,6 @@ import "hulo-lang/hello-world" as h
 import "hulo-lang/hello-world/utils_calculate" as uc
 import * from "math"
 import "math"
+import "opencmd/grep"
+import "opencmd/findstr"
+import "hulo-lang/cmd"

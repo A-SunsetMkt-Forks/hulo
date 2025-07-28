@@ -1,7 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler
+package module
 
 import (
 	"fmt"
@@ -13,22 +13,21 @@ import (
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
 	"github.com/hulo-lang/hulo/internal/vfs"
-	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	"gopkg.in/yaml.v3"
 )
 
 type Module struct {
+	ModuleID     int
 	Name         string // 模块名，要处理别名的情况 import "time" as t
 	Path         string // 模块绝对路径
 	AST          *hast.File
 	Exports      map[string]*ExportInfo
 	Imports      []*ImportInfo
 	Dependencies []string
-	Transpiled   *bast.File
 	Symbols      *SymbolTable
-	State        ModuleState
+	state        ModuleState
 	Pkg          *config.HuloPkg
 }
 
@@ -51,7 +50,15 @@ const (
 )
 
 func (m *Module) IsMangled() bool {
-	return m.State == ModuleStateMangled
+	return m.state == ModuleStateMangled
+}
+
+func (m *Module) SetState(state ModuleState) {
+	m.state = state
+}
+
+func (m *Module) State() ModuleState {
+	return m.state
 }
 
 type ImportInfo struct {
@@ -69,8 +76,6 @@ const (
 	ImportAll
 )
 
-type SymbolTable struct{}
-
 type ExportInfo struct{}
 
 // 从 main 入口开始解析
@@ -81,29 +86,20 @@ func ResolveAllDependencies(resolver *DependecyResolver, mainFile string) error 
 		return err
 	}
 
-	// 混淆叶节点
-	for _, module := range resolver.modules {
-		if len(module.Dependencies) == 0 {
-			if err := MangleModule(module); err != nil {
-				return fmt.Errorf("mangle module: %w", err)
-			}
-		}
-	}
-
-	// 按拓扑顺序混淆其他模块
-	for _, module := range resolver.modules {
+	// 按依赖序混淆
+	for i, path := range resolver.order {
+		module := resolver.modules[path]
+		module.ModuleID = i
 		if len(module.Dependencies) > 0 {
-			// 确保所有依赖都已混淆
 			for _, dep := range module.Dependencies {
 				if !resolver.modules[dep].IsMangled() {
 					return fmt.Errorf("dependency %s not mangled", dep)
 				}
 			}
+		}
 
-			// 混淆当前模块
-			if err := MangleModule(module); err != nil {
-				return err
-			}
+		if err := MangleModule(module); err != nil {
+			return fmt.Errorf("mangle module: %w", err)
 		}
 	}
 
@@ -120,7 +116,81 @@ func ResolveAllDependencies(resolver *DependecyResolver, mainFile string) error 
 	return nil
 }
 
+func (m *Module) BuildSymbolTable() error {
+	st := &SymbolTable{
+		GlobalSymbols: make(map[string]*Symbol),
+		Scopes:        []*Scope{},
+		ModuleID:      m.ModuleID,
+		Mangler: &SymbolMangler{
+			typeCounter:   make(map[int]int),
+			symbolCounter: make(map[string]int),
+			mangledMap:    make(map[string]string),
+		},
+	}
+
+	st.MangleAllSymbols()
+
+	m.Symbols = st
+
+	return nil
+}
+
+func (m *Module) TransformAST() error {
+	return m.transformNode(m.AST)
+}
+
+func (m *Module) transformNode(node hast.Node) error {
+	switch n := node.(type) {
+	case *hast.Ident:
+		// 查找符号，替换为混淆名称
+		if symbol := m.Symbols.LookupSymbol(n.Name); symbol != nil && symbol.IsMangled {
+			n.Name = symbol.MangledName // 直接修改AST！
+		}
+
+	case *hast.AssignStmt:
+		left := n.Lhs.(*hast.Ident)
+		// 变量声明中的标识符
+		if symbol := m.Symbols.LookupSymbol(left.Name); symbol != nil && symbol.IsMangled {
+			left.Name = symbol.MangledName
+		}
+
+	case *hast.CallExpr:
+		ident := n.Fun.(*hast.Ident)
+		// 函数调用中的标识符
+		if symbol := m.Symbols.LookupSymbol(ident.Name); symbol != nil && symbol.IsMangled {
+			ident.Name = symbol.MangledName
+		}
+
+	case *hast.BlockStmt:
+		// 递归处理块中的语句
+		for _, stmt := range n.List {
+			if err := m.transformNode(stmt); err != nil {
+				return err
+			}
+		}
+
+		// ... 处理其他AST节点
+	}
+
+	return nil
+}
+
 func MangleModule(module *Module) error {
+	module.Symbols = &SymbolTable{
+		GlobalSymbols: make(map[string]*Symbol),
+		Scopes:        []*Scope{},
+		ModuleID:      module.ModuleID,
+		Mangler: &SymbolMangler{
+			typeCounter:   make(map[int]int),
+			symbolCounter: make(map[string]int),
+			mangledMap:    make(map[string]string),
+		},
+	}
+
+	if err := module.TransformAST(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -150,7 +220,13 @@ func (r *DependecyResolver) resolvePath(parent string, path string) (string, err
 			return "", fmt.Errorf("failed to resolve path: %w", err)
 		}
 		if r.fs.Exists(ret) {
-			return ret, nil
+			stat, err := r.fs.Stat(ret)
+			if err != nil {
+				return "", fmt.Errorf("failed to stat path: %w", err)
+			}
+			if !stat.IsDir() {
+				return ret, nil
+			}
 		}
 		if r.fs.Exists(ret + ".hl") {
 			return ret + ".hl", nil
@@ -158,7 +234,7 @@ func (r *DependecyResolver) resolvePath(parent string, path string) (string, err
 		if r.fs.Exists(filepath.Join(ret, "index.hl")) {
 			return filepath.Join(ret, "index.hl"), nil
 		}
-		return "", fmt.Errorf("no hulo.pkg.yaml found for %s", ret)
+		return "", fmt.Errorf("no file found for %s", ret)
 	}
 	if r.isCoreLibPath(path) {
 		return filepath.Join(r.huloPath, path, "index.hl"), nil
@@ -169,7 +245,14 @@ func (r *DependecyResolver) resolvePath(parent string, path string) (string, err
 	// 根据版本信息，以及suffix 以及 main 表示文件夹入口 确认到底哪个文件
 	if ownerRepoVer, suffix, ok := r.isModulePath(path); ok {
 		if pkg, ok := r.pkgs[ownerRepoVer]; ok {
-			return filepath.Join(ownerRepoVer, pkg.Main, suffix), nil
+			pend := filepath.Join(r.huloModulesPath, ownerRepoVer, pkg.Main, suffix)
+			if r.fs.Exists(pend + ".hl") {
+				return pend + ".hl", nil
+			}
+			if r.fs.Exists(filepath.Join(pend, "index.hl")) {
+				return filepath.Join(pend, "index.hl"), nil
+			}
+			return "", fmt.Errorf("no index.hl found for %s", pend)
 		}
 		pkgPath := filepath.Join(r.huloModulesPath, ownerRepoVer, config.HuloPkgFileName)
 		if !r.fs.Exists(pkgPath) {
@@ -242,7 +325,11 @@ func (r *DependecyResolver) resolveRecursive(parentPkg *Module, parent, filepath
 	if err != nil {
 		return err
 	}
+
+	// 保存当前的 current 模块
+	oldCurrent := r.current
 	r.current = module
+	defer func() { r.current = oldCurrent }()
 
 	// 递归解析依赖
 	for _, dep := range module.Dependencies {
@@ -357,6 +444,9 @@ func (r *DependecyResolver) loadModule(parentPkg *Module, absPath string, symbol
 		r.pkgs[pkgPath] = module.Pkg
 	}
 
+	// 将模块添加到 modules 中
+	r.modules[absPath] = module
+
 	return module, nil
 }
 
@@ -411,14 +501,3 @@ func (r *DependecyResolver) extractImports(ast *hast.File, currentModulePath str
 func (r *DependecyResolver) parseSymbolName(symbolName string) (string, string) {
 	return "", ""
 }
-
-// 检查循环依赖
-func (r *DependecyResolver) detectCycles() (*Cycles, error) {
-	return nil, nil
-}
-
-func (r *DependecyResolver) topologicalSort() error {
-	return nil
-}
-
-type Cycles struct{}
