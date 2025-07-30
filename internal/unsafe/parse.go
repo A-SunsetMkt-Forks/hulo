@@ -11,7 +11,7 @@ func Parse(template string) {
 	stream := antlr.NewInputStream(template)
 	lex := generated.NewunsafeLexer(stream)
 	tokens := antlr.NewCommonTokenStream(lex, antlr.TokenDefaultChannel)
-	parser := generated.NewUnsafeParser(tokens)
+	parser := generated.NewunsafeParser(tokens)
 
 	fmt.Println(parser.Template().ToStringTree(nil, parser))
 }

@@ -27,6 +27,10 @@ func (v *BaseunsafeParserVisitor) VisitIfStatement(ctx *IfStatementContext) inte
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseunsafeParserVisitor) VisitElseStatement(ctx *ElseStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseunsafeParserVisitor) VisitLoopStatement(ctx *LoopStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -35,7 +39,7 @@ func (v *BaseunsafeParserVisitor) VisitExpressionStatement(ctx *ExpressionStatem
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseunsafeParserVisitor) VisitDefineStatement(ctx *DefineStatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitMacroStatement(ctx *MacroStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -52,6 +56,10 @@ func (v *BaseunsafeParserVisitor) VisitPipelineExpr(ctx *PipelineExprContext) in
 }
 
 func (v *BaseunsafeParserVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitVarExpr(ctx *VarExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

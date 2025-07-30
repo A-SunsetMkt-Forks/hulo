@@ -32,82 +32,96 @@ var UnsafeParserParserStaticData struct {
 func unsafeparserParserInit() {
 	staticData := &UnsafeParserParserStaticData
 	staticData.LiteralNames = []string{
-		"", "'{{'", "", "'}}'", "'if'", "'loop'", "'end'", "'in'", "'define'",
-		"'template'", "'('", "')'", "'$'", "'|'", "','", "':='",
+		"", "'{#'", "'{{'", "'{%'", "", "'#}'", "", "'}}'", "'('", "')'", "'{'",
+		"'}'", "'#'", "'%'", "'$'", "'|'", "','", "':='", "'.'", "'''", "'\"'",
+		"", "", "", "", "", "'%}'", "'if'", "'else'", "'loop'", "'in'", "'macro'",
+		"'template'", "'end'", "'endif'", "'endloop'", "'endmacro'",
 	}
 	staticData.SymbolicNames = []string{
-		"", "DOUBLE_LBRACE", "TEXT", "DOUBLE_RBRACE", "IF", "LOOP", "END", "IN",
-		"DEFINE", "TEMPLATE", "LPAREN", "RPAREN", "DOLLAR", "PIPE", "COMMA",
-		"COLON_EQUAL", "IDENTIFIER", "STRING", "NUMBER", "WS",
+		"", "COMMENT_LBRACE", "DOUBLE_LBRACE", "STATEMENT_LBRACE", "TEXT", "COMMENT_RBRACE",
+		"COMMENT_CONTENT", "DOUBLE_RBRACE", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
+		"HASH", "MOD", "DOLLAR", "PIPE", "COMMA", "COLON_EQUAL", "DOT", "SINGLE_QUOTE",
+		"QUOTE", "STRING", "NUMBER", "IDENTIFIER", "ESC", "WS", "STATEMENT_RBRACE",
+		"IF", "ELSE", "LOOP", "IN", "MACRO", "TEMPLATE", "END", "ENDIF", "ENDLOOP",
+		"ENDMACRO", "IDENTIFIER_STMT", "WS_STMT",
 	}
 	staticData.RuleNames = []string{
 		"template", "content", "statement", "variableStatement", "ifStatement",
-		"loopStatement", "expressionStatement", "defineStatement", "templateStatement",
-		"expression", "pipelineExpr", "primaryExpr", "functionCall",
+		"elseStatement", "loopStatement", "expressionStatement", "macroStatement",
+		"templateStatement", "expression", "pipelineExpr", "primaryExpr", "varExpr",
+		"functionCall",
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 19, 147, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 38, 165, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
-		10, 2, 11, 7, 11, 2, 12, 7, 12, 1, 0, 1, 0, 5, 0, 29, 8, 0, 10, 0, 12,
-		0, 32, 9, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 3, 2, 42,
-		8, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4,
-		1, 4, 1, 4, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5,
-		1, 5, 1, 6, 1, 6, 1, 6, 1, 6, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7,
-		5, 7, 79, 8, 7, 10, 7, 12, 7, 82, 9, 7, 3, 7, 84, 8, 7, 1, 7, 3, 7, 87,
-		8, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 8, 1, 8, 1, 8, 1, 8, 5, 8,
-		99, 8, 8, 10, 8, 12, 8, 102, 9, 8, 1, 8, 1, 8, 1, 9, 1, 9, 1, 10, 1, 10,
-		1, 10, 5, 10, 111, 8, 10, 10, 10, 12, 10, 114, 9, 10, 1, 11, 1, 11, 1,
-		11, 1, 11, 1, 11, 1, 11, 1, 11, 3, 11, 123, 8, 11, 1, 12, 1, 12, 5, 12,
-		127, 8, 12, 10, 12, 12, 12, 130, 9, 12, 1, 12, 1, 12, 1, 12, 3, 12, 135,
-		8, 12, 1, 12, 1, 12, 5, 12, 139, 8, 12, 10, 12, 12, 12, 142, 9, 12, 1,
-		12, 3, 12, 145, 8, 12, 1, 12, 0, 0, 13, 0, 2, 4, 6, 8, 10, 12, 14, 16,
-		18, 20, 22, 24, 0, 0, 152, 0, 30, 1, 0, 0, 0, 2, 33, 1, 0, 0, 0, 4, 41,
-		1, 0, 0, 0, 6, 43, 1, 0, 0, 0, 8, 47, 1, 0, 0, 0, 10, 56, 1, 0, 0, 0, 12,
-		67, 1, 0, 0, 0, 14, 71, 1, 0, 0, 0, 16, 94, 1, 0, 0, 0, 18, 105, 1, 0,
-		0, 0, 20, 107, 1, 0, 0, 0, 22, 122, 1, 0, 0, 0, 24, 144, 1, 0, 0, 0, 26,
-		29, 3, 2, 1, 0, 27, 29, 3, 4, 2, 0, 28, 26, 1, 0, 0, 0, 28, 27, 1, 0, 0,
-		0, 29, 32, 1, 0, 0, 0, 30, 28, 1, 0, 0, 0, 30, 31, 1, 0, 0, 0, 31, 1, 1,
-		0, 0, 0, 32, 30, 1, 0, 0, 0, 33, 34, 5, 2, 0, 0, 34, 3, 1, 0, 0, 0, 35,
-		42, 3, 8, 4, 0, 36, 42, 3, 10, 5, 0, 37, 42, 3, 12, 6, 0, 38, 42, 3, 14,
-		7, 0, 39, 42, 3, 16, 8, 0, 40, 42, 3, 6, 3, 0, 41, 35, 1, 0, 0, 0, 41,
-		36, 1, 0, 0, 0, 41, 37, 1, 0, 0, 0, 41, 38, 1, 0, 0, 0, 41, 39, 1, 0, 0,
-		0, 41, 40, 1, 0, 0, 0, 42, 5, 1, 0, 0, 0, 43, 44, 5, 16, 0, 0, 44, 45,
-		5, 15, 0, 0, 45, 46, 3, 18, 9, 0, 46, 7, 1, 0, 0, 0, 47, 48, 5, 1, 0, 0,
-		48, 49, 5, 4, 0, 0, 49, 50, 3, 18, 9, 0, 50, 51, 5, 3, 0, 0, 51, 52, 3,
-		0, 0, 0, 52, 53, 5, 1, 0, 0, 53, 54, 5, 6, 0, 0, 54, 55, 5, 3, 0, 0, 55,
-		9, 1, 0, 0, 0, 56, 57, 5, 1, 0, 0, 57, 58, 5, 5, 0, 0, 58, 59, 5, 16, 0,
-		0, 59, 60, 5, 7, 0, 0, 60, 61, 5, 16, 0, 0, 61, 62, 5, 3, 0, 0, 62, 63,
-		3, 0, 0, 0, 63, 64, 5, 1, 0, 0, 64, 65, 5, 6, 0, 0, 65, 66, 5, 3, 0, 0,
-		66, 11, 1, 0, 0, 0, 67, 68, 5, 1, 0, 0, 68, 69, 3, 18, 9, 0, 69, 70, 5,
-		3, 0, 0, 70, 13, 1, 0, 0, 0, 71, 72, 5, 1, 0, 0, 72, 73, 5, 8, 0, 0, 73,
-		86, 5, 16, 0, 0, 74, 83, 5, 10, 0, 0, 75, 80, 5, 16, 0, 0, 76, 77, 5, 14,
-		0, 0, 77, 79, 5, 16, 0, 0, 78, 76, 1, 0, 0, 0, 79, 82, 1, 0, 0, 0, 80,
-		78, 1, 0, 0, 0, 80, 81, 1, 0, 0, 0, 81, 84, 1, 0, 0, 0, 82, 80, 1, 0, 0,
-		0, 83, 75, 1, 0, 0, 0, 83, 84, 1, 0, 0, 0, 84, 85, 1, 0, 0, 0, 85, 87,
-		5, 11, 0, 0, 86, 74, 1, 0, 0, 0, 86, 87, 1, 0, 0, 0, 87, 88, 1, 0, 0, 0,
-		88, 89, 5, 3, 0, 0, 89, 90, 3, 0, 0, 0, 90, 91, 5, 1, 0, 0, 91, 92, 5,
-		6, 0, 0, 92, 93, 5, 3, 0, 0, 93, 15, 1, 0, 0, 0, 94, 95, 5, 1, 0, 0, 95,
-		96, 5, 9, 0, 0, 96, 100, 5, 16, 0, 0, 97, 99, 3, 18, 9, 0, 98, 97, 1, 0,
-		0, 0, 99, 102, 1, 0, 0, 0, 100, 98, 1, 0, 0, 0, 100, 101, 1, 0, 0, 0, 101,
-		103, 1, 0, 0, 0, 102, 100, 1, 0, 0, 0, 103, 104, 5, 3, 0, 0, 104, 17, 1,
-		0, 0, 0, 105, 106, 3, 20, 10, 0, 106, 19, 1, 0, 0, 0, 107, 112, 3, 22,
-		11, 0, 108, 109, 5, 13, 0, 0, 109, 111, 3, 24, 12, 0, 110, 108, 1, 0, 0,
-		0, 111, 114, 1, 0, 0, 0, 112, 110, 1, 0, 0, 0, 112, 113, 1, 0, 0, 0, 113,
-		21, 1, 0, 0, 0, 114, 112, 1, 0, 0, 0, 115, 123, 5, 18, 0, 0, 116, 123,
-		5, 17, 0, 0, 117, 123, 5, 16, 0, 0, 118, 119, 5, 10, 0, 0, 119, 120, 3,
-		18, 9, 0, 120, 121, 5, 11, 0, 0, 121, 123, 1, 0, 0, 0, 122, 115, 1, 0,
-		0, 0, 122, 116, 1, 0, 0, 0, 122, 117, 1, 0, 0, 0, 122, 118, 1, 0, 0, 0,
-		123, 23, 1, 0, 0, 0, 124, 128, 5, 16, 0, 0, 125, 127, 3, 22, 11, 0, 126,
-		125, 1, 0, 0, 0, 127, 130, 1, 0, 0, 0, 128, 126, 1, 0, 0, 0, 128, 129,
-		1, 0, 0, 0, 129, 145, 1, 0, 0, 0, 130, 128, 1, 0, 0, 0, 131, 132, 5, 16,
-		0, 0, 132, 134, 5, 10, 0, 0, 133, 135, 3, 22, 11, 0, 134, 133, 1, 0, 0,
-		0, 134, 135, 1, 0, 0, 0, 135, 140, 1, 0, 0, 0, 136, 137, 5, 14, 0, 0, 137,
-		139, 3, 22, 11, 0, 138, 136, 1, 0, 0, 0, 139, 142, 1, 0, 0, 0, 140, 138,
-		1, 0, 0, 0, 140, 141, 1, 0, 0, 0, 141, 143, 1, 0, 0, 0, 142, 140, 1, 0,
-		0, 0, 143, 145, 5, 11, 0, 0, 144, 124, 1, 0, 0, 0, 144, 131, 1, 0, 0, 0,
-		145, 25, 1, 0, 0, 0, 13, 28, 30, 41, 80, 83, 86, 100, 112, 122, 128, 134,
-		140, 144,
+		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 1, 0, 1, 0,
+		5, 0, 33, 8, 0, 10, 0, 12, 0, 36, 9, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1,
+		2, 1, 2, 1, 2, 3, 2, 46, 8, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 4,
+		1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4, 60, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1,
+		5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1,
+		6, 1, 6, 1, 6, 1, 6, 1, 7, 1, 7, 1, 7, 1, 7, 1, 8, 1, 8, 1, 8, 1, 8, 1,
+		8, 1, 8, 1, 8, 5, 8, 93, 8, 8, 10, 8, 12, 8, 96, 9, 8, 3, 8, 98, 8, 8,
+		1, 8, 3, 8, 101, 8, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 9, 1, 9,
+		1, 9, 1, 9, 5, 9, 113, 8, 9, 10, 9, 12, 9, 116, 9, 9, 1, 9, 1, 9, 1, 10,
+		1, 10, 1, 11, 1, 11, 1, 11, 5, 11, 125, 8, 11, 10, 11, 12, 11, 128, 9,
+		11, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 3, 12, 138,
+		8, 12, 1, 13, 1, 13, 1, 13, 1, 14, 1, 14, 5, 14, 145, 8, 14, 10, 14, 12,
+		14, 148, 9, 14, 1, 14, 1, 14, 1, 14, 3, 14, 153, 8, 14, 1, 14, 1, 14, 5,
+		14, 157, 8, 14, 10, 14, 12, 14, 160, 9, 14, 1, 14, 3, 14, 163, 8, 14, 1,
+		14, 0, 0, 15, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 0,
+		3, 1, 0, 33, 34, 2, 0, 33, 33, 35, 35, 2, 0, 33, 33, 36, 36, 170, 0, 34,
+		1, 0, 0, 0, 2, 37, 1, 0, 0, 0, 4, 45, 1, 0, 0, 0, 6, 47, 1, 0, 0, 0, 8,
+		53, 1, 0, 0, 0, 10, 65, 1, 0, 0, 0, 12, 70, 1, 0, 0, 0, 14, 81, 1, 0, 0,
+		0, 16, 85, 1, 0, 0, 0, 18, 108, 1, 0, 0, 0, 20, 119, 1, 0, 0, 0, 22, 121,
+		1, 0, 0, 0, 24, 137, 1, 0, 0, 0, 26, 139, 1, 0, 0, 0, 28, 162, 1, 0, 0,
+		0, 30, 33, 3, 2, 1, 0, 31, 33, 3, 4, 2, 0, 32, 30, 1, 0, 0, 0, 32, 31,
+		1, 0, 0, 0, 33, 36, 1, 0, 0, 0, 34, 32, 1, 0, 0, 0, 34, 35, 1, 0, 0, 0,
+		35, 1, 1, 0, 0, 0, 36, 34, 1, 0, 0, 0, 37, 38, 5, 4, 0, 0, 38, 3, 1, 0,
+		0, 0, 39, 46, 3, 8, 4, 0, 40, 46, 3, 12, 6, 0, 41, 46, 3, 14, 7, 0, 42,
+		46, 3, 16, 8, 0, 43, 46, 3, 18, 9, 0, 44, 46, 3, 6, 3, 0, 45, 39, 1, 0,
+		0, 0, 45, 40, 1, 0, 0, 0, 45, 41, 1, 0, 0, 0, 45, 42, 1, 0, 0, 0, 45, 43,
+		1, 0, 0, 0, 45, 44, 1, 0, 0, 0, 46, 5, 1, 0, 0, 0, 47, 48, 5, 3, 0, 0,
+		48, 49, 5, 23, 0, 0, 49, 50, 5, 17, 0, 0, 50, 51, 3, 20, 10, 0, 51, 52,
+		5, 26, 0, 0, 52, 7, 1, 0, 0, 0, 53, 54, 5, 3, 0, 0, 54, 55, 5, 27, 0, 0,
+		55, 56, 3, 20, 10, 0, 56, 57, 5, 26, 0, 0, 57, 59, 3, 0, 0, 0, 58, 60,
+		3, 10, 5, 0, 59, 58, 1, 0, 0, 0, 59, 60, 1, 0, 0, 0, 60, 61, 1, 0, 0, 0,
+		61, 62, 5, 3, 0, 0, 62, 63, 7, 0, 0, 0, 63, 64, 5, 26, 0, 0, 64, 9, 1,
+		0, 0, 0, 65, 66, 5, 3, 0, 0, 66, 67, 5, 28, 0, 0, 67, 68, 5, 26, 0, 0,
+		68, 69, 3, 0, 0, 0, 69, 11, 1, 0, 0, 0, 70, 71, 5, 3, 0, 0, 71, 72, 5,
+		29, 0, 0, 72, 73, 5, 23, 0, 0, 73, 74, 5, 30, 0, 0, 74, 75, 5, 23, 0, 0,
+		75, 76, 5, 26, 0, 0, 76, 77, 3, 0, 0, 0, 77, 78, 5, 3, 0, 0, 78, 79, 7,
+		1, 0, 0, 79, 80, 5, 26, 0, 0, 80, 13, 1, 0, 0, 0, 81, 82, 5, 2, 0, 0, 82,
+		83, 3, 20, 10, 0, 83, 84, 5, 7, 0, 0, 84, 15, 1, 0, 0, 0, 85, 86, 5, 3,
+		0, 0, 86, 87, 5, 31, 0, 0, 87, 100, 5, 23, 0, 0, 88, 97, 5, 8, 0, 0, 89,
+		94, 5, 23, 0, 0, 90, 91, 5, 16, 0, 0, 91, 93, 5, 23, 0, 0, 92, 90, 1, 0,
+		0, 0, 93, 96, 1, 0, 0, 0, 94, 92, 1, 0, 0, 0, 94, 95, 1, 0, 0, 0, 95, 98,
+		1, 0, 0, 0, 96, 94, 1, 0, 0, 0, 97, 89, 1, 0, 0, 0, 97, 98, 1, 0, 0, 0,
+		98, 99, 1, 0, 0, 0, 99, 101, 5, 9, 0, 0, 100, 88, 1, 0, 0, 0, 100, 101,
+		1, 0, 0, 0, 101, 102, 1, 0, 0, 0, 102, 103, 5, 26, 0, 0, 103, 104, 3, 0,
+		0, 0, 104, 105, 5, 3, 0, 0, 105, 106, 7, 2, 0, 0, 106, 107, 5, 26, 0, 0,
+		107, 17, 1, 0, 0, 0, 108, 109, 5, 3, 0, 0, 109, 110, 5, 32, 0, 0, 110,
+		114, 5, 23, 0, 0, 111, 113, 3, 20, 10, 0, 112, 111, 1, 0, 0, 0, 113, 116,
+		1, 0, 0, 0, 114, 112, 1, 0, 0, 0, 114, 115, 1, 0, 0, 0, 115, 117, 1, 0,
+		0, 0, 116, 114, 1, 0, 0, 0, 117, 118, 5, 26, 0, 0, 118, 19, 1, 0, 0, 0,
+		119, 120, 3, 22, 11, 0, 120, 21, 1, 0, 0, 0, 121, 126, 3, 28, 14, 0, 122,
+		123, 5, 15, 0, 0, 123, 125, 3, 28, 14, 0, 124, 122, 1, 0, 0, 0, 125, 128,
+		1, 0, 0, 0, 126, 124, 1, 0, 0, 0, 126, 127, 1, 0, 0, 0, 127, 23, 1, 0,
+		0, 0, 128, 126, 1, 0, 0, 0, 129, 138, 5, 22, 0, 0, 130, 138, 5, 21, 0,
+		0, 131, 138, 5, 23, 0, 0, 132, 138, 3, 26, 13, 0, 133, 134, 5, 8, 0, 0,
+		134, 135, 3, 20, 10, 0, 135, 136, 5, 9, 0, 0, 136, 138, 1, 0, 0, 0, 137,
+		129, 1, 0, 0, 0, 137, 130, 1, 0, 0, 0, 137, 131, 1, 0, 0, 0, 137, 132,
+		1, 0, 0, 0, 137, 133, 1, 0, 0, 0, 138, 25, 1, 0, 0, 0, 139, 140, 5, 14,
+		0, 0, 140, 141, 5, 23, 0, 0, 141, 27, 1, 0, 0, 0, 142, 146, 5, 23, 0, 0,
+		143, 145, 3, 24, 12, 0, 144, 143, 1, 0, 0, 0, 145, 148, 1, 0, 0, 0, 146,
+		144, 1, 0, 0, 0, 146, 147, 1, 0, 0, 0, 147, 163, 1, 0, 0, 0, 148, 146,
+		1, 0, 0, 0, 149, 150, 5, 23, 0, 0, 150, 152, 5, 8, 0, 0, 151, 153, 3, 24,
+		12, 0, 152, 151, 1, 0, 0, 0, 152, 153, 1, 0, 0, 0, 153, 158, 1, 0, 0, 0,
+		154, 155, 5, 16, 0, 0, 155, 157, 3, 24, 12, 0, 156, 154, 1, 0, 0, 0, 157,
+		160, 1, 0, 0, 0, 158, 156, 1, 0, 0, 0, 158, 159, 1, 0, 0, 0, 159, 161,
+		1, 0, 0, 0, 160, 158, 1, 0, 0, 0, 161, 163, 5, 9, 0, 0, 162, 142, 1, 0,
+		0, 0, 162, 149, 1, 0, 0, 0, 163, 29, 1, 0, 0, 0, 14, 32, 34, 45, 59, 94,
+		97, 100, 114, 126, 137, 146, 152, 158, 162,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -145,26 +159,45 @@ func NewunsafeParser(input antlr.TokenStream) *unsafeParser {
 
 // unsafeParser tokens.
 const (
-	unsafeParserEOF           = antlr.TokenEOF
-	unsafeParserDOUBLE_LBRACE = 1
-	unsafeParserTEXT          = 2
-	unsafeParserDOUBLE_RBRACE = 3
-	unsafeParserIF            = 4
-	unsafeParserLOOP          = 5
-	unsafeParserEND           = 6
-	unsafeParserIN            = 7
-	unsafeParserDEFINE        = 8
-	unsafeParserTEMPLATE      = 9
-	unsafeParserLPAREN        = 10
-	unsafeParserRPAREN        = 11
-	unsafeParserDOLLAR        = 12
-	unsafeParserPIPE          = 13
-	unsafeParserCOMMA         = 14
-	unsafeParserCOLON_EQUAL   = 15
-	unsafeParserIDENTIFIER    = 16
-	unsafeParserSTRING        = 17
-	unsafeParserNUMBER        = 18
-	unsafeParserWS            = 19
+	unsafeParserEOF              = antlr.TokenEOF
+	unsafeParserCOMMENT_LBRACE   = 1
+	unsafeParserDOUBLE_LBRACE    = 2
+	unsafeParserSTATEMENT_LBRACE = 3
+	unsafeParserTEXT             = 4
+	unsafeParserCOMMENT_RBRACE   = 5
+	unsafeParserCOMMENT_CONTENT  = 6
+	unsafeParserDOUBLE_RBRACE    = 7
+	unsafeParserLPAREN           = 8
+	unsafeParserRPAREN           = 9
+	unsafeParserLBRACE           = 10
+	unsafeParserRBRACE           = 11
+	unsafeParserHASH             = 12
+	unsafeParserMOD              = 13
+	unsafeParserDOLLAR           = 14
+	unsafeParserPIPE             = 15
+	unsafeParserCOMMA            = 16
+	unsafeParserCOLON_EQUAL      = 17
+	unsafeParserDOT              = 18
+	unsafeParserSINGLE_QUOTE     = 19
+	unsafeParserQUOTE            = 20
+	unsafeParserSTRING           = 21
+	unsafeParserNUMBER           = 22
+	unsafeParserIDENTIFIER       = 23
+	unsafeParserESC              = 24
+	unsafeParserWS               = 25
+	unsafeParserSTATEMENT_RBRACE = 26
+	unsafeParserIF               = 27
+	unsafeParserELSE             = 28
+	unsafeParserLOOP             = 29
+	unsafeParserIN               = 30
+	unsafeParserMACRO            = 31
+	unsafeParserTEMPLATE         = 32
+	unsafeParserEND              = 33
+	unsafeParserENDIF            = 34
+	unsafeParserENDLOOP          = 35
+	unsafeParserENDMACRO         = 36
+	unsafeParserIDENTIFIER_STMT  = 37
+	unsafeParserWS_STMT          = 38
 )
 
 // unsafeParser rules.
@@ -174,14 +207,16 @@ const (
 	unsafeParserRULE_statement           = 2
 	unsafeParserRULE_variableStatement   = 3
 	unsafeParserRULE_ifStatement         = 4
-	unsafeParserRULE_loopStatement       = 5
-	unsafeParserRULE_expressionStatement = 6
-	unsafeParserRULE_defineStatement     = 7
-	unsafeParserRULE_templateStatement   = 8
-	unsafeParserRULE_expression          = 9
-	unsafeParserRULE_pipelineExpr        = 10
-	unsafeParserRULE_primaryExpr         = 11
-	unsafeParserRULE_functionCall        = 12
+	unsafeParserRULE_elseStatement       = 5
+	unsafeParserRULE_loopStatement       = 6
+	unsafeParserRULE_expressionStatement = 7
+	unsafeParserRULE_macroStatement      = 8
+	unsafeParserRULE_templateStatement   = 9
+	unsafeParserRULE_expression          = 10
+	unsafeParserRULE_pipelineExpr        = 11
+	unsafeParserRULE_primaryExpr         = 12
+	unsafeParserRULE_varExpr             = 13
+	unsafeParserRULE_functionCall        = 14
 )
 
 // ITemplateContext is an interface to support dynamic dispatch.
@@ -339,7 +374,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(30)
+	p.SetState(34)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -350,7 +385,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 	}
 	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 		if _alt == 1 {
-			p.SetState(28)
+			p.SetState(32)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -359,13 +394,13 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 			switch p.GetTokenStream().LA(1) {
 			case unsafeParserTEXT:
 				{
-					p.SetState(26)
+					p.SetState(30)
 					p.Content()
 				}
 
-			case unsafeParserDOUBLE_LBRACE, unsafeParserIDENTIFIER:
+			case unsafeParserDOUBLE_LBRACE, unsafeParserSTATEMENT_LBRACE:
 				{
-					p.SetState(27)
+					p.SetState(31)
 					p.Statement()
 				}
 
@@ -375,7 +410,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 			}
 
 		}
-		p.SetState(32)
+		p.SetState(36)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -472,7 +507,7 @@ func (p *unsafeParser) Content() (localctx IContentContext) {
 	p.EnterRule(localctx, 2, unsafeParserRULE_content)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(33)
+		p.SetState(37)
 		p.Match(unsafeParserTEXT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -504,7 +539,7 @@ type IStatementContext interface {
 	IfStatement() IIfStatementContext
 	LoopStatement() ILoopStatementContext
 	ExpressionStatement() IExpressionStatementContext
-	DefineStatement() IDefineStatementContext
+	MacroStatement() IMacroStatementContext
 	TemplateStatement() ITemplateStatementContext
 	VariableStatement() IVariableStatementContext
 
@@ -592,10 +627,10 @@ func (s *StatementContext) ExpressionStatement() IExpressionStatementContext {
 	return t.(IExpressionStatementContext)
 }
 
-func (s *StatementContext) DefineStatement() IDefineStatementContext {
+func (s *StatementContext) MacroStatement() IMacroStatementContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IDefineStatementContext); ok {
+		if _, ok := ctx.(IMacroStatementContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -605,7 +640,7 @@ func (s *StatementContext) DefineStatement() IDefineStatementContext {
 		return nil
 	}
 
-	return t.(IDefineStatementContext)
+	return t.(IMacroStatementContext)
 }
 
 func (s *StatementContext) TemplateStatement() ITemplateStatementContext {
@@ -661,7 +696,7 @@ func (s *StatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 func (p *unsafeParser) Statement() (localctx IStatementContext) {
 	localctx = NewStatementContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 4, unsafeParserRULE_statement)
-	p.SetState(41)
+	p.SetState(45)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -671,42 +706,42 @@ func (p *unsafeParser) Statement() (localctx IStatementContext) {
 	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(35)
+			p.SetState(39)
 			p.IfStatement()
 		}
 
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(36)
+			p.SetState(40)
 			p.LoopStatement()
 		}
 
 	case 3:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(37)
+			p.SetState(41)
 			p.ExpressionStatement()
 		}
 
 	case 4:
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(38)
-			p.DefineStatement()
+			p.SetState(42)
+			p.MacroStatement()
 		}
 
 	case 5:
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(39)
+			p.SetState(43)
 			p.TemplateStatement()
 		}
 
 	case 6:
 		p.EnterOuterAlt(localctx, 6)
 		{
-			p.SetState(40)
+			p.SetState(44)
 			p.VariableStatement()
 		}
 
@@ -735,9 +770,11 @@ type IVariableStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
+	STATEMENT_LBRACE() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
 	COLON_EQUAL() antlr.TerminalNode
 	Expression() IExpressionContext
+	STATEMENT_RBRACE() antlr.TerminalNode
 
 	// IsVariableStatementContext differentiates from other interfaces.
 	IsVariableStatementContext()
@@ -775,6 +812,10 @@ func NewVariableStatementContext(parser antlr.Parser, parent antlr.ParserRuleCon
 
 func (s *VariableStatementContext) GetParser() antlr.Parser { return s.parser }
 
+func (s *VariableStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
+}
+
 func (s *VariableStatementContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, 0)
 }
@@ -797,6 +838,10 @@ func (s *VariableStatementContext) Expression() IExpressionContext {
 	}
 
 	return t.(IExpressionContext)
+}
+
+func (s *VariableStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
 }
 
 func (s *VariableStatementContext) GetRuleContext() antlr.RuleContext {
@@ -822,7 +867,15 @@ func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) 
 	p.EnterRule(localctx, 6, unsafeParserRULE_variableStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(43)
+		p.SetState(47)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(48)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -830,7 +883,7 @@ func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) 
 		}
 	}
 	{
-		p.SetState(44)
+		p.SetState(49)
 		p.Match(unsafeParserCOLON_EQUAL)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -838,8 +891,16 @@ func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) 
 		}
 	}
 	{
-		p.SetState(45)
+		p.SetState(50)
 		p.Expression()
+	}
+	{
+		p.SetState(51)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
 	}
 
 errorExit:
@@ -863,14 +924,16 @@ type IIfStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllDOUBLE_LBRACE() []antlr.TerminalNode
-	DOUBLE_LBRACE(i int) antlr.TerminalNode
+	AllSTATEMENT_LBRACE() []antlr.TerminalNode
+	STATEMENT_LBRACE(i int) antlr.TerminalNode
 	IF() antlr.TerminalNode
 	Expression() IExpressionContext
-	AllDOUBLE_RBRACE() []antlr.TerminalNode
-	DOUBLE_RBRACE(i int) antlr.TerminalNode
+	AllSTATEMENT_RBRACE() []antlr.TerminalNode
+	STATEMENT_RBRACE(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
+	ENDIF() antlr.TerminalNode
+	ElseStatement() IElseStatementContext
 
 	// IsIfStatementContext differentiates from other interfaces.
 	IsIfStatementContext()
@@ -908,12 +971,12 @@ func NewIfStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 
 func (s *IfStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *IfStatementContext) AllDOUBLE_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_LBRACE)
+func (s *IfStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
 }
 
-func (s *IfStatementContext) DOUBLE_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_LBRACE, i)
+func (s *IfStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
 }
 
 func (s *IfStatementContext) IF() antlr.TerminalNode {
@@ -936,12 +999,12 @@ func (s *IfStatementContext) Expression() IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *IfStatementContext) AllDOUBLE_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_RBRACE)
+func (s *IfStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
 }
 
-func (s *IfStatementContext) DOUBLE_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_RBRACE, i)
+func (s *IfStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
 }
 
 func (s *IfStatementContext) Template() ITemplateContext {
@@ -962,6 +1025,26 @@ func (s *IfStatementContext) Template() ITemplateContext {
 
 func (s *IfStatementContext) END() antlr.TerminalNode {
 	return s.GetToken(unsafeParserEND, 0)
+}
+
+func (s *IfStatementContext) ENDIF() antlr.TerminalNode {
+	return s.GetToken(unsafeParserENDIF, 0)
+}
+
+func (s *IfStatementContext) ElseStatement() IElseStatementContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IElseStatementContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IElseStatementContext)
 }
 
 func (s *IfStatementContext) GetRuleContext() antlr.RuleContext {
@@ -985,50 +1068,12 @@ func (s *IfStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 	localctx = NewIfStatementContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 8, unsafeParserRULE_ifStatement)
+	var _la int
+
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(47)
-		p.Match(unsafeParserDOUBLE_LBRACE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
-		p.SetState(48)
-		p.Match(unsafeParserIF)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
-		p.SetState(49)
-		p.Expression()
-	}
-	{
-		p.SetState(50)
-		p.Match(unsafeParserDOUBLE_RBRACE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
-		p.SetState(51)
-		p.Template()
-	}
-	{
-		p.SetState(52)
-		p.Match(unsafeParserDOUBLE_LBRACE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
 		p.SetState(53)
-		p.Match(unsafeParserEND)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1036,11 +1081,207 @@ func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 	}
 	{
 		p.SetState(54)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.Match(unsafeParserIF)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
+	}
+	{
+		p.SetState(55)
+		p.Expression()
+	}
+	{
+		p.SetState(56)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(57)
+		p.Template()
+	}
+	p.SetState(59)
+	p.GetErrorHandler().Sync(p)
+
+	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 3, p.GetParserRuleContext()) == 1 {
+		{
+			p.SetState(58)
+			p.ElseStatement()
+		}
+
+	} else if p.HasError() { // JIM
+		goto errorExit
+	}
+	{
+		p.SetState(61)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(62)
+		_la = p.GetTokenStream().LA(1)
+
+		if !(_la == unsafeParserEND || _la == unsafeParserENDIF) {
+			p.GetErrorHandler().RecoverInline(p)
+		} else {
+			p.GetErrorHandler().ReportMatch(p)
+			p.Consume()
+		}
+	}
+	{
+		p.SetState(63)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IElseStatementContext is an interface to support dynamic dispatch.
+type IElseStatementContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	STATEMENT_LBRACE() antlr.TerminalNode
+	ELSE() antlr.TerminalNode
+	STATEMENT_RBRACE() antlr.TerminalNode
+	Template() ITemplateContext
+
+	// IsElseStatementContext differentiates from other interfaces.
+	IsElseStatementContext()
+}
+
+type ElseStatementContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyElseStatementContext() *ElseStatementContext {
+	var p = new(ElseStatementContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_elseStatement
+	return p
+}
+
+func InitEmptyElseStatementContext(p *ElseStatementContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_elseStatement
+}
+
+func (*ElseStatementContext) IsElseStatementContext() {}
+
+func NewElseStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ElseStatementContext {
+	var p = new(ElseStatementContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_elseStatement
+
+	return p
+}
+
+func (s *ElseStatementContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *ElseStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
+}
+
+func (s *ElseStatementContext) ELSE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserELSE, 0)
+}
+
+func (s *ElseStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
+}
+
+func (s *ElseStatementContext) Template() ITemplateContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITemplateContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITemplateContext)
+}
+
+func (s *ElseStatementContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *ElseStatementContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *ElseStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitElseStatement(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) ElseStatement() (localctx IElseStatementContext) {
+	localctx = NewElseStatementContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 10, unsafeParserRULE_elseStatement)
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(65)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(66)
+		p.Match(unsafeParserELSE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(67)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(68)
+		p.Template()
 	}
 
 errorExit:
@@ -1064,16 +1305,17 @@ type ILoopStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllDOUBLE_LBRACE() []antlr.TerminalNode
-	DOUBLE_LBRACE(i int) antlr.TerminalNode
+	AllSTATEMENT_LBRACE() []antlr.TerminalNode
+	STATEMENT_LBRACE(i int) antlr.TerminalNode
 	LOOP() antlr.TerminalNode
 	AllIDENTIFIER() []antlr.TerminalNode
 	IDENTIFIER(i int) antlr.TerminalNode
 	IN() antlr.TerminalNode
-	AllDOUBLE_RBRACE() []antlr.TerminalNode
-	DOUBLE_RBRACE(i int) antlr.TerminalNode
+	AllSTATEMENT_RBRACE() []antlr.TerminalNode
+	STATEMENT_RBRACE(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
+	ENDLOOP() antlr.TerminalNode
 
 	// IsLoopStatementContext differentiates from other interfaces.
 	IsLoopStatementContext()
@@ -1111,12 +1353,12 @@ func NewLoopStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext
 
 func (s *LoopStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *LoopStatementContext) AllDOUBLE_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_LBRACE)
+func (s *LoopStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
 }
 
-func (s *LoopStatementContext) DOUBLE_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_LBRACE, i)
+func (s *LoopStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
 }
 
 func (s *LoopStatementContext) LOOP() antlr.TerminalNode {
@@ -1135,12 +1377,12 @@ func (s *LoopStatementContext) IN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIN, 0)
 }
 
-func (s *LoopStatementContext) AllDOUBLE_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_RBRACE)
+func (s *LoopStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
 }
 
-func (s *LoopStatementContext) DOUBLE_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_RBRACE, i)
+func (s *LoopStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
 }
 
 func (s *LoopStatementContext) Template() ITemplateContext {
@@ -1163,6 +1405,10 @@ func (s *LoopStatementContext) END() antlr.TerminalNode {
 	return s.GetToken(unsafeParserEND, 0)
 }
 
+func (s *LoopStatementContext) ENDLOOP() antlr.TerminalNode {
+	return s.GetToken(unsafeParserENDLOOP, 0)
+}
+
 func (s *LoopStatementContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
@@ -1183,18 +1429,20 @@ func (s *LoopStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{
 
 func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 	localctx = NewLoopStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 10, unsafeParserRULE_loopStatement)
+	p.EnterRule(localctx, 12, unsafeParserRULE_loopStatement)
+	var _la int
+
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(56)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(70)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(57)
+		p.SetState(71)
 		p.Match(unsafeParserLOOP)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1202,7 +1450,7 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(58)
+		p.SetState(72)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1210,7 +1458,7 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(59)
+		p.SetState(73)
 		p.Match(unsafeParserIN)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1218,7 +1466,7 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(60)
+		p.SetState(74)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1226,36 +1474,39 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(61)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(75)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(62)
+		p.SetState(76)
 		p.Template()
 	}
 	{
-		p.SetState(63)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(77)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(64)
-		p.Match(unsafeParserEND)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
+		p.SetState(78)
+		_la = p.GetTokenStream().LA(1)
+
+		if !(_la == unsafeParserEND || _la == unsafeParserENDLOOP) {
+			p.GetErrorHandler().RecoverInline(p)
+		} else {
+			p.GetErrorHandler().ReportMatch(p)
+			p.Consume()
 		}
 	}
 	{
-		p.SetState(65)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(79)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1367,10 +1618,10 @@ func (s *ExpressionStatementContext) Accept(visitor antlr.ParseTreeVisitor) inte
 
 func (p *unsafeParser) ExpressionStatement() (localctx IExpressionStatementContext) {
 	localctx = NewExpressionStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, unsafeParserRULE_expressionStatement)
+	p.EnterRule(localctx, 14, unsafeParserRULE_expressionStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(67)
+		p.SetState(81)
 		p.Match(unsafeParserDOUBLE_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1378,11 +1629,11 @@ func (p *unsafeParser) ExpressionStatement() (localctx IExpressionStatementConte
 		}
 	}
 	{
-		p.SetState(68)
+		p.SetState(82)
 		p.Expression()
 	}
 	{
-		p.SetState(69)
+		p.SetState(83)
 		p.Match(unsafeParserDOUBLE_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1403,93 +1654,94 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IDefineStatementContext is an interface to support dynamic dispatch.
-type IDefineStatementContext interface {
+// IMacroStatementContext is an interface to support dynamic dispatch.
+type IMacroStatementContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllDOUBLE_LBRACE() []antlr.TerminalNode
-	DOUBLE_LBRACE(i int) antlr.TerminalNode
-	DEFINE() antlr.TerminalNode
+	AllSTATEMENT_LBRACE() []antlr.TerminalNode
+	STATEMENT_LBRACE(i int) antlr.TerminalNode
+	MACRO() antlr.TerminalNode
 	AllIDENTIFIER() []antlr.TerminalNode
 	IDENTIFIER(i int) antlr.TerminalNode
-	AllDOUBLE_RBRACE() []antlr.TerminalNode
-	DOUBLE_RBRACE(i int) antlr.TerminalNode
+	AllSTATEMENT_RBRACE() []antlr.TerminalNode
+	STATEMENT_RBRACE(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
+	ENDMACRO() antlr.TerminalNode
 	LPAREN() antlr.TerminalNode
 	RPAREN() antlr.TerminalNode
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
-	// IsDefineStatementContext differentiates from other interfaces.
-	IsDefineStatementContext()
+	// IsMacroStatementContext differentiates from other interfaces.
+	IsMacroStatementContext()
 }
 
-type DefineStatementContext struct {
+type MacroStatementContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyDefineStatementContext() *DefineStatementContext {
-	var p = new(DefineStatementContext)
+func NewEmptyMacroStatementContext() *MacroStatementContext {
+	var p = new(MacroStatementContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_defineStatement
+	p.RuleIndex = unsafeParserRULE_macroStatement
 	return p
 }
 
-func InitEmptyDefineStatementContext(p *DefineStatementContext) {
+func InitEmptyMacroStatementContext(p *MacroStatementContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_defineStatement
+	p.RuleIndex = unsafeParserRULE_macroStatement
 }
 
-func (*DefineStatementContext) IsDefineStatementContext() {}
+func (*MacroStatementContext) IsMacroStatementContext() {}
 
-func NewDefineStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *DefineStatementContext {
-	var p = new(DefineStatementContext)
+func NewMacroStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *MacroStatementContext {
+	var p = new(MacroStatementContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = unsafeParserRULE_defineStatement
+	p.RuleIndex = unsafeParserRULE_macroStatement
 
 	return p
 }
 
-func (s *DefineStatementContext) GetParser() antlr.Parser { return s.parser }
+func (s *MacroStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *DefineStatementContext) AllDOUBLE_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_LBRACE)
+func (s *MacroStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
 }
 
-func (s *DefineStatementContext) DOUBLE_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_LBRACE, i)
+func (s *MacroStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
 }
 
-func (s *DefineStatementContext) DEFINE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserDEFINE, 0)
+func (s *MacroStatementContext) MACRO() antlr.TerminalNode {
+	return s.GetToken(unsafeParserMACRO, 0)
 }
 
-func (s *DefineStatementContext) AllIDENTIFIER() []antlr.TerminalNode {
+func (s *MacroStatementContext) AllIDENTIFIER() []antlr.TerminalNode {
 	return s.GetTokens(unsafeParserIDENTIFIER)
 }
 
-func (s *DefineStatementContext) IDENTIFIER(i int) antlr.TerminalNode {
+func (s *MacroStatementContext) IDENTIFIER(i int) antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, i)
 }
 
-func (s *DefineStatementContext) AllDOUBLE_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserDOUBLE_RBRACE)
+func (s *MacroStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
 }
 
-func (s *DefineStatementContext) DOUBLE_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_RBRACE, i)
+func (s *MacroStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
 }
 
-func (s *DefineStatementContext) Template() ITemplateContext {
+func (s *MacroStatementContext) Template() ITemplateContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITemplateContext); ok {
@@ -1505,75 +1757,79 @@ func (s *DefineStatementContext) Template() ITemplateContext {
 	return t.(ITemplateContext)
 }
 
-func (s *DefineStatementContext) END() antlr.TerminalNode {
+func (s *MacroStatementContext) END() antlr.TerminalNode {
 	return s.GetToken(unsafeParserEND, 0)
 }
 
-func (s *DefineStatementContext) LPAREN() antlr.TerminalNode {
+func (s *MacroStatementContext) ENDMACRO() antlr.TerminalNode {
+	return s.GetToken(unsafeParserENDMACRO, 0)
+}
+
+func (s *MacroStatementContext) LPAREN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserLPAREN, 0)
 }
 
-func (s *DefineStatementContext) RPAREN() antlr.TerminalNode {
+func (s *MacroStatementContext) RPAREN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserRPAREN, 0)
 }
 
-func (s *DefineStatementContext) AllCOMMA() []antlr.TerminalNode {
+func (s *MacroStatementContext) AllCOMMA() []antlr.TerminalNode {
 	return s.GetTokens(unsafeParserCOMMA)
 }
 
-func (s *DefineStatementContext) COMMA(i int) antlr.TerminalNode {
+func (s *MacroStatementContext) COMMA(i int) antlr.TerminalNode {
 	return s.GetToken(unsafeParserCOMMA, i)
 }
 
-func (s *DefineStatementContext) GetRuleContext() antlr.RuleContext {
+func (s *MacroStatementContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *DefineStatementContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *MacroStatementContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *DefineStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *MacroStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case unsafeParserVisitor:
-		return t.VisitDefineStatement(s)
+		return t.VisitMacroStatement(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
-	localctx = NewDefineStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 14, unsafeParserRULE_defineStatement)
+func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
+	localctx = NewMacroStatementContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 16, unsafeParserRULE_macroStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(71)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(85)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(72)
-		p.Match(unsafeParserDEFINE)
+		p.SetState(86)
+		p.Match(unsafeParserMACRO)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(73)
+		p.SetState(87)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(86)
+	p.SetState(100)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1582,14 +1838,14 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 
 	if _la == unsafeParserLPAREN {
 		{
-			p.SetState(74)
+			p.SetState(88)
 			p.Match(unsafeParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(83)
+		p.SetState(97)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1598,14 +1854,14 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 
 		if _la == unsafeParserIDENTIFIER {
 			{
-				p.SetState(75)
+				p.SetState(89)
 				p.Match(unsafeParserIDENTIFIER)
 				if p.HasError() {
 					// Recognition error - abort rule
 					goto errorExit
 				}
 			}
-			p.SetState(80)
+			p.SetState(94)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -1614,7 +1870,7 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 
 			for _la == unsafeParserCOMMA {
 				{
-					p.SetState(76)
+					p.SetState(90)
 					p.Match(unsafeParserCOMMA)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -1622,7 +1878,7 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 					}
 				}
 				{
-					p.SetState(77)
+					p.SetState(91)
 					p.Match(unsafeParserIDENTIFIER)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -1630,7 +1886,7 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 					}
 				}
 
-				p.SetState(82)
+				p.SetState(96)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -1640,7 +1896,7 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 
 		}
 		{
-			p.SetState(85)
+			p.SetState(99)
 			p.Match(unsafeParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1650,36 +1906,39 @@ func (p *unsafeParser) DefineStatement() (localctx IDefineStatementContext) {
 
 	}
 	{
-		p.SetState(88)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(102)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(89)
+		p.SetState(103)
 		p.Template()
 	}
 	{
-		p.SetState(90)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(104)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(91)
-		p.Match(unsafeParserEND)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
+		p.SetState(105)
+		_la = p.GetTokenStream().LA(1)
+
+		if !(_la == unsafeParserEND || _la == unsafeParserENDMACRO) {
+			p.GetErrorHandler().RecoverInline(p)
+		} else {
+			p.GetErrorHandler().ReportMatch(p)
+			p.Consume()
 		}
 	}
 	{
-		p.SetState(92)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(106)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1707,10 +1966,10 @@ type ITemplateStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	DOUBLE_LBRACE() antlr.TerminalNode
+	STATEMENT_LBRACE() antlr.TerminalNode
 	TEMPLATE() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
-	DOUBLE_RBRACE() antlr.TerminalNode
+	STATEMENT_RBRACE() antlr.TerminalNode
 	AllExpression() []IExpressionContext
 	Expression(i int) IExpressionContext
 
@@ -1750,8 +2009,8 @@ func NewTemplateStatementContext(parser antlr.Parser, parent antlr.ParserRuleCon
 
 func (s *TemplateStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *TemplateStatementContext) DOUBLE_LBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_LBRACE, 0)
+func (s *TemplateStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
 }
 
 func (s *TemplateStatementContext) TEMPLATE() antlr.TerminalNode {
@@ -1762,8 +2021,8 @@ func (s *TemplateStatementContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, 0)
 }
 
-func (s *TemplateStatementContext) DOUBLE_RBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_RBRACE, 0)
+func (s *TemplateStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
 }
 
 func (s *TemplateStatementContext) AllExpression() []IExpressionContext {
@@ -1827,20 +2086,20 @@ func (s *TemplateStatementContext) Accept(visitor antlr.ParseTreeVisitor) interf
 
 func (p *unsafeParser) TemplateStatement() (localctx ITemplateStatementContext) {
 	localctx = NewTemplateStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 16, unsafeParserRULE_templateStatement)
+	p.EnterRule(localctx, 18, unsafeParserRULE_templateStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(94)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(108)
+		p.Match(unsafeParserSTATEMENT_LBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(95)
+		p.SetState(109)
 		p.Match(unsafeParserTEMPLATE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1848,27 +2107,27 @@ func (p *unsafeParser) TemplateStatement() (localctx ITemplateStatementContext) 
 		}
 	}
 	{
-		p.SetState(96)
+		p.SetState(110)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(100)
+	p.SetState(114)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&459776) != 0 {
+	for _la == unsafeParserIDENTIFIER {
 		{
-			p.SetState(97)
+			p.SetState(111)
 			p.Expression()
 		}
 
-		p.SetState(102)
+		p.SetState(116)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1876,8 +2135,8 @@ func (p *unsafeParser) TemplateStatement() (localctx ITemplateStatementContext) 
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(103)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(117)
+		p.Match(unsafeParserSTATEMENT_RBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1979,10 +2238,10 @@ func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 func (p *unsafeParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 18, unsafeParserRULE_expression)
+	p.EnterRule(localctx, 20, unsafeParserRULE_expression)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(105)
+		p.SetState(119)
 		p.PipelineExpr()
 	}
 
@@ -2007,11 +2266,10 @@ type IPipelineExprContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	PrimaryExpr() IPrimaryExprContext
-	AllPIPE() []antlr.TerminalNode
-	PIPE(i int) antlr.TerminalNode
 	AllFunctionCall() []IFunctionCallContext
 	FunctionCall(i int) IFunctionCallContext
+	AllPIPE() []antlr.TerminalNode
+	PIPE(i int) antlr.TerminalNode
 
 	// IsPipelineExprContext differentiates from other interfaces.
 	IsPipelineExprContext()
@@ -2048,30 +2306,6 @@ func NewPipelineExprContext(parser antlr.Parser, parent antlr.ParserRuleContext,
 }
 
 func (s *PipelineExprContext) GetParser() antlr.Parser { return s.parser }
-
-func (s *PipelineExprContext) PrimaryExpr() IPrimaryExprContext {
-	var t antlr.RuleContext
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPrimaryExprContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(IPrimaryExprContext)
-}
-
-func (s *PipelineExprContext) AllPIPE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserPIPE)
-}
-
-func (s *PipelineExprContext) PIPE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserPIPE, i)
-}
 
 func (s *PipelineExprContext) AllFunctionCall() []IFunctionCallContext {
 	children := s.GetChildren()
@@ -2114,6 +2348,14 @@ func (s *PipelineExprContext) FunctionCall(i int) IFunctionCallContext {
 	return t.(IFunctionCallContext)
 }
 
+func (s *PipelineExprContext) AllPIPE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserPIPE)
+}
+
+func (s *PipelineExprContext) PIPE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserPIPE, i)
+}
+
 func (s *PipelineExprContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
@@ -2134,15 +2376,15 @@ func (s *PipelineExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{}
 
 func (p *unsafeParser) PipelineExpr() (localctx IPipelineExprContext) {
 	localctx = NewPipelineExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 20, unsafeParserRULE_pipelineExpr)
+	p.EnterRule(localctx, 22, unsafeParserRULE_pipelineExpr)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(107)
-		p.PrimaryExpr()
+		p.SetState(121)
+		p.FunctionCall()
 	}
-	p.SetState(112)
+	p.SetState(126)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2151,7 +2393,7 @@ func (p *unsafeParser) PipelineExpr() (localctx IPipelineExprContext) {
 
 	for _la == unsafeParserPIPE {
 		{
-			p.SetState(108)
+			p.SetState(122)
 			p.Match(unsafeParserPIPE)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2159,11 +2401,11 @@ func (p *unsafeParser) PipelineExpr() (localctx IPipelineExprContext) {
 			}
 		}
 		{
-			p.SetState(109)
+			p.SetState(123)
 			p.FunctionCall()
 		}
 
-		p.SetState(114)
+		p.SetState(128)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2195,6 +2437,7 @@ type IPrimaryExprContext interface {
 	NUMBER() antlr.TerminalNode
 	STRING() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
+	VarExpr() IVarExprContext
 	LPAREN() antlr.TerminalNode
 	Expression() IExpressionContext
 	RPAREN() antlr.TerminalNode
@@ -2247,6 +2490,22 @@ func (s *PrimaryExprContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, 0)
 }
 
+func (s *PrimaryExprContext) VarExpr() IVarExprContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IVarExprContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IVarExprContext)
+}
+
 func (s *PrimaryExprContext) LPAREN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserLPAREN, 0)
 }
@@ -2291,8 +2550,8 @@ func (s *PrimaryExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 
 func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 	localctx = NewPrimaryExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 22, unsafeParserRULE_primaryExpr)
-	p.SetState(122)
+	p.EnterRule(localctx, 24, unsafeParserRULE_primaryExpr)
+	p.SetState(137)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2302,7 +2561,7 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 	case unsafeParserNUMBER:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(115)
+			p.SetState(129)
 			p.Match(unsafeParserNUMBER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2313,7 +2572,7 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 	case unsafeParserSTRING:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(116)
+			p.SetState(130)
 			p.Match(unsafeParserSTRING)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2324,7 +2583,7 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 	case unsafeParserIDENTIFIER:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(117)
+			p.SetState(131)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2332,10 +2591,17 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 
-	case unsafeParserLPAREN:
+	case unsafeParserDOLLAR:
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(118)
+			p.SetState(132)
+			p.VarExpr()
+		}
+
+	case unsafeParserLPAREN:
+		p.EnterOuterAlt(localctx, 5)
+		{
+			p.SetState(133)
 			p.Match(unsafeParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2343,11 +2609,11 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 		{
-			p.SetState(119)
+			p.SetState(134)
 			p.Expression()
 		}
 		{
-			p.SetState(120)
+			p.SetState(135)
 			p.Match(unsafeParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2358,6 +2624,113 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 	default:
 		p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
 		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IVarExprContext is an interface to support dynamic dispatch.
+type IVarExprContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	DOLLAR() antlr.TerminalNode
+	IDENTIFIER() antlr.TerminalNode
+
+	// IsVarExprContext differentiates from other interfaces.
+	IsVarExprContext()
+}
+
+type VarExprContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyVarExprContext() *VarExprContext {
+	var p = new(VarExprContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_varExpr
+	return p
+}
+
+func InitEmptyVarExprContext(p *VarExprContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_varExpr
+}
+
+func (*VarExprContext) IsVarExprContext() {}
+
+func NewVarExprContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *VarExprContext {
+	var p = new(VarExprContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_varExpr
+
+	return p
+}
+
+func (s *VarExprContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *VarExprContext) DOLLAR() antlr.TerminalNode {
+	return s.GetToken(unsafeParserDOLLAR, 0)
+}
+
+func (s *VarExprContext) IDENTIFIER() antlr.TerminalNode {
+	return s.GetToken(unsafeParserIDENTIFIER, 0)
+}
+
+func (s *VarExprContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *VarExprContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *VarExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitVarExpr(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) VarExpr() (localctx IVarExprContext) {
+	localctx = NewVarExprContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 26, unsafeParserRULE_varExpr)
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(139)
+		p.Match(unsafeParserDOLLAR)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(140)
+		p.Match(unsafeParserIDENTIFIER)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
 	}
 
 errorExit:
@@ -2506,51 +2879,51 @@ func (s *FunctionCallContext) Accept(visitor antlr.ParseTreeVisitor) interface{}
 
 func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 	localctx = NewFunctionCallContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 24, unsafeParserRULE_functionCall)
+	p.EnterRule(localctx, 28, unsafeParserRULE_functionCall)
 	var _la int
 
 	var _alt int
 
-	p.SetState(144)
+	p.SetState(162)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 12, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 13, p.GetParserRuleContext()) {
 	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(124)
+			p.SetState(142)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(128)
+		p.SetState(146)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 		for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 			if _alt == 1 {
 				{
-					p.SetState(125)
+					p.SetState(143)
 					p.PrimaryExpr()
 				}
 
 			}
-			p.SetState(130)
+			p.SetState(148)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
-			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext())
+			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
 			if p.HasError() {
 				goto errorExit
 			}
@@ -2559,7 +2932,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(131)
+			p.SetState(149)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2567,28 +2940,28 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 			}
 		}
 		{
-			p.SetState(132)
+			p.SetState(150)
 			p.Match(unsafeParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(134)
+		p.SetState(152)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&459776) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&14696704) != 0 {
 			{
-				p.SetState(133)
+				p.SetState(151)
 				p.PrimaryExpr()
 			}
 
 		}
-		p.SetState(140)
+		p.SetState(158)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2597,7 +2970,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 
 		for _la == unsafeParserCOMMA {
 			{
-				p.SetState(136)
+				p.SetState(154)
 				p.Match(unsafeParserCOMMA)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -2605,11 +2978,11 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 				}
 			}
 			{
-				p.SetState(137)
+				p.SetState(155)
 				p.PrimaryExpr()
 			}
 
-			p.SetState(142)
+			p.SetState(160)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -2617,7 +2990,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 		{
-			p.SetState(143)
+			p.SetState(161)
 			p.Match(unsafeParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule

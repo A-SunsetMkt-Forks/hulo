@@ -22,14 +22,17 @@ type unsafeParserVisitor interface {
 	// Visit a parse tree produced by unsafeParser#ifStatement.
 	VisitIfStatement(ctx *IfStatementContext) interface{}
 
+	// Visit a parse tree produced by unsafeParser#elseStatement.
+	VisitElseStatement(ctx *ElseStatementContext) interface{}
+
 	// Visit a parse tree produced by unsafeParser#loopStatement.
 	VisitLoopStatement(ctx *LoopStatementContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#expressionStatement.
 	VisitExpressionStatement(ctx *ExpressionStatementContext) interface{}
 
-	// Visit a parse tree produced by unsafeParser#defineStatement.
-	VisitDefineStatement(ctx *DefineStatementContext) interface{}
+	// Visit a parse tree produced by unsafeParser#macroStatement.
+	VisitMacroStatement(ctx *MacroStatementContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#templateStatement.
 	VisitTemplateStatement(ctx *TemplateStatementContext) interface{}
@@ -42,6 +45,9 @@ type unsafeParserVisitor interface {
 
 	// Visit a parse tree produced by unsafeParser#primaryExpr.
 	VisitPrimaryExpr(ctx *PrimaryExprContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#varExpr.
+	VisitVarExpr(ctx *VarExprContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#functionCall.
 	VisitFunctionCall(ctx *FunctionCallContext) interface{}
