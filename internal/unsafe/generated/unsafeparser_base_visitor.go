@@ -1,48 +1,60 @@
-// Code generated from UnsafeParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from unsafeParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package generated // UnsafeParser
+package generated // unsafeParser
 import "github.com/antlr4-go/antlr/v4"
 
-type BaseUnsafeParserVisitor struct {
+type BaseunsafeParserVisitor struct {
 	*antlr.BaseParseTreeVisitor
 }
 
-func (v *BaseUnsafeParserVisitor) VisitTemplate(ctx *TemplateContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitTemplate(ctx *TemplateContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitContent(ctx *ContentContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitContent(ctx *ContentContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitStatement(ctx *StatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitStatement(ctx *StatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitIfStatement(ctx *IfStatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitVariableStatement(ctx *VariableStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitLoopStatement(ctx *LoopStatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitIfStatement(ctx *IfStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitExpressionStatement(ctx *ExpressionStatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitLoopStatement(ctx *LoopStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitExpression(ctx *ExpressionContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitExpressionStatement(ctx *ExpressionStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitPipelineExpr(ctx *PipelineExprContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitDefineStatement(ctx *DefineStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitTemplateStatement(ctx *TemplateStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseUnsafeParserVisitor) VisitFunctionCall(ctx *FunctionCallContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitExpression(ctx *ExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitPipelineExpr(ctx *PipelineExprContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitFunctionCall(ctx *FunctionCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }

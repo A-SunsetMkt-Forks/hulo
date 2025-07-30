@@ -1,39 +1,48 @@
-// Code generated from UnsafeParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from unsafeParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
-package generated // UnsafeParser
+package generated // unsafeParser
 import "github.com/antlr4-go/antlr/v4"
 
-// A complete Visitor for a parse tree produced by UnsafeParser.
-type UnsafeParserVisitor interface {
+// A complete Visitor for a parse tree produced by unsafeParser.
+type unsafeParserVisitor interface {
 	antlr.ParseTreeVisitor
 
-	// Visit a parse tree produced by UnsafeParser#template.
+	// Visit a parse tree produced by unsafeParser#template.
 	VisitTemplate(ctx *TemplateContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#content.
+	// Visit a parse tree produced by unsafeParser#content.
 	VisitContent(ctx *ContentContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#statement.
+	// Visit a parse tree produced by unsafeParser#statement.
 	VisitStatement(ctx *StatementContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#ifStatement.
+	// Visit a parse tree produced by unsafeParser#variableStatement.
+	VisitVariableStatement(ctx *VariableStatementContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#ifStatement.
 	VisitIfStatement(ctx *IfStatementContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#loopStatement.
+	// Visit a parse tree produced by unsafeParser#loopStatement.
 	VisitLoopStatement(ctx *LoopStatementContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#expressionStatement.
+	// Visit a parse tree produced by unsafeParser#expressionStatement.
 	VisitExpressionStatement(ctx *ExpressionStatementContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#expression.
+	// Visit a parse tree produced by unsafeParser#defineStatement.
+	VisitDefineStatement(ctx *DefineStatementContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#templateStatement.
+	VisitTemplateStatement(ctx *TemplateStatementContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#expression.
 	VisitExpression(ctx *ExpressionContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#pipelineExpr.
+	// Visit a parse tree produced by unsafeParser#pipelineExpr.
 	VisitPipelineExpr(ctx *PipelineExprContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#primaryExpr.
+	// Visit a parse tree produced by unsafeParser#primaryExpr.
 	VisitPrimaryExpr(ctx *PrimaryExprContext) interface{}
 
-	// Visit a parse tree produced by UnsafeParser#functionCall.
+	// Visit a parse tree produced by unsafeParser#functionCall.
 	VisitFunctionCall(ctx *FunctionCallContext) interface{}
 }

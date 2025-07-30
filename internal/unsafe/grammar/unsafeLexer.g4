@@ -13,6 +13,8 @@ IF: 'if';
 LOOP: 'loop';
 END: 'end';
 IN: 'in';
+DEFINE: 'define';
+TEMPLATE: 'template';
 
 LPAREN: '(';
 RPAREN: ')';
@@ -20,6 +22,7 @@ RPAREN: ')';
 DOLLAR: '$';
 PIPE: '|';
 COMMA: ',';
+COLON_EQUAL: ':=';
 
 IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
 

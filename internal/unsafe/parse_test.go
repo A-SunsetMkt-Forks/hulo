@@ -9,5 +9,7 @@ import (
 func TestParse(t *testing.T) {
 	unsafe.Parse(`{{ loop item in items }}
 	echo {{i}}
-{{ end }}`)
+{{ end }}
+
+{{ sum 1 2  }}`)
 }
