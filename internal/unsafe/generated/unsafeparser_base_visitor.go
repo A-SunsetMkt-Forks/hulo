@@ -19,6 +19,10 @@ func (v *BaseunsafeParserVisitor) VisitStatement(ctx *StatementContext) interfac
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseunsafeParserVisitor) VisitCommentStatement(ctx *CommentStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseunsafeParserVisitor) VisitVariableStatement(ctx *VariableStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -43,7 +47,7 @@ func (v *BaseunsafeParserVisitor) VisitMacroStatement(ctx *MacroStatementContext
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseunsafeParserVisitor) VisitTemplateStatement(ctx *TemplateStatementContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitPipelineExpression(ctx *PipelineExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -51,11 +55,23 @@ func (v *BaseunsafeParserVisitor) VisitExpression(ctx *ExpressionContext) interf
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseunsafeParserVisitor) VisitPipelineExpr(ctx *PipelineExprContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitLogicalOrExpression(ctx *LogicalOrExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseunsafeParserVisitor) VisitPrimaryExpr(ctx *PrimaryExprContext) interface{} {
+func (v *BaseunsafeParserVisitor) VisitLogicalAndExpression(ctx *LogicalAndExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitEqualityExpression(ctx *EqualityExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitComparisonExpression(ctx *ComparisonExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitPrimaryExpression(ctx *PrimaryExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -64,5 +80,25 @@ func (v *BaseunsafeParserVisitor) VisitVarExpr(ctx *VarExprContext) interface{} 
 }
 
 func (v *BaseunsafeParserVisitor) VisitFunctionCall(ctx *FunctionCallContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitLogicalOrExpressionStmt(ctx *LogicalOrExpressionStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitLogicalAndExpressionStmt(ctx *LogicalAndExpressionStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitEqualityExpressionStmt(ctx *EqualityExpressionStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitComparisonExpressionStmt(ctx *ComparisonExpressionStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseunsafeParserVisitor) VisitPrimaryExpressionStmt(ctx *PrimaryExpressionStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }

@@ -16,6 +16,9 @@ type unsafeParserVisitor interface {
 	// Visit a parse tree produced by unsafeParser#statement.
 	VisitStatement(ctx *StatementContext) interface{}
 
+	// Visit a parse tree produced by unsafeParser#commentStatement.
+	VisitCommentStatement(ctx *CommentStatementContext) interface{}
+
 	// Visit a parse tree produced by unsafeParser#variableStatement.
 	VisitVariableStatement(ctx *VariableStatementContext) interface{}
 
@@ -34,21 +37,45 @@ type unsafeParserVisitor interface {
 	// Visit a parse tree produced by unsafeParser#macroStatement.
 	VisitMacroStatement(ctx *MacroStatementContext) interface{}
 
-	// Visit a parse tree produced by unsafeParser#templateStatement.
-	VisitTemplateStatement(ctx *TemplateStatementContext) interface{}
+	// Visit a parse tree produced by unsafeParser#pipelineExpression.
+	VisitPipelineExpression(ctx *PipelineExpressionContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#expression.
 	VisitExpression(ctx *ExpressionContext) interface{}
 
-	// Visit a parse tree produced by unsafeParser#pipelineExpr.
-	VisitPipelineExpr(ctx *PipelineExprContext) interface{}
+	// Visit a parse tree produced by unsafeParser#logicalOrExpression.
+	VisitLogicalOrExpression(ctx *LogicalOrExpressionContext) interface{}
 
-	// Visit a parse tree produced by unsafeParser#primaryExpr.
-	VisitPrimaryExpr(ctx *PrimaryExprContext) interface{}
+	// Visit a parse tree produced by unsafeParser#logicalAndExpression.
+	VisitLogicalAndExpression(ctx *LogicalAndExpressionContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#equalityExpression.
+	VisitEqualityExpression(ctx *EqualityExpressionContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#comparisonExpression.
+	VisitComparisonExpression(ctx *ComparisonExpressionContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#primaryExpression.
+	VisitPrimaryExpression(ctx *PrimaryExpressionContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#varExpr.
 	VisitVarExpr(ctx *VarExprContext) interface{}
 
 	// Visit a parse tree produced by unsafeParser#functionCall.
 	VisitFunctionCall(ctx *FunctionCallContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#logicalOrExpressionStmt.
+	VisitLogicalOrExpressionStmt(ctx *LogicalOrExpressionStmtContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#logicalAndExpressionStmt.
+	VisitLogicalAndExpressionStmt(ctx *LogicalAndExpressionStmtContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#equalityExpressionStmt.
+	VisitEqualityExpressionStmt(ctx *EqualityExpressionStmtContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#comparisonExpressionStmt.
+	VisitComparisonExpressionStmt(ctx *ComparisonExpressionStmtContext) interface{}
+
+	// Visit a parse tree produced by unsafeParser#primaryExpressionStmt.
+	VisitPrimaryExpressionStmt(ctx *PrimaryExpressionStmtContext) interface{}
 }

@@ -1,0 +1,46 @@
+fn main() {
+    comptime {
+        echo "Current line: $LINE"
+        echo "Current file: $FILE"
+        echo "Target platform: $TARGET"
+
+        if $TARGET == "vbs" {
+            echo "VBScript target detected at line $LINE"
+        } else if $TARGET == "ps" {
+            echo "PowerShell target detected at line $LINE"
+        }
+    }
+
+    unsafe """
+        echo "Hello from line {{ $LINE }}"
+        echo "File: {{ $FILE }}"
+        echo "Target: {{ $TARGET }}"
+
+        {{ if $TARGET == "vbs" }}
+        echo "VBScript code here"
+        {{ else }}
+        echo "Other platform code here"
+        {{ end }}
+    """
+
+    comptime {
+        echo "Outer comptime at line $LINE"
+
+        unsafe """
+            echo "Inner unsafe at line {{ $LINE }}"
+            echo "Generated from template"
+        """
+    }
+}
+
+fn process_data() {
+    comptime {
+        echo "Processing data at line $LINE"
+        echo "Function: process_data"
+    }
+
+    unsafe """
+        echo "Data processing at line {{ $LINE }}"
+        echo "Function: {{ $FUNCTION }}"
+    """
+}

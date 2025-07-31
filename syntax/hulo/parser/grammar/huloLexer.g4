@@ -172,8 +172,6 @@ BOOL : 'bool';
 ANY  : 'any';
 VOID : 'void';
 
-UnsafeLiteral: '__UNSAFE_BEGIN__' .*? '__UNSAFE_END__';
-
 fragment TRUE  : 'true';
 fragment FALSE : 'false';
 

@@ -78,7 +78,7 @@ func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 		return interp.rebuildFuncDecl(node)
 	case *ast.CommentGroup:
 		return interp.rebuildCommentGroup(node)
-	case *ast.UnsafeStmt:
+	case *ast.UnsafeExpr:
 		return interp.rebuildUnsafeStmt(node)
 	case *ast.ExternDecl:
 		return interp.rebuildExternDecl(node)
@@ -373,7 +373,7 @@ func (interp *Interpreter) rebuildCallExpr(node *ast.CallExpr) ast.Node {
 	return &ast.CallExpr{Fun: newFun.(ast.Expr), Recv: newRecv}
 }
 
-func (interp *Interpreter) rebuildUnsafeStmt(node *ast.UnsafeStmt) ast.Node {
+func (interp *Interpreter) rebuildUnsafeStmt(node *ast.UnsafeExpr) ast.Node {
 	return node
 }
 

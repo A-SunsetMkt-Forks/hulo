@@ -32,96 +32,158 @@ var UnsafeParserParserStaticData struct {
 func unsafeparserParserInit() {
 	staticData := &UnsafeParserParserStaticData
 	staticData.LiteralNames = []string{
-		"", "'{#'", "'{{'", "'{%'", "", "'#}'", "", "'}}'", "'('", "')'", "'{'",
-		"'}'", "'#'", "'%'", "'$'", "'|'", "','", "':='", "'.'", "'''", "'\"'",
-		"", "", "", "", "", "'%}'", "'if'", "'else'", "'loop'", "'in'", "'macro'",
-		"'template'", "'end'", "'endif'", "'endloop'", "'endmacro'",
+		"", "'{#'", "'{{'", "'{%'", "", "'#}'", "", "'}}'", "", "", "'{'", "'}'",
+		"'#'", "'%'", "'$'", "'|'", "','", "':='", "'.'", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "'%}'", "", "", "'if'", "'else'",
+		"'loop'", "'in'", "'macro'", "'end'", "'endif'", "'endloop'", "'endmacro'",
 	}
 	staticData.SymbolicNames = []string{
-		"", "COMMENT_LBRACE", "DOUBLE_LBRACE", "STATEMENT_LBRACE", "TEXT", "COMMENT_RBRACE",
-		"COMMENT_CONTENT", "DOUBLE_RBRACE", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
-		"HASH", "MOD", "DOLLAR", "PIPE", "COMMA", "COLON_EQUAL", "DOT", "SINGLE_QUOTE",
-		"QUOTE", "STRING", "NUMBER", "IDENTIFIER", "ESC", "WS", "STATEMENT_RBRACE",
-		"IF", "ELSE", "LOOP", "IN", "MACRO", "TEMPLATE", "END", "ENDIF", "ENDLOOP",
-		"ENDMACRO", "IDENTIFIER_STMT", "WS_STMT",
+		"", "COMMENT_START", "EXPR_START", "STMT_START", "TEXT", "COMMENT_END",
+		"COMMENT_CONTENT", "EXPR_END", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
+		"HASH", "MOD", "DOLLAR", "PIPE", "COMMA", "COLON_EQUAL", "DOT", "EQ",
+		"NE", "GT", "LT", "GE", "LE", "AND", "OR", "NOT", "STRING", "NUMBER",
+		"BOOLEAN", "IDENTIFIER", "WS", "STMT_END", "LPAREN_STMT", "RPAREN_STMT",
+		"IF", "ELSE", "LOOP", "IN", "MACRO", "END", "ENDIF", "ENDLOOP", "ENDMACRO",
+		"EQ_STMT", "NE_STMT", "GT_STMT", "LT_STMT", "GE_STMT", "LE_STMT", "AND_STMT",
+		"OR_STMT", "NOT_STMT", "STRING_STMT", "NUMBER_STMT", "BOOLEAN_STMT",
+		"IDENTIFIER_STMT", "WS_STMT",
 	}
 	staticData.RuleNames = []string{
-		"template", "content", "statement", "variableStatement", "ifStatement",
-		"elseStatement", "loopStatement", "expressionStatement", "macroStatement",
-		"templateStatement", "expression", "pipelineExpr", "primaryExpr", "varExpr",
-		"functionCall",
+		"template", "content", "statement", "commentStatement", "variableStatement",
+		"ifStatement", "elseStatement", "loopStatement", "expressionStatement",
+		"macroStatement", "pipelineExpression", "expression", "logicalOrExpression",
+		"logicalAndExpression", "equalityExpression", "comparisonExpression",
+		"primaryExpression", "varExpr", "functionCall", "logicalOrExpressionStmt",
+		"logicalAndExpressionStmt", "equalityExpressionStmt", "comparisonExpressionStmt",
+		"primaryExpressionStmt",
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 38, 165, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 58, 276, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
-		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 1, 0, 1, 0,
-		5, 0, 33, 8, 0, 10, 0, 12, 0, 36, 9, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1,
-		2, 1, 2, 1, 2, 3, 2, 46, 8, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 4,
-		1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4, 60, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1,
-		5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1,
-		6, 1, 6, 1, 6, 1, 6, 1, 7, 1, 7, 1, 7, 1, 7, 1, 8, 1, 8, 1, 8, 1, 8, 1,
-		8, 1, 8, 1, 8, 5, 8, 93, 8, 8, 10, 8, 12, 8, 96, 9, 8, 3, 8, 98, 8, 8,
-		1, 8, 3, 8, 101, 8, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 8, 1, 9, 1, 9,
-		1, 9, 1, 9, 5, 9, 113, 8, 9, 10, 9, 12, 9, 116, 9, 9, 1, 9, 1, 9, 1, 10,
-		1, 10, 1, 11, 1, 11, 1, 11, 5, 11, 125, 8, 11, 10, 11, 12, 11, 128, 9,
-		11, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 1, 12, 3, 12, 138,
-		8, 12, 1, 13, 1, 13, 1, 13, 1, 14, 1, 14, 5, 14, 145, 8, 14, 10, 14, 12,
-		14, 148, 9, 14, 1, 14, 1, 14, 1, 14, 3, 14, 153, 8, 14, 1, 14, 1, 14, 5,
-		14, 157, 8, 14, 10, 14, 12, 14, 160, 9, 14, 1, 14, 3, 14, 163, 8, 14, 1,
-		14, 0, 0, 15, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 0,
-		3, 1, 0, 33, 34, 2, 0, 33, 33, 35, 35, 2, 0, 33, 33, 36, 36, 170, 0, 34,
-		1, 0, 0, 0, 2, 37, 1, 0, 0, 0, 4, 45, 1, 0, 0, 0, 6, 47, 1, 0, 0, 0, 8,
-		53, 1, 0, 0, 0, 10, 65, 1, 0, 0, 0, 12, 70, 1, 0, 0, 0, 14, 81, 1, 0, 0,
-		0, 16, 85, 1, 0, 0, 0, 18, 108, 1, 0, 0, 0, 20, 119, 1, 0, 0, 0, 22, 121,
-		1, 0, 0, 0, 24, 137, 1, 0, 0, 0, 26, 139, 1, 0, 0, 0, 28, 162, 1, 0, 0,
-		0, 30, 33, 3, 2, 1, 0, 31, 33, 3, 4, 2, 0, 32, 30, 1, 0, 0, 0, 32, 31,
-		1, 0, 0, 0, 33, 36, 1, 0, 0, 0, 34, 32, 1, 0, 0, 0, 34, 35, 1, 0, 0, 0,
-		35, 1, 1, 0, 0, 0, 36, 34, 1, 0, 0, 0, 37, 38, 5, 4, 0, 0, 38, 3, 1, 0,
-		0, 0, 39, 46, 3, 8, 4, 0, 40, 46, 3, 12, 6, 0, 41, 46, 3, 14, 7, 0, 42,
-		46, 3, 16, 8, 0, 43, 46, 3, 18, 9, 0, 44, 46, 3, 6, 3, 0, 45, 39, 1, 0,
-		0, 0, 45, 40, 1, 0, 0, 0, 45, 41, 1, 0, 0, 0, 45, 42, 1, 0, 0, 0, 45, 43,
-		1, 0, 0, 0, 45, 44, 1, 0, 0, 0, 46, 5, 1, 0, 0, 0, 47, 48, 5, 3, 0, 0,
-		48, 49, 5, 23, 0, 0, 49, 50, 5, 17, 0, 0, 50, 51, 3, 20, 10, 0, 51, 52,
-		5, 26, 0, 0, 52, 7, 1, 0, 0, 0, 53, 54, 5, 3, 0, 0, 54, 55, 5, 27, 0, 0,
-		55, 56, 3, 20, 10, 0, 56, 57, 5, 26, 0, 0, 57, 59, 3, 0, 0, 0, 58, 60,
-		3, 10, 5, 0, 59, 58, 1, 0, 0, 0, 59, 60, 1, 0, 0, 0, 60, 61, 1, 0, 0, 0,
-		61, 62, 5, 3, 0, 0, 62, 63, 7, 0, 0, 0, 63, 64, 5, 26, 0, 0, 64, 9, 1,
-		0, 0, 0, 65, 66, 5, 3, 0, 0, 66, 67, 5, 28, 0, 0, 67, 68, 5, 26, 0, 0,
-		68, 69, 3, 0, 0, 0, 69, 11, 1, 0, 0, 0, 70, 71, 5, 3, 0, 0, 71, 72, 5,
-		29, 0, 0, 72, 73, 5, 23, 0, 0, 73, 74, 5, 30, 0, 0, 74, 75, 5, 23, 0, 0,
-		75, 76, 5, 26, 0, 0, 76, 77, 3, 0, 0, 0, 77, 78, 5, 3, 0, 0, 78, 79, 7,
-		1, 0, 0, 79, 80, 5, 26, 0, 0, 80, 13, 1, 0, 0, 0, 81, 82, 5, 2, 0, 0, 82,
-		83, 3, 20, 10, 0, 83, 84, 5, 7, 0, 0, 84, 15, 1, 0, 0, 0, 85, 86, 5, 3,
-		0, 0, 86, 87, 5, 31, 0, 0, 87, 100, 5, 23, 0, 0, 88, 97, 5, 8, 0, 0, 89,
-		94, 5, 23, 0, 0, 90, 91, 5, 16, 0, 0, 91, 93, 5, 23, 0, 0, 92, 90, 1, 0,
-		0, 0, 93, 96, 1, 0, 0, 0, 94, 92, 1, 0, 0, 0, 94, 95, 1, 0, 0, 0, 95, 98,
-		1, 0, 0, 0, 96, 94, 1, 0, 0, 0, 97, 89, 1, 0, 0, 0, 97, 98, 1, 0, 0, 0,
-		98, 99, 1, 0, 0, 0, 99, 101, 5, 9, 0, 0, 100, 88, 1, 0, 0, 0, 100, 101,
-		1, 0, 0, 0, 101, 102, 1, 0, 0, 0, 102, 103, 5, 26, 0, 0, 103, 104, 3, 0,
-		0, 0, 104, 105, 5, 3, 0, 0, 105, 106, 7, 2, 0, 0, 106, 107, 5, 26, 0, 0,
-		107, 17, 1, 0, 0, 0, 108, 109, 5, 3, 0, 0, 109, 110, 5, 32, 0, 0, 110,
-		114, 5, 23, 0, 0, 111, 113, 3, 20, 10, 0, 112, 111, 1, 0, 0, 0, 113, 116,
-		1, 0, 0, 0, 114, 112, 1, 0, 0, 0, 114, 115, 1, 0, 0, 0, 115, 117, 1, 0,
-		0, 0, 116, 114, 1, 0, 0, 0, 117, 118, 5, 26, 0, 0, 118, 19, 1, 0, 0, 0,
-		119, 120, 3, 22, 11, 0, 120, 21, 1, 0, 0, 0, 121, 126, 3, 28, 14, 0, 122,
-		123, 5, 15, 0, 0, 123, 125, 3, 28, 14, 0, 124, 122, 1, 0, 0, 0, 125, 128,
-		1, 0, 0, 0, 126, 124, 1, 0, 0, 0, 126, 127, 1, 0, 0, 0, 127, 23, 1, 0,
-		0, 0, 128, 126, 1, 0, 0, 0, 129, 138, 5, 22, 0, 0, 130, 138, 5, 21, 0,
-		0, 131, 138, 5, 23, 0, 0, 132, 138, 3, 26, 13, 0, 133, 134, 5, 8, 0, 0,
-		134, 135, 3, 20, 10, 0, 135, 136, 5, 9, 0, 0, 136, 138, 1, 0, 0, 0, 137,
-		129, 1, 0, 0, 0, 137, 130, 1, 0, 0, 0, 137, 131, 1, 0, 0, 0, 137, 132,
-		1, 0, 0, 0, 137, 133, 1, 0, 0, 0, 138, 25, 1, 0, 0, 0, 139, 140, 5, 14,
-		0, 0, 140, 141, 5, 23, 0, 0, 141, 27, 1, 0, 0, 0, 142, 146, 5, 23, 0, 0,
-		143, 145, 3, 24, 12, 0, 144, 143, 1, 0, 0, 0, 145, 148, 1, 0, 0, 0, 146,
-		144, 1, 0, 0, 0, 146, 147, 1, 0, 0, 0, 147, 163, 1, 0, 0, 0, 148, 146,
-		1, 0, 0, 0, 149, 150, 5, 23, 0, 0, 150, 152, 5, 8, 0, 0, 151, 153, 3, 24,
-		12, 0, 152, 151, 1, 0, 0, 0, 152, 153, 1, 0, 0, 0, 153, 158, 1, 0, 0, 0,
-		154, 155, 5, 16, 0, 0, 155, 157, 3, 24, 12, 0, 156, 154, 1, 0, 0, 0, 157,
-		160, 1, 0, 0, 0, 158, 156, 1, 0, 0, 0, 158, 159, 1, 0, 0, 0, 159, 161,
-		1, 0, 0, 0, 160, 158, 1, 0, 0, 0, 161, 163, 5, 9, 0, 0, 162, 142, 1, 0,
-		0, 0, 162, 149, 1, 0, 0, 0, 163, 29, 1, 0, 0, 0, 14, 32, 34, 45, 59, 94,
-		97, 100, 114, 126, 137, 146, 152, 158, 162,
+		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 2, 15, 7, 15,
+		2, 16, 7, 16, 2, 17, 7, 17, 2, 18, 7, 18, 2, 19, 7, 19, 2, 20, 7, 20, 2,
+		21, 7, 21, 2, 22, 7, 22, 2, 23, 7, 23, 1, 0, 1, 0, 5, 0, 51, 8, 0, 10,
+		0, 12, 0, 54, 9, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 3,
+		2, 64, 8, 2, 1, 3, 1, 3, 1, 3, 1, 3, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4,
+		1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 1, 5, 3, 5, 82, 8, 5, 1, 5, 1, 5, 1, 5, 1,
+		5, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 7, 1,
+		7, 1, 7, 1, 7, 1, 7, 1, 7, 1, 8, 1, 8, 1, 8, 1, 8, 1, 9, 1, 9, 1, 9, 1,
+		9, 1, 9, 1, 9, 1, 9, 5, 9, 115, 8, 9, 10, 9, 12, 9, 118, 9, 9, 3, 9, 120,
+		8, 9, 1, 9, 3, 9, 123, 8, 9, 1, 9, 1, 9, 1, 9, 1, 9, 1, 9, 1, 9, 1, 10,
+		1, 10, 1, 10, 5, 10, 134, 8, 10, 10, 10, 12, 10, 137, 9, 10, 1, 11, 1,
+		11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11, 1, 11,
+		1, 11, 1, 11, 1, 11, 3, 11, 154, 8, 11, 1, 12, 1, 12, 1, 12, 5, 12, 159,
+		8, 12, 10, 12, 12, 12, 162, 9, 12, 1, 13, 1, 13, 1, 13, 5, 13, 167, 8,
+		13, 10, 13, 12, 13, 170, 9, 13, 1, 14, 1, 14, 1, 14, 5, 14, 175, 8, 14,
+		10, 14, 12, 14, 178, 9, 14, 1, 15, 1, 15, 1, 15, 5, 15, 183, 8, 15, 10,
+		15, 12, 15, 186, 9, 15, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16,
+		1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 3,
+		16, 205, 8, 16, 1, 17, 1, 17, 1, 17, 1, 18, 1, 18, 5, 18, 212, 8, 18, 10,
+		18, 12, 18, 215, 9, 18, 1, 18, 1, 18, 1, 18, 3, 18, 220, 8, 18, 1, 18,
+		1, 18, 5, 18, 224, 8, 18, 10, 18, 12, 18, 227, 9, 18, 1, 18, 3, 18, 230,
+		8, 18, 1, 19, 1, 19, 1, 19, 5, 19, 235, 8, 19, 10, 19, 12, 19, 238, 9,
+		19, 1, 20, 1, 20, 1, 20, 5, 20, 243, 8, 20, 10, 20, 12, 20, 246, 9, 20,
+		1, 21, 1, 21, 1, 21, 5, 21, 251, 8, 21, 10, 21, 12, 21, 254, 9, 21, 1,
+		22, 1, 22, 1, 22, 5, 22, 259, 8, 22, 10, 22, 12, 22, 262, 9, 22, 1, 23,
+		1, 23, 1, 23, 1, 23, 1, 23, 1, 23, 1, 23, 1, 23, 1, 23, 1, 23, 3, 23, 274,
+		8, 23, 1, 23, 0, 0, 24, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24,
+		26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 0, 7, 1, 0, 41, 42, 2, 0, 41,
+		41, 43, 43, 2, 0, 41, 41, 44, 44, 1, 0, 19, 20, 1, 0, 21, 24, 1, 0, 45,
+		46, 1, 0, 47, 50, 302, 0, 52, 1, 0, 0, 0, 2, 55, 1, 0, 0, 0, 4, 63, 1,
+		0, 0, 0, 6, 65, 1, 0, 0, 0, 8, 69, 1, 0, 0, 0, 10, 75, 1, 0, 0, 0, 12,
+		87, 1, 0, 0, 0, 14, 92, 1, 0, 0, 0, 16, 103, 1, 0, 0, 0, 18, 107, 1, 0,
+		0, 0, 20, 130, 1, 0, 0, 0, 22, 153, 1, 0, 0, 0, 24, 155, 1, 0, 0, 0, 26,
+		163, 1, 0, 0, 0, 28, 171, 1, 0, 0, 0, 30, 179, 1, 0, 0, 0, 32, 204, 1,
+		0, 0, 0, 34, 206, 1, 0, 0, 0, 36, 229, 1, 0, 0, 0, 38, 231, 1, 0, 0, 0,
+		40, 239, 1, 0, 0, 0, 42, 247, 1, 0, 0, 0, 44, 255, 1, 0, 0, 0, 46, 273,
+		1, 0, 0, 0, 48, 51, 3, 2, 1, 0, 49, 51, 3, 4, 2, 0, 50, 48, 1, 0, 0, 0,
+		50, 49, 1, 0, 0, 0, 51, 54, 1, 0, 0, 0, 52, 50, 1, 0, 0, 0, 52, 53, 1,
+		0, 0, 0, 53, 1, 1, 0, 0, 0, 54, 52, 1, 0, 0, 0, 55, 56, 5, 4, 0, 0, 56,
+		3, 1, 0, 0, 0, 57, 64, 3, 6, 3, 0, 58, 64, 3, 10, 5, 0, 59, 64, 3, 14,
+		7, 0, 60, 64, 3, 16, 8, 0, 61, 64, 3, 18, 9, 0, 62, 64, 3, 8, 4, 0, 63,
+		57, 1, 0, 0, 0, 63, 58, 1, 0, 0, 0, 63, 59, 1, 0, 0, 0, 63, 60, 1, 0, 0,
+		0, 63, 61, 1, 0, 0, 0, 63, 62, 1, 0, 0, 0, 64, 5, 1, 0, 0, 0, 65, 66, 5,
+		1, 0, 0, 66, 67, 5, 6, 0, 0, 67, 68, 5, 5, 0, 0, 68, 7, 1, 0, 0, 0, 69,
+		70, 5, 3, 0, 0, 70, 71, 5, 31, 0, 0, 71, 72, 5, 17, 0, 0, 72, 73, 3, 22,
+		11, 0, 73, 74, 5, 33, 0, 0, 74, 9, 1, 0, 0, 0, 75, 76, 5, 3, 0, 0, 76,
+		77, 5, 36, 0, 0, 77, 78, 3, 22, 11, 0, 78, 79, 5, 33, 0, 0, 79, 81, 3,
+		0, 0, 0, 80, 82, 3, 12, 6, 0, 81, 80, 1, 0, 0, 0, 81, 82, 1, 0, 0, 0, 82,
+		83, 1, 0, 0, 0, 83, 84, 5, 3, 0, 0, 84, 85, 7, 0, 0, 0, 85, 86, 5, 33,
+		0, 0, 86, 11, 1, 0, 0, 0, 87, 88, 5, 3, 0, 0, 88, 89, 5, 37, 0, 0, 89,
+		90, 5, 33, 0, 0, 90, 91, 3, 0, 0, 0, 91, 13, 1, 0, 0, 0, 92, 93, 5, 3,
+		0, 0, 93, 94, 5, 38, 0, 0, 94, 95, 5, 57, 0, 0, 95, 96, 5, 39, 0, 0, 96,
+		97, 5, 57, 0, 0, 97, 98, 5, 33, 0, 0, 98, 99, 3, 0, 0, 0, 99, 100, 5, 3,
+		0, 0, 100, 101, 7, 1, 0, 0, 101, 102, 5, 33, 0, 0, 102, 15, 1, 0, 0, 0,
+		103, 104, 5, 2, 0, 0, 104, 105, 3, 20, 10, 0, 105, 106, 5, 7, 0, 0, 106,
+		17, 1, 0, 0, 0, 107, 108, 5, 3, 0, 0, 108, 109, 5, 40, 0, 0, 109, 122,
+		5, 57, 0, 0, 110, 119, 5, 34, 0, 0, 111, 116, 5, 57, 0, 0, 112, 113, 5,
+		16, 0, 0, 113, 115, 5, 57, 0, 0, 114, 112, 1, 0, 0, 0, 115, 118, 1, 0,
+		0, 0, 116, 114, 1, 0, 0, 0, 116, 117, 1, 0, 0, 0, 117, 120, 1, 0, 0, 0,
+		118, 116, 1, 0, 0, 0, 119, 111, 1, 0, 0, 0, 119, 120, 1, 0, 0, 0, 120,
+		121, 1, 0, 0, 0, 121, 123, 5, 35, 0, 0, 122, 110, 1, 0, 0, 0, 122, 123,
+		1, 0, 0, 0, 123, 124, 1, 0, 0, 0, 124, 125, 5, 33, 0, 0, 125, 126, 3, 0,
+		0, 0, 126, 127, 5, 3, 0, 0, 127, 128, 7, 2, 0, 0, 128, 129, 5, 33, 0, 0,
+		129, 19, 1, 0, 0, 0, 130, 135, 3, 22, 11, 0, 131, 132, 5, 15, 0, 0, 132,
+		134, 3, 22, 11, 0, 133, 131, 1, 0, 0, 0, 134, 137, 1, 0, 0, 0, 135, 133,
+		1, 0, 0, 0, 135, 136, 1, 0, 0, 0, 136, 21, 1, 0, 0, 0, 137, 135, 1, 0,
+		0, 0, 138, 154, 5, 29, 0, 0, 139, 154, 5, 28, 0, 0, 140, 154, 5, 30, 0,
+		0, 141, 154, 5, 31, 0, 0, 142, 154, 5, 55, 0, 0, 143, 154, 5, 54, 0, 0,
+		144, 154, 5, 56, 0, 0, 145, 154, 3, 34, 17, 0, 146, 147, 5, 8, 0, 0, 147,
+		148, 3, 22, 11, 0, 148, 149, 5, 9, 0, 0, 149, 154, 1, 0, 0, 0, 150, 154,
+		3, 36, 18, 0, 151, 154, 3, 24, 12, 0, 152, 154, 3, 38, 19, 0, 153, 138,
+		1, 0, 0, 0, 153, 139, 1, 0, 0, 0, 153, 140, 1, 0, 0, 0, 153, 141, 1, 0,
+		0, 0, 153, 142, 1, 0, 0, 0, 153, 143, 1, 0, 0, 0, 153, 144, 1, 0, 0, 0,
+		153, 145, 1, 0, 0, 0, 153, 146, 1, 0, 0, 0, 153, 150, 1, 0, 0, 0, 153,
+		151, 1, 0, 0, 0, 153, 152, 1, 0, 0, 0, 154, 23, 1, 0, 0, 0, 155, 160, 3,
+		26, 13, 0, 156, 157, 5, 26, 0, 0, 157, 159, 3, 26, 13, 0, 158, 156, 1,
+		0, 0, 0, 159, 162, 1, 0, 0, 0, 160, 158, 1, 0, 0, 0, 160, 161, 1, 0, 0,
+		0, 161, 25, 1, 0, 0, 0, 162, 160, 1, 0, 0, 0, 163, 168, 3, 28, 14, 0, 164,
+		165, 5, 25, 0, 0, 165, 167, 3, 28, 14, 0, 166, 164, 1, 0, 0, 0, 167, 170,
+		1, 0, 0, 0, 168, 166, 1, 0, 0, 0, 168, 169, 1, 0, 0, 0, 169, 27, 1, 0,
+		0, 0, 170, 168, 1, 0, 0, 0, 171, 176, 3, 30, 15, 0, 172, 173, 7, 3, 0,
+		0, 173, 175, 3, 30, 15, 0, 174, 172, 1, 0, 0, 0, 175, 178, 1, 0, 0, 0,
+		176, 174, 1, 0, 0, 0, 176, 177, 1, 0, 0, 0, 177, 29, 1, 0, 0, 0, 178, 176,
+		1, 0, 0, 0, 179, 184, 3, 32, 16, 0, 180, 181, 7, 4, 0, 0, 181, 183, 3,
+		32, 16, 0, 182, 180, 1, 0, 0, 0, 183, 186, 1, 0, 0, 0, 184, 182, 1, 0,
+		0, 0, 184, 185, 1, 0, 0, 0, 185, 31, 1, 0, 0, 0, 186, 184, 1, 0, 0, 0,
+		187, 205, 5, 29, 0, 0, 188, 205, 5, 28, 0, 0, 189, 205, 5, 30, 0, 0, 190,
+		205, 5, 31, 0, 0, 191, 205, 5, 55, 0, 0, 192, 205, 5, 54, 0, 0, 193, 205,
+		5, 56, 0, 0, 194, 205, 3, 34, 17, 0, 195, 196, 5, 8, 0, 0, 196, 197, 3,
+		22, 11, 0, 197, 198, 5, 9, 0, 0, 198, 205, 1, 0, 0, 0, 199, 205, 3, 36,
+		18, 0, 200, 201, 5, 27, 0, 0, 201, 205, 3, 32, 16, 0, 202, 203, 5, 53,
+		0, 0, 203, 205, 3, 46, 23, 0, 204, 187, 1, 0, 0, 0, 204, 188, 1, 0, 0,
+		0, 204, 189, 1, 0, 0, 0, 204, 190, 1, 0, 0, 0, 204, 191, 1, 0, 0, 0, 204,
+		192, 1, 0, 0, 0, 204, 193, 1, 0, 0, 0, 204, 194, 1, 0, 0, 0, 204, 195,
+		1, 0, 0, 0, 204, 199, 1, 0, 0, 0, 204, 200, 1, 0, 0, 0, 204, 202, 1, 0,
+		0, 0, 205, 33, 1, 0, 0, 0, 206, 207, 5, 14, 0, 0, 207, 208, 5, 31, 0, 0,
+		208, 35, 1, 0, 0, 0, 209, 213, 5, 31, 0, 0, 210, 212, 3, 22, 11, 0, 211,
+		210, 1, 0, 0, 0, 212, 215, 1, 0, 0, 0, 213, 211, 1, 0, 0, 0, 213, 214,
+		1, 0, 0, 0, 214, 230, 1, 0, 0, 0, 215, 213, 1, 0, 0, 0, 216, 217, 5, 31,
+		0, 0, 217, 219, 5, 8, 0, 0, 218, 220, 3, 22, 11, 0, 219, 218, 1, 0, 0,
+		0, 219, 220, 1, 0, 0, 0, 220, 225, 1, 0, 0, 0, 221, 222, 5, 16, 0, 0, 222,
+		224, 3, 22, 11, 0, 223, 221, 1, 0, 0, 0, 224, 227, 1, 0, 0, 0, 225, 223,
+		1, 0, 0, 0, 225, 226, 1, 0, 0, 0, 226, 228, 1, 0, 0, 0, 227, 225, 1, 0,
+		0, 0, 228, 230, 5, 9, 0, 0, 229, 209, 1, 0, 0, 0, 229, 216, 1, 0, 0, 0,
+		230, 37, 1, 0, 0, 0, 231, 236, 3, 40, 20, 0, 232, 233, 5, 52, 0, 0, 233,
+		235, 3, 40, 20, 0, 234, 232, 1, 0, 0, 0, 235, 238, 1, 0, 0, 0, 236, 234,
+		1, 0, 0, 0, 236, 237, 1, 0, 0, 0, 237, 39, 1, 0, 0, 0, 238, 236, 1, 0,
+		0, 0, 239, 244, 3, 42, 21, 0, 240, 241, 5, 51, 0, 0, 241, 243, 3, 42, 21,
+		0, 242, 240, 1, 0, 0, 0, 243, 246, 1, 0, 0, 0, 244, 242, 1, 0, 0, 0, 244,
+		245, 1, 0, 0, 0, 245, 41, 1, 0, 0, 0, 246, 244, 1, 0, 0, 0, 247, 252, 3,
+		44, 22, 0, 248, 249, 7, 5, 0, 0, 249, 251, 3, 44, 22, 0, 250, 248, 1, 0,
+		0, 0, 251, 254, 1, 0, 0, 0, 252, 250, 1, 0, 0, 0, 252, 253, 1, 0, 0, 0,
+		253, 43, 1, 0, 0, 0, 254, 252, 1, 0, 0, 0, 255, 260, 3, 46, 23, 0, 256,
+		257, 7, 6, 0, 0, 257, 259, 3, 46, 23, 0, 258, 256, 1, 0, 0, 0, 259, 262,
+		1, 0, 0, 0, 260, 258, 1, 0, 0, 0, 260, 261, 1, 0, 0, 0, 261, 45, 1, 0,
+		0, 0, 262, 260, 1, 0, 0, 0, 263, 274, 5, 55, 0, 0, 264, 274, 5, 54, 0,
+		0, 265, 274, 5, 56, 0, 0, 266, 274, 5, 57, 0, 0, 267, 268, 5, 34, 0, 0,
+		268, 269, 3, 22, 11, 0, 269, 270, 5, 35, 0, 0, 270, 274, 1, 0, 0, 0, 271,
+		272, 5, 53, 0, 0, 272, 274, 3, 46, 23, 0, 273, 263, 1, 0, 0, 0, 273, 264,
+		1, 0, 0, 0, 273, 265, 1, 0, 0, 0, 273, 266, 1, 0, 0, 0, 273, 267, 1, 0,
+		0, 0, 273, 271, 1, 0, 0, 0, 274, 47, 1, 0, 0, 0, 23, 50, 52, 63, 81, 116,
+		119, 122, 135, 153, 160, 168, 176, 184, 204, 213, 219, 225, 229, 236, 244,
+		252, 260, 273,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -159,64 +221,93 @@ func NewunsafeParser(input antlr.TokenStream) *unsafeParser {
 
 // unsafeParser tokens.
 const (
-	unsafeParserEOF              = antlr.TokenEOF
-	unsafeParserCOMMENT_LBRACE   = 1
-	unsafeParserDOUBLE_LBRACE    = 2
-	unsafeParserSTATEMENT_LBRACE = 3
-	unsafeParserTEXT             = 4
-	unsafeParserCOMMENT_RBRACE   = 5
-	unsafeParserCOMMENT_CONTENT  = 6
-	unsafeParserDOUBLE_RBRACE    = 7
-	unsafeParserLPAREN           = 8
-	unsafeParserRPAREN           = 9
-	unsafeParserLBRACE           = 10
-	unsafeParserRBRACE           = 11
-	unsafeParserHASH             = 12
-	unsafeParserMOD              = 13
-	unsafeParserDOLLAR           = 14
-	unsafeParserPIPE             = 15
-	unsafeParserCOMMA            = 16
-	unsafeParserCOLON_EQUAL      = 17
-	unsafeParserDOT              = 18
-	unsafeParserSINGLE_QUOTE     = 19
-	unsafeParserQUOTE            = 20
-	unsafeParserSTRING           = 21
-	unsafeParserNUMBER           = 22
-	unsafeParserIDENTIFIER       = 23
-	unsafeParserESC              = 24
-	unsafeParserWS               = 25
-	unsafeParserSTATEMENT_RBRACE = 26
-	unsafeParserIF               = 27
-	unsafeParserELSE             = 28
-	unsafeParserLOOP             = 29
-	unsafeParserIN               = 30
-	unsafeParserMACRO            = 31
-	unsafeParserTEMPLATE         = 32
-	unsafeParserEND              = 33
-	unsafeParserENDIF            = 34
-	unsafeParserENDLOOP          = 35
-	unsafeParserENDMACRO         = 36
-	unsafeParserIDENTIFIER_STMT  = 37
-	unsafeParserWS_STMT          = 38
+	unsafeParserEOF             = antlr.TokenEOF
+	unsafeParserCOMMENT_START   = 1
+	unsafeParserEXPR_START      = 2
+	unsafeParserSTMT_START      = 3
+	unsafeParserTEXT            = 4
+	unsafeParserCOMMENT_END     = 5
+	unsafeParserCOMMENT_CONTENT = 6
+	unsafeParserEXPR_END        = 7
+	unsafeParserLPAREN          = 8
+	unsafeParserRPAREN          = 9
+	unsafeParserLBRACE          = 10
+	unsafeParserRBRACE          = 11
+	unsafeParserHASH            = 12
+	unsafeParserMOD             = 13
+	unsafeParserDOLLAR          = 14
+	unsafeParserPIPE            = 15
+	unsafeParserCOMMA           = 16
+	unsafeParserCOLON_EQUAL     = 17
+	unsafeParserDOT             = 18
+	unsafeParserEQ              = 19
+	unsafeParserNE              = 20
+	unsafeParserGT              = 21
+	unsafeParserLT              = 22
+	unsafeParserGE              = 23
+	unsafeParserLE              = 24
+	unsafeParserAND             = 25
+	unsafeParserOR              = 26
+	unsafeParserNOT             = 27
+	unsafeParserSTRING          = 28
+	unsafeParserNUMBER          = 29
+	unsafeParserBOOLEAN         = 30
+	unsafeParserIDENTIFIER      = 31
+	unsafeParserWS              = 32
+	unsafeParserSTMT_END        = 33
+	unsafeParserLPAREN_STMT     = 34
+	unsafeParserRPAREN_STMT     = 35
+	unsafeParserIF              = 36
+	unsafeParserELSE            = 37
+	unsafeParserLOOP            = 38
+	unsafeParserIN              = 39
+	unsafeParserMACRO           = 40
+	unsafeParserEND             = 41
+	unsafeParserENDIF           = 42
+	unsafeParserENDLOOP         = 43
+	unsafeParserENDMACRO        = 44
+	unsafeParserEQ_STMT         = 45
+	unsafeParserNE_STMT         = 46
+	unsafeParserGT_STMT         = 47
+	unsafeParserLT_STMT         = 48
+	unsafeParserGE_STMT         = 49
+	unsafeParserLE_STMT         = 50
+	unsafeParserAND_STMT        = 51
+	unsafeParserOR_STMT         = 52
+	unsafeParserNOT_STMT        = 53
+	unsafeParserSTRING_STMT     = 54
+	unsafeParserNUMBER_STMT     = 55
+	unsafeParserBOOLEAN_STMT    = 56
+	unsafeParserIDENTIFIER_STMT = 57
+	unsafeParserWS_STMT         = 58
 )
 
 // unsafeParser rules.
 const (
-	unsafeParserRULE_template            = 0
-	unsafeParserRULE_content             = 1
-	unsafeParserRULE_statement           = 2
-	unsafeParserRULE_variableStatement   = 3
-	unsafeParserRULE_ifStatement         = 4
-	unsafeParserRULE_elseStatement       = 5
-	unsafeParserRULE_loopStatement       = 6
-	unsafeParserRULE_expressionStatement = 7
-	unsafeParserRULE_macroStatement      = 8
-	unsafeParserRULE_templateStatement   = 9
-	unsafeParserRULE_expression          = 10
-	unsafeParserRULE_pipelineExpr        = 11
-	unsafeParserRULE_primaryExpr         = 12
-	unsafeParserRULE_varExpr             = 13
-	unsafeParserRULE_functionCall        = 14
+	unsafeParserRULE_template                 = 0
+	unsafeParserRULE_content                  = 1
+	unsafeParserRULE_statement                = 2
+	unsafeParserRULE_commentStatement         = 3
+	unsafeParserRULE_variableStatement        = 4
+	unsafeParserRULE_ifStatement              = 5
+	unsafeParserRULE_elseStatement            = 6
+	unsafeParserRULE_loopStatement            = 7
+	unsafeParserRULE_expressionStatement      = 8
+	unsafeParserRULE_macroStatement           = 9
+	unsafeParserRULE_pipelineExpression       = 10
+	unsafeParserRULE_expression               = 11
+	unsafeParserRULE_logicalOrExpression      = 12
+	unsafeParserRULE_logicalAndExpression     = 13
+	unsafeParserRULE_equalityExpression       = 14
+	unsafeParserRULE_comparisonExpression     = 15
+	unsafeParserRULE_primaryExpression        = 16
+	unsafeParserRULE_varExpr                  = 17
+	unsafeParserRULE_functionCall             = 18
+	unsafeParserRULE_logicalOrExpressionStmt  = 19
+	unsafeParserRULE_logicalAndExpressionStmt = 20
+	unsafeParserRULE_equalityExpressionStmt   = 21
+	unsafeParserRULE_comparisonExpressionStmt = 22
+	unsafeParserRULE_primaryExpressionStmt    = 23
 )
 
 // ITemplateContext is an interface to support dynamic dispatch.
@@ -374,7 +465,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(34)
+	p.SetState(52)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -385,7 +476,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 	}
 	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 		if _alt == 1 {
-			p.SetState(32)
+			p.SetState(50)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -394,13 +485,13 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 			switch p.GetTokenStream().LA(1) {
 			case unsafeParserTEXT:
 				{
-					p.SetState(30)
+					p.SetState(48)
 					p.Content()
 				}
 
-			case unsafeParserDOUBLE_LBRACE, unsafeParserSTATEMENT_LBRACE:
+			case unsafeParserCOMMENT_START, unsafeParserEXPR_START, unsafeParserSTMT_START:
 				{
-					p.SetState(31)
+					p.SetState(49)
 					p.Statement()
 				}
 
@@ -410,7 +501,7 @@ func (p *unsafeParser) Template() (localctx ITemplateContext) {
 			}
 
 		}
-		p.SetState(36)
+		p.SetState(54)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -507,7 +598,7 @@ func (p *unsafeParser) Content() (localctx IContentContext) {
 	p.EnterRule(localctx, 2, unsafeParserRULE_content)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(37)
+		p.SetState(55)
 		p.Match(unsafeParserTEXT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -536,11 +627,11 @@ type IStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
+	CommentStatement() ICommentStatementContext
 	IfStatement() IIfStatementContext
 	LoopStatement() ILoopStatementContext
 	ExpressionStatement() IExpressionStatementContext
 	MacroStatement() IMacroStatementContext
-	TemplateStatement() ITemplateStatementContext
 	VariableStatement() IVariableStatementContext
 
 	// IsStatementContext differentiates from other interfaces.
@@ -578,6 +669,22 @@ func NewStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 }
 
 func (s *StatementContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *StatementContext) CommentStatement() ICommentStatementContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ICommentStatementContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ICommentStatementContext)
+}
 
 func (s *StatementContext) IfStatement() IIfStatementContext {
 	var t antlr.RuleContext
@@ -643,22 +750,6 @@ func (s *StatementContext) MacroStatement() IMacroStatementContext {
 	return t.(IMacroStatementContext)
 }
 
-func (s *StatementContext) TemplateStatement() ITemplateStatementContext {
-	var t antlr.RuleContext
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(ITemplateStatementContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(ITemplateStatementContext)
-}
-
 func (s *StatementContext) VariableStatement() IVariableStatementContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
@@ -696,7 +787,7 @@ func (s *StatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 func (p *unsafeParser) Statement() (localctx IStatementContext) {
 	localctx = NewStatementContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 4, unsafeParserRULE_statement)
-	p.SetState(45)
+	p.SetState(63)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -706,47 +797,167 @@ func (p *unsafeParser) Statement() (localctx IStatementContext) {
 	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(39)
-			p.IfStatement()
+			p.SetState(57)
+			p.CommentStatement()
 		}
 
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(40)
-			p.LoopStatement()
+			p.SetState(58)
+			p.IfStatement()
 		}
 
 	case 3:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(41)
-			p.ExpressionStatement()
+			p.SetState(59)
+			p.LoopStatement()
 		}
 
 	case 4:
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(42)
-			p.MacroStatement()
+			p.SetState(60)
+			p.ExpressionStatement()
 		}
 
 	case 5:
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(43)
-			p.TemplateStatement()
+			p.SetState(61)
+			p.MacroStatement()
 		}
 
 	case 6:
 		p.EnterOuterAlt(localctx, 6)
 		{
-			p.SetState(44)
+			p.SetState(62)
 			p.VariableStatement()
 		}
 
 	case antlr.ATNInvalidAltNumber:
 		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ICommentStatementContext is an interface to support dynamic dispatch.
+type ICommentStatementContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	COMMENT_START() antlr.TerminalNode
+	COMMENT_CONTENT() antlr.TerminalNode
+	COMMENT_END() antlr.TerminalNode
+
+	// IsCommentStatementContext differentiates from other interfaces.
+	IsCommentStatementContext()
+}
+
+type CommentStatementContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyCommentStatementContext() *CommentStatementContext {
+	var p = new(CommentStatementContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_commentStatement
+	return p
+}
+
+func InitEmptyCommentStatementContext(p *CommentStatementContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_commentStatement
+}
+
+func (*CommentStatementContext) IsCommentStatementContext() {}
+
+func NewCommentStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *CommentStatementContext {
+	var p = new(CommentStatementContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_commentStatement
+
+	return p
+}
+
+func (s *CommentStatementContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *CommentStatementContext) COMMENT_START() antlr.TerminalNode {
+	return s.GetToken(unsafeParserCOMMENT_START, 0)
+}
+
+func (s *CommentStatementContext) COMMENT_CONTENT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserCOMMENT_CONTENT, 0)
+}
+
+func (s *CommentStatementContext) COMMENT_END() antlr.TerminalNode {
+	return s.GetToken(unsafeParserCOMMENT_END, 0)
+}
+
+func (s *CommentStatementContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *CommentStatementContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *CommentStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitCommentStatement(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) CommentStatement() (localctx ICommentStatementContext) {
+	localctx = NewCommentStatementContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 6, unsafeParserRULE_commentStatement)
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(65)
+		p.Match(unsafeParserCOMMENT_START)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(66)
+		p.Match(unsafeParserCOMMENT_CONTENT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(67)
+		p.Match(unsafeParserCOMMENT_END)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
 	}
 
 errorExit:
@@ -770,11 +981,11 @@ type IVariableStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	STATEMENT_LBRACE() antlr.TerminalNode
+	STMT_START() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
 	COLON_EQUAL() antlr.TerminalNode
 	Expression() IExpressionContext
-	STATEMENT_RBRACE() antlr.TerminalNode
+	STMT_END() antlr.TerminalNode
 
 	// IsVariableStatementContext differentiates from other interfaces.
 	IsVariableStatementContext()
@@ -812,8 +1023,8 @@ func NewVariableStatementContext(parser antlr.Parser, parent antlr.ParserRuleCon
 
 func (s *VariableStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *VariableStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
+func (s *VariableStatementContext) STMT_START() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_START, 0)
 }
 
 func (s *VariableStatementContext) IDENTIFIER() antlr.TerminalNode {
@@ -840,8 +1051,8 @@ func (s *VariableStatementContext) Expression() IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *VariableStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
+func (s *VariableStatementContext) STMT_END() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_END, 0)
 }
 
 func (s *VariableStatementContext) GetRuleContext() antlr.RuleContext {
@@ -864,18 +1075,18 @@ func (s *VariableStatementContext) Accept(visitor antlr.ParseTreeVisitor) interf
 
 func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) {
 	localctx = NewVariableStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 6, unsafeParserRULE_variableStatement)
+	p.EnterRule(localctx, 8, unsafeParserRULE_variableStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(47)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(69)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(48)
+		p.SetState(70)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -883,7 +1094,7 @@ func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) 
 		}
 	}
 	{
-		p.SetState(49)
+		p.SetState(71)
 		p.Match(unsafeParserCOLON_EQUAL)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -891,12 +1102,12 @@ func (p *unsafeParser) VariableStatement() (localctx IVariableStatementContext) 
 		}
 	}
 	{
-		p.SetState(50)
+		p.SetState(72)
 		p.Expression()
 	}
 	{
-		p.SetState(51)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(73)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -924,12 +1135,12 @@ type IIfStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllSTATEMENT_LBRACE() []antlr.TerminalNode
-	STATEMENT_LBRACE(i int) antlr.TerminalNode
+	AllSTMT_START() []antlr.TerminalNode
+	STMT_START(i int) antlr.TerminalNode
 	IF() antlr.TerminalNode
 	Expression() IExpressionContext
-	AllSTATEMENT_RBRACE() []antlr.TerminalNode
-	STATEMENT_RBRACE(i int) antlr.TerminalNode
+	AllSTMT_END() []antlr.TerminalNode
+	STMT_END(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
 	ENDIF() antlr.TerminalNode
@@ -971,12 +1182,12 @@ func NewIfStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, 
 
 func (s *IfStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *IfStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
+func (s *IfStatementContext) AllSTMT_START() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_START)
 }
 
-func (s *IfStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
+func (s *IfStatementContext) STMT_START(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_START, i)
 }
 
 func (s *IfStatementContext) IF() antlr.TerminalNode {
@@ -999,12 +1210,12 @@ func (s *IfStatementContext) Expression() IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *IfStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
+func (s *IfStatementContext) AllSTMT_END() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_END)
 }
 
-func (s *IfStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
+func (s *IfStatementContext) STMT_END(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_END, i)
 }
 
 func (s *IfStatementContext) Template() ITemplateContext {
@@ -1067,20 +1278,20 @@ func (s *IfStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 
 func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 	localctx = NewIfStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 8, unsafeParserRULE_ifStatement)
+	p.EnterRule(localctx, 10, unsafeParserRULE_ifStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(53)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(75)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(54)
+		p.SetState(76)
 		p.Match(unsafeParserIF)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1088,27 +1299,27 @@ func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 		}
 	}
 	{
-		p.SetState(55)
+		p.SetState(77)
 		p.Expression()
 	}
 	{
-		p.SetState(56)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(78)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(57)
+		p.SetState(79)
 		p.Template()
 	}
-	p.SetState(59)
+	p.SetState(81)
 	p.GetErrorHandler().Sync(p)
 
 	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 3, p.GetParserRuleContext()) == 1 {
 		{
-			p.SetState(58)
+			p.SetState(80)
 			p.ElseStatement()
 		}
 
@@ -1116,15 +1327,15 @@ func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 		goto errorExit
 	}
 	{
-		p.SetState(61)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(83)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(62)
+		p.SetState(84)
 		_la = p.GetTokenStream().LA(1)
 
 		if !(_la == unsafeParserEND || _la == unsafeParserENDIF) {
@@ -1135,8 +1346,8 @@ func (p *unsafeParser) IfStatement() (localctx IIfStatementContext) {
 		}
 	}
 	{
-		p.SetState(63)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(85)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1164,9 +1375,9 @@ type IElseStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	STATEMENT_LBRACE() antlr.TerminalNode
+	STMT_START() antlr.TerminalNode
 	ELSE() antlr.TerminalNode
-	STATEMENT_RBRACE() antlr.TerminalNode
+	STMT_END() antlr.TerminalNode
 	Template() ITemplateContext
 
 	// IsElseStatementContext differentiates from other interfaces.
@@ -1205,16 +1416,16 @@ func NewElseStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext
 
 func (s *ElseStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ElseStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
+func (s *ElseStatementContext) STMT_START() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_START, 0)
 }
 
 func (s *ElseStatementContext) ELSE() antlr.TerminalNode {
 	return s.GetToken(unsafeParserELSE, 0)
 }
 
-func (s *ElseStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
+func (s *ElseStatementContext) STMT_END() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_END, 0)
 }
 
 func (s *ElseStatementContext) Template() ITemplateContext {
@@ -1253,18 +1464,18 @@ func (s *ElseStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{
 
 func (p *unsafeParser) ElseStatement() (localctx IElseStatementContext) {
 	localctx = NewElseStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 10, unsafeParserRULE_elseStatement)
+	p.EnterRule(localctx, 12, unsafeParserRULE_elseStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(65)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(87)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(66)
+		p.SetState(88)
 		p.Match(unsafeParserELSE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1272,15 +1483,15 @@ func (p *unsafeParser) ElseStatement() (localctx IElseStatementContext) {
 		}
 	}
 	{
-		p.SetState(67)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(89)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(68)
+		p.SetState(90)
 		p.Template()
 	}
 
@@ -1305,14 +1516,14 @@ type ILoopStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllSTATEMENT_LBRACE() []antlr.TerminalNode
-	STATEMENT_LBRACE(i int) antlr.TerminalNode
+	AllSTMT_START() []antlr.TerminalNode
+	STMT_START(i int) antlr.TerminalNode
 	LOOP() antlr.TerminalNode
-	AllIDENTIFIER() []antlr.TerminalNode
-	IDENTIFIER(i int) antlr.TerminalNode
+	AllIDENTIFIER_STMT() []antlr.TerminalNode
+	IDENTIFIER_STMT(i int) antlr.TerminalNode
 	IN() antlr.TerminalNode
-	AllSTATEMENT_RBRACE() []antlr.TerminalNode
-	STATEMENT_RBRACE(i int) antlr.TerminalNode
+	AllSTMT_END() []antlr.TerminalNode
+	STMT_END(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
 	ENDLOOP() antlr.TerminalNode
@@ -1353,36 +1564,36 @@ func NewLoopStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext
 
 func (s *LoopStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *LoopStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
+func (s *LoopStatementContext) AllSTMT_START() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_START)
 }
 
-func (s *LoopStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
+func (s *LoopStatementContext) STMT_START(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_START, i)
 }
 
 func (s *LoopStatementContext) LOOP() antlr.TerminalNode {
 	return s.GetToken(unsafeParserLOOP, 0)
 }
 
-func (s *LoopStatementContext) AllIDENTIFIER() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserIDENTIFIER)
+func (s *LoopStatementContext) AllIDENTIFIER_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserIDENTIFIER_STMT)
 }
 
-func (s *LoopStatementContext) IDENTIFIER(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserIDENTIFIER, i)
+func (s *LoopStatementContext) IDENTIFIER_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserIDENTIFIER_STMT, i)
 }
 
 func (s *LoopStatementContext) IN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIN, 0)
 }
 
-func (s *LoopStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
+func (s *LoopStatementContext) AllSTMT_END() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_END)
 }
 
-func (s *LoopStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
+func (s *LoopStatementContext) STMT_END(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_END, i)
 }
 
 func (s *LoopStatementContext) Template() ITemplateContext {
@@ -1429,20 +1640,20 @@ func (s *LoopStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{
 
 func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 	localctx = NewLoopStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, unsafeParserRULE_loopStatement)
+	p.EnterRule(localctx, 14, unsafeParserRULE_loopStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(70)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(92)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(71)
+		p.SetState(93)
 		p.Match(unsafeParserLOOP)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1450,15 +1661,15 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(72)
-		p.Match(unsafeParserIDENTIFIER)
+		p.SetState(94)
+		p.Match(unsafeParserIDENTIFIER_STMT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(73)
+		p.SetState(95)
 		p.Match(unsafeParserIN)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1466,35 +1677,35 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(74)
-		p.Match(unsafeParserIDENTIFIER)
+		p.SetState(96)
+		p.Match(unsafeParserIDENTIFIER_STMT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(75)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(97)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(76)
+		p.SetState(98)
 		p.Template()
 	}
 	{
-		p.SetState(77)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(99)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(78)
+		p.SetState(100)
 		_la = p.GetTokenStream().LA(1)
 
 		if !(_la == unsafeParserEND || _la == unsafeParserENDLOOP) {
@@ -1505,8 +1716,8 @@ func (p *unsafeParser) LoopStatement() (localctx ILoopStatementContext) {
 		}
 	}
 	{
-		p.SetState(79)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(101)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1534,9 +1745,9 @@ type IExpressionStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	DOUBLE_LBRACE() antlr.TerminalNode
-	Expression() IExpressionContext
-	DOUBLE_RBRACE() antlr.TerminalNode
+	EXPR_START() antlr.TerminalNode
+	PipelineExpression() IPipelineExpressionContext
+	EXPR_END() antlr.TerminalNode
 
 	// IsExpressionStatementContext differentiates from other interfaces.
 	IsExpressionStatementContext()
@@ -1574,14 +1785,14 @@ func NewExpressionStatementContext(parser antlr.Parser, parent antlr.ParserRuleC
 
 func (s *ExpressionStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ExpressionStatementContext) DOUBLE_LBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_LBRACE, 0)
+func (s *ExpressionStatementContext) EXPR_START() antlr.TerminalNode {
+	return s.GetToken(unsafeParserEXPR_START, 0)
 }
 
-func (s *ExpressionStatementContext) Expression() IExpressionContext {
+func (s *ExpressionStatementContext) PipelineExpression() IPipelineExpressionContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IExpressionContext); ok {
+		if _, ok := ctx.(IPipelineExpressionContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -1591,11 +1802,11 @@ func (s *ExpressionStatementContext) Expression() IExpressionContext {
 		return nil
 	}
 
-	return t.(IExpressionContext)
+	return t.(IPipelineExpressionContext)
 }
 
-func (s *ExpressionStatementContext) DOUBLE_RBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserDOUBLE_RBRACE, 0)
+func (s *ExpressionStatementContext) EXPR_END() antlr.TerminalNode {
+	return s.GetToken(unsafeParserEXPR_END, 0)
 }
 
 func (s *ExpressionStatementContext) GetRuleContext() antlr.RuleContext {
@@ -1618,23 +1829,23 @@ func (s *ExpressionStatementContext) Accept(visitor antlr.ParseTreeVisitor) inte
 
 func (p *unsafeParser) ExpressionStatement() (localctx IExpressionStatementContext) {
 	localctx = NewExpressionStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 14, unsafeParserRULE_expressionStatement)
+	p.EnterRule(localctx, 16, unsafeParserRULE_expressionStatement)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(81)
-		p.Match(unsafeParserDOUBLE_LBRACE)
+		p.SetState(103)
+		p.Match(unsafeParserEXPR_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(82)
-		p.Expression()
+		p.SetState(104)
+		p.PipelineExpression()
 	}
 	{
-		p.SetState(83)
-		p.Match(unsafeParserDOUBLE_RBRACE)
+		p.SetState(105)
+		p.Match(unsafeParserEXPR_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1662,18 +1873,18 @@ type IMacroStatementContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllSTATEMENT_LBRACE() []antlr.TerminalNode
-	STATEMENT_LBRACE(i int) antlr.TerminalNode
+	AllSTMT_START() []antlr.TerminalNode
+	STMT_START(i int) antlr.TerminalNode
 	MACRO() antlr.TerminalNode
-	AllIDENTIFIER() []antlr.TerminalNode
-	IDENTIFIER(i int) antlr.TerminalNode
-	AllSTATEMENT_RBRACE() []antlr.TerminalNode
-	STATEMENT_RBRACE(i int) antlr.TerminalNode
+	AllIDENTIFIER_STMT() []antlr.TerminalNode
+	IDENTIFIER_STMT(i int) antlr.TerminalNode
+	AllSTMT_END() []antlr.TerminalNode
+	STMT_END(i int) antlr.TerminalNode
 	Template() ITemplateContext
 	END() antlr.TerminalNode
 	ENDMACRO() antlr.TerminalNode
-	LPAREN() antlr.TerminalNode
-	RPAREN() antlr.TerminalNode
+	LPAREN_STMT() antlr.TerminalNode
+	RPAREN_STMT() antlr.TerminalNode
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
@@ -1713,32 +1924,32 @@ func NewMacroStatementContext(parser antlr.Parser, parent antlr.ParserRuleContex
 
 func (s *MacroStatementContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *MacroStatementContext) AllSTATEMENT_LBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_LBRACE)
+func (s *MacroStatementContext) AllSTMT_START() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_START)
 }
 
-func (s *MacroStatementContext) STATEMENT_LBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, i)
+func (s *MacroStatementContext) STMT_START(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_START, i)
 }
 
 func (s *MacroStatementContext) MACRO() antlr.TerminalNode {
 	return s.GetToken(unsafeParserMACRO, 0)
 }
 
-func (s *MacroStatementContext) AllIDENTIFIER() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserIDENTIFIER)
+func (s *MacroStatementContext) AllIDENTIFIER_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserIDENTIFIER_STMT)
 }
 
-func (s *MacroStatementContext) IDENTIFIER(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserIDENTIFIER, i)
+func (s *MacroStatementContext) IDENTIFIER_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserIDENTIFIER_STMT, i)
 }
 
-func (s *MacroStatementContext) AllSTATEMENT_RBRACE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserSTATEMENT_RBRACE)
+func (s *MacroStatementContext) AllSTMT_END() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserSTMT_END)
 }
 
-func (s *MacroStatementContext) STATEMENT_RBRACE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, i)
+func (s *MacroStatementContext) STMT_END(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTMT_END, i)
 }
 
 func (s *MacroStatementContext) Template() ITemplateContext {
@@ -1765,12 +1976,12 @@ func (s *MacroStatementContext) ENDMACRO() antlr.TerminalNode {
 	return s.GetToken(unsafeParserENDMACRO, 0)
 }
 
-func (s *MacroStatementContext) LPAREN() antlr.TerminalNode {
-	return s.GetToken(unsafeParserLPAREN, 0)
+func (s *MacroStatementContext) LPAREN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserLPAREN_STMT, 0)
 }
 
-func (s *MacroStatementContext) RPAREN() antlr.TerminalNode {
-	return s.GetToken(unsafeParserRPAREN, 0)
+func (s *MacroStatementContext) RPAREN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserRPAREN_STMT, 0)
 }
 
 func (s *MacroStatementContext) AllCOMMA() []antlr.TerminalNode {
@@ -1801,20 +2012,20 @@ func (s *MacroStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface
 
 func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 	localctx = NewMacroStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 16, unsafeParserRULE_macroStatement)
+	p.EnterRule(localctx, 18, unsafeParserRULE_macroStatement)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(85)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(107)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(86)
+		p.SetState(108)
 		p.Match(unsafeParserMACRO)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1822,46 +2033,46 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 		}
 	}
 	{
-		p.SetState(87)
-		p.Match(unsafeParserIDENTIFIER)
+		p.SetState(109)
+		p.Match(unsafeParserIDENTIFIER_STMT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(100)
+	p.SetState(122)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == unsafeParserLPAREN {
+	if _la == unsafeParserLPAREN_STMT {
 		{
-			p.SetState(88)
-			p.Match(unsafeParserLPAREN)
+			p.SetState(110)
+			p.Match(unsafeParserLPAREN_STMT)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(97)
+		p.SetState(119)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if _la == unsafeParserIDENTIFIER {
+		if _la == unsafeParserIDENTIFIER_STMT {
 			{
-				p.SetState(89)
-				p.Match(unsafeParserIDENTIFIER)
+				p.SetState(111)
+				p.Match(unsafeParserIDENTIFIER_STMT)
 				if p.HasError() {
 					// Recognition error - abort rule
 					goto errorExit
 				}
 			}
-			p.SetState(94)
+			p.SetState(116)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -1870,7 +2081,7 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 
 			for _la == unsafeParserCOMMA {
 				{
-					p.SetState(90)
+					p.SetState(112)
 					p.Match(unsafeParserCOMMA)
 					if p.HasError() {
 						// Recognition error - abort rule
@@ -1878,15 +2089,15 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 					}
 				}
 				{
-					p.SetState(91)
-					p.Match(unsafeParserIDENTIFIER)
+					p.SetState(113)
+					p.Match(unsafeParserIDENTIFIER_STMT)
 					if p.HasError() {
 						// Recognition error - abort rule
 						goto errorExit
 					}
 				}
 
-				p.SetState(96)
+				p.SetState(118)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -1896,8 +2107,8 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 
 		}
 		{
-			p.SetState(99)
-			p.Match(unsafeParserRPAREN)
+			p.SetState(121)
+			p.Match(unsafeParserRPAREN_STMT)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -1906,27 +2117,27 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 
 	}
 	{
-		p.SetState(102)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(124)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(103)
+		p.SetState(125)
 		p.Template()
 	}
 	{
-		p.SetState(104)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
+		p.SetState(126)
+		p.Match(unsafeParserSTMT_START)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
 	{
-		p.SetState(105)
+		p.SetState(127)
 		_la = p.GetTokenStream().LA(1)
 
 		if !(_la == unsafeParserEND || _la == unsafeParserENDMACRO) {
@@ -1937,8 +2148,8 @@ func (p *unsafeParser) MacroStatement() (localctx IMacroStatementContext) {
 		}
 	}
 	{
-		p.SetState(106)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
+		p.SetState(128)
+		p.Match(unsafeParserSTMT_END)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
@@ -1958,74 +2169,56 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// ITemplateStatementContext is an interface to support dynamic dispatch.
-type ITemplateStatementContext interface {
+// IPipelineExpressionContext is an interface to support dynamic dispatch.
+type IPipelineExpressionContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	STATEMENT_LBRACE() antlr.TerminalNode
-	TEMPLATE() antlr.TerminalNode
-	IDENTIFIER() antlr.TerminalNode
-	STATEMENT_RBRACE() antlr.TerminalNode
 	AllExpression() []IExpressionContext
 	Expression(i int) IExpressionContext
+	AllPIPE() []antlr.TerminalNode
+	PIPE(i int) antlr.TerminalNode
 
-	// IsTemplateStatementContext differentiates from other interfaces.
-	IsTemplateStatementContext()
+	// IsPipelineExpressionContext differentiates from other interfaces.
+	IsPipelineExpressionContext()
 }
 
-type TemplateStatementContext struct {
+type PipelineExpressionContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyTemplateStatementContext() *TemplateStatementContext {
-	var p = new(TemplateStatementContext)
+func NewEmptyPipelineExpressionContext() *PipelineExpressionContext {
+	var p = new(PipelineExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_templateStatement
+	p.RuleIndex = unsafeParserRULE_pipelineExpression
 	return p
 }
 
-func InitEmptyTemplateStatementContext(p *TemplateStatementContext) {
+func InitEmptyPipelineExpressionContext(p *PipelineExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_templateStatement
+	p.RuleIndex = unsafeParserRULE_pipelineExpression
 }
 
-func (*TemplateStatementContext) IsTemplateStatementContext() {}
+func (*PipelineExpressionContext) IsPipelineExpressionContext() {}
 
-func NewTemplateStatementContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TemplateStatementContext {
-	var p = new(TemplateStatementContext)
+func NewPipelineExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PipelineExpressionContext {
+	var p = new(PipelineExpressionContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = unsafeParserRULE_templateStatement
+	p.RuleIndex = unsafeParserRULE_pipelineExpression
 
 	return p
 }
 
-func (s *TemplateStatementContext) GetParser() antlr.Parser { return s.parser }
+func (s *PipelineExpressionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *TemplateStatementContext) STATEMENT_LBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_LBRACE, 0)
-}
-
-func (s *TemplateStatementContext) TEMPLATE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserTEMPLATE, 0)
-}
-
-func (s *TemplateStatementContext) IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(unsafeParserIDENTIFIER, 0)
-}
-
-func (s *TemplateStatementContext) STATEMENT_RBRACE() antlr.TerminalNode {
-	return s.GetToken(unsafeParserSTATEMENT_RBRACE, 0)
-}
-
-func (s *TemplateStatementContext) AllExpression() []IExpressionContext {
+func (s *PipelineExpressionContext) AllExpression() []IExpressionContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
@@ -2046,7 +2239,7 @@ func (s *TemplateStatementContext) AllExpression() []IExpressionContext {
 	return tst
 }
 
-func (s *TemplateStatementContext) Expression(i int) IExpressionContext {
+func (s *PipelineExpressionContext) Expression(i int) IExpressionContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
@@ -2066,81 +2259,69 @@ func (s *TemplateStatementContext) Expression(i int) IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *TemplateStatementContext) GetRuleContext() antlr.RuleContext {
+func (s *PipelineExpressionContext) AllPIPE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserPIPE)
+}
+
+func (s *PipelineExpressionContext) PIPE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserPIPE, i)
+}
+
+func (s *PipelineExpressionContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *TemplateStatementContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *PipelineExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TemplateStatementContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *PipelineExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case unsafeParserVisitor:
-		return t.VisitTemplateStatement(s)
+		return t.VisitPipelineExpression(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *unsafeParser) TemplateStatement() (localctx ITemplateStatementContext) {
-	localctx = NewTemplateStatementContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 18, unsafeParserRULE_templateStatement)
+func (p *unsafeParser) PipelineExpression() (localctx IPipelineExpressionContext) {
+	localctx = NewPipelineExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 20, unsafeParserRULE_pipelineExpression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(108)
-		p.Match(unsafeParserSTATEMENT_LBRACE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
+		p.SetState(130)
+		p.Expression()
 	}
-	{
-		p.SetState(109)
-		p.Match(unsafeParserTEMPLATE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
-		p.SetState(110)
-		p.Match(unsafeParserIDENTIFIER)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	p.SetState(114)
+	p.SetState(135)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for _la == unsafeParserIDENTIFIER {
+	for _la == unsafeParserPIPE {
 		{
-			p.SetState(111)
+			p.SetState(131)
+			p.Match(unsafeParserPIPE)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(132)
 			p.Expression()
 		}
 
-		p.SetState(116)
+		p.SetState(137)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
-	}
-	{
-		p.SetState(117)
-		p.Match(unsafeParserSTATEMENT_RBRACE)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
 	}
 
 errorExit:
@@ -2164,7 +2345,20 @@ type IExpressionContext interface {
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	PipelineExpr() IPipelineExprContext
+	NUMBER() antlr.TerminalNode
+	STRING() antlr.TerminalNode
+	BOOLEAN() antlr.TerminalNode
+	IDENTIFIER() antlr.TerminalNode
+	NUMBER_STMT() antlr.TerminalNode
+	STRING_STMT() antlr.TerminalNode
+	BOOLEAN_STMT() antlr.TerminalNode
+	VarExpr() IVarExprContext
+	LPAREN() antlr.TerminalNode
+	Expression() IExpressionContext
+	RPAREN() antlr.TerminalNode
+	FunctionCall() IFunctionCallContext
+	LogicalOrExpression() ILogicalOrExpressionContext
+	LogicalOrExpressionStmt() ILogicalOrExpressionStmtContext
 
 	// IsExpressionContext differentiates from other interfaces.
 	IsExpressionContext()
@@ -2202,10 +2396,38 @@ func NewExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 
 func (s *ExpressionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ExpressionContext) PipelineExpr() IPipelineExprContext {
+func (s *ExpressionContext) NUMBER() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNUMBER, 0)
+}
+
+func (s *ExpressionContext) STRING() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTRING, 0)
+}
+
+func (s *ExpressionContext) BOOLEAN() antlr.TerminalNode {
+	return s.GetToken(unsafeParserBOOLEAN, 0)
+}
+
+func (s *ExpressionContext) IDENTIFIER() antlr.TerminalNode {
+	return s.GetToken(unsafeParserIDENTIFIER, 0)
+}
+
+func (s *ExpressionContext) NUMBER_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNUMBER_STMT, 0)
+}
+
+func (s *ExpressionContext) STRING_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTRING_STMT, 0)
+}
+
+func (s *ExpressionContext) BOOLEAN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserBOOLEAN_STMT, 0)
+}
+
+func (s *ExpressionContext) VarExpr() IVarExprContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPipelineExprContext); ok {
+		if _, ok := ctx.(IVarExprContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -2215,7 +2437,79 @@ func (s *ExpressionContext) PipelineExpr() IPipelineExprContext {
 		return nil
 	}
 
-	return t.(IPipelineExprContext)
+	return t.(IVarExprContext)
+}
+
+func (s *ExpressionContext) LPAREN() antlr.TerminalNode {
+	return s.GetToken(unsafeParserLPAREN, 0)
+}
+
+func (s *ExpressionContext) Expression() IExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExpressionContext)
+}
+
+func (s *ExpressionContext) RPAREN() antlr.TerminalNode {
+	return s.GetToken(unsafeParserRPAREN, 0)
+}
+
+func (s *ExpressionContext) FunctionCall() IFunctionCallContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IFunctionCallContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IFunctionCallContext)
+}
+
+func (s *ExpressionContext) LogicalOrExpression() ILogicalOrExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ILogicalOrExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ILogicalOrExpressionContext)
+}
+
+func (s *ExpressionContext) LogicalOrExpressionStmt() ILogicalOrExpressionStmtContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ILogicalOrExpressionStmtContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ILogicalOrExpressionStmtContext)
 }
 
 func (s *ExpressionContext) GetRuleContext() antlr.RuleContext {
@@ -2238,11 +2532,144 @@ func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 func (p *unsafeParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 20, unsafeParserRULE_expression)
-	p.EnterOuterAlt(localctx, 1)
-	{
-		p.SetState(119)
-		p.PipelineExpr()
+	p.EnterRule(localctx, 22, unsafeParserRULE_expression)
+	p.SetState(153)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 8, p.GetParserRuleContext()) {
+	case 1:
+		p.EnterOuterAlt(localctx, 1)
+		{
+			p.SetState(138)
+			p.Match(unsafeParserNUMBER)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 2:
+		p.EnterOuterAlt(localctx, 2)
+		{
+			p.SetState(139)
+			p.Match(unsafeParserSTRING)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 3:
+		p.EnterOuterAlt(localctx, 3)
+		{
+			p.SetState(140)
+			p.Match(unsafeParserBOOLEAN)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 4:
+		p.EnterOuterAlt(localctx, 4)
+		{
+			p.SetState(141)
+			p.Match(unsafeParserIDENTIFIER)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 5:
+		p.EnterOuterAlt(localctx, 5)
+		{
+			p.SetState(142)
+			p.Match(unsafeParserNUMBER_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 6:
+		p.EnterOuterAlt(localctx, 6)
+		{
+			p.SetState(143)
+			p.Match(unsafeParserSTRING_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 7:
+		p.EnterOuterAlt(localctx, 7)
+		{
+			p.SetState(144)
+			p.Match(unsafeParserBOOLEAN_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 8:
+		p.EnterOuterAlt(localctx, 8)
+		{
+			p.SetState(145)
+			p.VarExpr()
+		}
+
+	case 9:
+		p.EnterOuterAlt(localctx, 9)
+		{
+			p.SetState(146)
+			p.Match(unsafeParserLPAREN)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(147)
+			p.Expression()
+		}
+		{
+			p.SetState(148)
+			p.Match(unsafeParserRPAREN)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 10:
+		p.EnterOuterAlt(localctx, 10)
+		{
+			p.SetState(150)
+			p.FunctionCall()
+		}
+
+	case 11:
+		p.EnterOuterAlt(localctx, 11)
+		{
+			p.SetState(151)
+			p.LogicalOrExpression()
+		}
+
+	case 12:
+		p.EnterOuterAlt(localctx, 12)
+		{
+			p.SetState(152)
+			p.LogicalOrExpressionStmt()
+		}
+
+	case antlr.ATNInvalidAltNumber:
+		goto errorExit
 	}
 
 errorExit:
@@ -2258,69 +2685,69 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IPipelineExprContext is an interface to support dynamic dispatch.
-type IPipelineExprContext interface {
+// ILogicalOrExpressionContext is an interface to support dynamic dispatch.
+type ILogicalOrExpressionContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllFunctionCall() []IFunctionCallContext
-	FunctionCall(i int) IFunctionCallContext
-	AllPIPE() []antlr.TerminalNode
-	PIPE(i int) antlr.TerminalNode
+	AllLogicalAndExpression() []ILogicalAndExpressionContext
+	LogicalAndExpression(i int) ILogicalAndExpressionContext
+	AllOR() []antlr.TerminalNode
+	OR(i int) antlr.TerminalNode
 
-	// IsPipelineExprContext differentiates from other interfaces.
-	IsPipelineExprContext()
+	// IsLogicalOrExpressionContext differentiates from other interfaces.
+	IsLogicalOrExpressionContext()
 }
 
-type PipelineExprContext struct {
+type LogicalOrExpressionContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyPipelineExprContext() *PipelineExprContext {
-	var p = new(PipelineExprContext)
+func NewEmptyLogicalOrExpressionContext() *LogicalOrExpressionContext {
+	var p = new(LogicalOrExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_pipelineExpr
+	p.RuleIndex = unsafeParserRULE_logicalOrExpression
 	return p
 }
 
-func InitEmptyPipelineExprContext(p *PipelineExprContext) {
+func InitEmptyLogicalOrExpressionContext(p *LogicalOrExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_pipelineExpr
+	p.RuleIndex = unsafeParserRULE_logicalOrExpression
 }
 
-func (*PipelineExprContext) IsPipelineExprContext() {}
+func (*LogicalOrExpressionContext) IsLogicalOrExpressionContext() {}
 
-func NewPipelineExprContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PipelineExprContext {
-	var p = new(PipelineExprContext)
+func NewLogicalOrExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *LogicalOrExpressionContext {
+	var p = new(LogicalOrExpressionContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = unsafeParserRULE_pipelineExpr
+	p.RuleIndex = unsafeParserRULE_logicalOrExpression
 
 	return p
 }
 
-func (s *PipelineExprContext) GetParser() antlr.Parser { return s.parser }
+func (s *LogicalOrExpressionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *PipelineExprContext) AllFunctionCall() []IFunctionCallContext {
+func (s *LogicalOrExpressionContext) AllLogicalAndExpression() []ILogicalAndExpressionContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(IFunctionCallContext); ok {
+		if _, ok := ctx.(ILogicalAndExpressionContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]IFunctionCallContext, len)
+	tst := make([]ILogicalAndExpressionContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(IFunctionCallContext); ok {
-			tst[i] = t.(IFunctionCallContext)
+		if t, ok := ctx.(ILogicalAndExpressionContext); ok {
+			tst[i] = t.(ILogicalAndExpressionContext)
 			i++
 		}
 	}
@@ -2328,11 +2755,11 @@ func (s *PipelineExprContext) AllFunctionCall() []IFunctionCallContext {
 	return tst
 }
 
-func (s *PipelineExprContext) FunctionCall(i int) IFunctionCallContext {
+func (s *LogicalOrExpressionContext) LogicalAndExpression(i int) ILogicalAndExpressionContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IFunctionCallContext); ok {
+		if _, ok := ctx.(ILogicalAndExpressionContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -2345,72 +2772,79 @@ func (s *PipelineExprContext) FunctionCall(i int) IFunctionCallContext {
 		return nil
 	}
 
-	return t.(IFunctionCallContext)
+	return t.(ILogicalAndExpressionContext)
 }
 
-func (s *PipelineExprContext) AllPIPE() []antlr.TerminalNode {
-	return s.GetTokens(unsafeParserPIPE)
+func (s *LogicalOrExpressionContext) AllOR() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserOR)
 }
 
-func (s *PipelineExprContext) PIPE(i int) antlr.TerminalNode {
-	return s.GetToken(unsafeParserPIPE, i)
+func (s *LogicalOrExpressionContext) OR(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserOR, i)
 }
 
-func (s *PipelineExprContext) GetRuleContext() antlr.RuleContext {
+func (s *LogicalOrExpressionContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *PipelineExprContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *LogicalOrExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PipelineExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *LogicalOrExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case unsafeParserVisitor:
-		return t.VisitPipelineExpr(s)
+		return t.VisitLogicalOrExpression(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *unsafeParser) PipelineExpr() (localctx IPipelineExprContext) {
-	localctx = NewPipelineExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 22, unsafeParserRULE_pipelineExpr)
-	var _la int
+func (p *unsafeParser) LogicalOrExpression() (localctx ILogicalOrExpressionContext) {
+	localctx = NewLogicalOrExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 24, unsafeParserRULE_logicalOrExpression)
+	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(121)
-		p.FunctionCall()
+		p.SetState(155)
+		p.LogicalAndExpression()
 	}
-	p.SetState(126)
+	p.SetState(160)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
-	_la = p.GetTokenStream().LA(1)
-
-	for _la == unsafeParserPIPE {
-		{
-			p.SetState(122)
-			p.Match(unsafeParserPIPE)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext())
+	if p.HasError() {
+		goto errorExit
+	}
+	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
+		if _alt == 1 {
+			{
+				p.SetState(156)
+				p.Match(unsafeParserOR)
+				if p.HasError() {
+					// Recognition error - abort rule
+					goto errorExit
+				}
 			}
-		}
-		{
-			p.SetState(123)
-			p.FunctionCall()
-		}
+			{
+				p.SetState(157)
+				p.LogicalAndExpression()
+			}
 
-		p.SetState(128)
+		}
+		p.SetState(162)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_la = p.GetTokenStream().LA(1)
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext())
+		if p.HasError() {
+			goto errorExit
+		}
 	}
 
 errorExit:
@@ -2426,8 +2860,583 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IPrimaryExprContext is an interface to support dynamic dispatch.
-type IPrimaryExprContext interface {
+// ILogicalAndExpressionContext is an interface to support dynamic dispatch.
+type ILogicalAndExpressionContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllEqualityExpression() []IEqualityExpressionContext
+	EqualityExpression(i int) IEqualityExpressionContext
+	AllAND() []antlr.TerminalNode
+	AND(i int) antlr.TerminalNode
+
+	// IsLogicalAndExpressionContext differentiates from other interfaces.
+	IsLogicalAndExpressionContext()
+}
+
+type LogicalAndExpressionContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyLogicalAndExpressionContext() *LogicalAndExpressionContext {
+	var p = new(LogicalAndExpressionContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalAndExpression
+	return p
+}
+
+func InitEmptyLogicalAndExpressionContext(p *LogicalAndExpressionContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalAndExpression
+}
+
+func (*LogicalAndExpressionContext) IsLogicalAndExpressionContext() {}
+
+func NewLogicalAndExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *LogicalAndExpressionContext {
+	var p = new(LogicalAndExpressionContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_logicalAndExpression
+
+	return p
+}
+
+func (s *LogicalAndExpressionContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *LogicalAndExpressionContext) AllEqualityExpression() []IEqualityExpressionContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IEqualityExpressionContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IEqualityExpressionContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IEqualityExpressionContext); ok {
+			tst[i] = t.(IEqualityExpressionContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *LogicalAndExpressionContext) EqualityExpression(i int) IEqualityExpressionContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IEqualityExpressionContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IEqualityExpressionContext)
+}
+
+func (s *LogicalAndExpressionContext) AllAND() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserAND)
+}
+
+func (s *LogicalAndExpressionContext) AND(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserAND, i)
+}
+
+func (s *LogicalAndExpressionContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *LogicalAndExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *LogicalAndExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitLogicalAndExpression(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) LogicalAndExpression() (localctx ILogicalAndExpressionContext) {
+	localctx = NewLogicalAndExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 26, unsafeParserRULE_logicalAndExpression)
+	var _alt int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(163)
+		p.EqualityExpression()
+	}
+	p.SetState(168)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
+	if p.HasError() {
+		goto errorExit
+	}
+	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
+		if _alt == 1 {
+			{
+				p.SetState(164)
+				p.Match(unsafeParserAND)
+				if p.HasError() {
+					// Recognition error - abort rule
+					goto errorExit
+				}
+			}
+			{
+				p.SetState(165)
+				p.EqualityExpression()
+			}
+
+		}
+		p.SetState(170)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
+		if p.HasError() {
+			goto errorExit
+		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IEqualityExpressionContext is an interface to support dynamic dispatch.
+type IEqualityExpressionContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllComparisonExpression() []IComparisonExpressionContext
+	ComparisonExpression(i int) IComparisonExpressionContext
+	AllEQ() []antlr.TerminalNode
+	EQ(i int) antlr.TerminalNode
+	AllNE() []antlr.TerminalNode
+	NE(i int) antlr.TerminalNode
+
+	// IsEqualityExpressionContext differentiates from other interfaces.
+	IsEqualityExpressionContext()
+}
+
+type EqualityExpressionContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyEqualityExpressionContext() *EqualityExpressionContext {
+	var p = new(EqualityExpressionContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_equalityExpression
+	return p
+}
+
+func InitEmptyEqualityExpressionContext(p *EqualityExpressionContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_equalityExpression
+}
+
+func (*EqualityExpressionContext) IsEqualityExpressionContext() {}
+
+func NewEqualityExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *EqualityExpressionContext {
+	var p = new(EqualityExpressionContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_equalityExpression
+
+	return p
+}
+
+func (s *EqualityExpressionContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *EqualityExpressionContext) AllComparisonExpression() []IComparisonExpressionContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IComparisonExpressionContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IComparisonExpressionContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IComparisonExpressionContext); ok {
+			tst[i] = t.(IComparisonExpressionContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *EqualityExpressionContext) ComparisonExpression(i int) IComparisonExpressionContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IComparisonExpressionContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IComparisonExpressionContext)
+}
+
+func (s *EqualityExpressionContext) AllEQ() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserEQ)
+}
+
+func (s *EqualityExpressionContext) EQ(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserEQ, i)
+}
+
+func (s *EqualityExpressionContext) AllNE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserNE)
+}
+
+func (s *EqualityExpressionContext) NE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserNE, i)
+}
+
+func (s *EqualityExpressionContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *EqualityExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *EqualityExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitEqualityExpression(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) EqualityExpression() (localctx IEqualityExpressionContext) {
+	localctx = NewEqualityExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 28, unsafeParserRULE_equalityExpression)
+	var _la int
+
+	var _alt int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(171)
+		p.ComparisonExpression()
+	}
+	p.SetState(176)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 11, p.GetParserRuleContext())
+	if p.HasError() {
+		goto errorExit
+	}
+	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
+		if _alt == 1 {
+			{
+				p.SetState(172)
+				_la = p.GetTokenStream().LA(1)
+
+				if !(_la == unsafeParserEQ || _la == unsafeParserNE) {
+					p.GetErrorHandler().RecoverInline(p)
+				} else {
+					p.GetErrorHandler().ReportMatch(p)
+					p.Consume()
+				}
+			}
+			{
+				p.SetState(173)
+				p.ComparisonExpression()
+			}
+
+		}
+		p.SetState(178)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 11, p.GetParserRuleContext())
+		if p.HasError() {
+			goto errorExit
+		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IComparisonExpressionContext is an interface to support dynamic dispatch.
+type IComparisonExpressionContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllPrimaryExpression() []IPrimaryExpressionContext
+	PrimaryExpression(i int) IPrimaryExpressionContext
+	AllGT() []antlr.TerminalNode
+	GT(i int) antlr.TerminalNode
+	AllLT() []antlr.TerminalNode
+	LT(i int) antlr.TerminalNode
+	AllGE() []antlr.TerminalNode
+	GE(i int) antlr.TerminalNode
+	AllLE() []antlr.TerminalNode
+	LE(i int) antlr.TerminalNode
+
+	// IsComparisonExpressionContext differentiates from other interfaces.
+	IsComparisonExpressionContext()
+}
+
+type ComparisonExpressionContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyComparisonExpressionContext() *ComparisonExpressionContext {
+	var p = new(ComparisonExpressionContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_comparisonExpression
+	return p
+}
+
+func InitEmptyComparisonExpressionContext(p *ComparisonExpressionContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_comparisonExpression
+}
+
+func (*ComparisonExpressionContext) IsComparisonExpressionContext() {}
+
+func NewComparisonExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ComparisonExpressionContext {
+	var p = new(ComparisonExpressionContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_comparisonExpression
+
+	return p
+}
+
+func (s *ComparisonExpressionContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *ComparisonExpressionContext) AllPrimaryExpression() []IPrimaryExpressionContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IPrimaryExpressionContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IPrimaryExpressionContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IPrimaryExpressionContext); ok {
+			tst[i] = t.(IPrimaryExpressionContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *ComparisonExpressionContext) PrimaryExpression(i int) IPrimaryExpressionContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPrimaryExpressionContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPrimaryExpressionContext)
+}
+
+func (s *ComparisonExpressionContext) AllGT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserGT)
+}
+
+func (s *ComparisonExpressionContext) GT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserGT, i)
+}
+
+func (s *ComparisonExpressionContext) AllLT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserLT)
+}
+
+func (s *ComparisonExpressionContext) LT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserLT, i)
+}
+
+func (s *ComparisonExpressionContext) AllGE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserGE)
+}
+
+func (s *ComparisonExpressionContext) GE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserGE, i)
+}
+
+func (s *ComparisonExpressionContext) AllLE() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserLE)
+}
+
+func (s *ComparisonExpressionContext) LE(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserLE, i)
+}
+
+func (s *ComparisonExpressionContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *ComparisonExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *ComparisonExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitComparisonExpression(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) ComparisonExpression() (localctx IComparisonExpressionContext) {
+	localctx = NewComparisonExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 30, unsafeParserRULE_comparisonExpression)
+	var _la int
+
+	var _alt int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(179)
+		p.PrimaryExpression()
+	}
+	p.SetState(184)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 12, p.GetParserRuleContext())
+	if p.HasError() {
+		goto errorExit
+	}
+	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
+		if _alt == 1 {
+			{
+				p.SetState(180)
+				_la = p.GetTokenStream().LA(1)
+
+				if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&31457280) != 0) {
+					p.GetErrorHandler().RecoverInline(p)
+				} else {
+					p.GetErrorHandler().ReportMatch(p)
+					p.Consume()
+				}
+			}
+			{
+				p.SetState(181)
+				p.PrimaryExpression()
+			}
+
+		}
+		p.SetState(186)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 12, p.GetParserRuleContext())
+		if p.HasError() {
+			goto errorExit
+		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IPrimaryExpressionContext is an interface to support dynamic dispatch.
+type IPrimaryExpressionContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -2436,61 +3445,86 @@ type IPrimaryExprContext interface {
 	// Getter signatures
 	NUMBER() antlr.TerminalNode
 	STRING() antlr.TerminalNode
+	BOOLEAN() antlr.TerminalNode
 	IDENTIFIER() antlr.TerminalNode
+	NUMBER_STMT() antlr.TerminalNode
+	STRING_STMT() antlr.TerminalNode
+	BOOLEAN_STMT() antlr.TerminalNode
 	VarExpr() IVarExprContext
 	LPAREN() antlr.TerminalNode
 	Expression() IExpressionContext
 	RPAREN() antlr.TerminalNode
+	FunctionCall() IFunctionCallContext
+	NOT() antlr.TerminalNode
+	PrimaryExpression() IPrimaryExpressionContext
+	NOT_STMT() antlr.TerminalNode
+	PrimaryExpressionStmt() IPrimaryExpressionStmtContext
 
-	// IsPrimaryExprContext differentiates from other interfaces.
-	IsPrimaryExprContext()
+	// IsPrimaryExpressionContext differentiates from other interfaces.
+	IsPrimaryExpressionContext()
 }
 
-type PrimaryExprContext struct {
+type PrimaryExpressionContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyPrimaryExprContext() *PrimaryExprContext {
-	var p = new(PrimaryExprContext)
+func NewEmptyPrimaryExpressionContext() *PrimaryExpressionContext {
+	var p = new(PrimaryExpressionContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_primaryExpr
+	p.RuleIndex = unsafeParserRULE_primaryExpression
 	return p
 }
 
-func InitEmptyPrimaryExprContext(p *PrimaryExprContext) {
+func InitEmptyPrimaryExpressionContext(p *PrimaryExpressionContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = unsafeParserRULE_primaryExpr
+	p.RuleIndex = unsafeParserRULE_primaryExpression
 }
 
-func (*PrimaryExprContext) IsPrimaryExprContext() {}
+func (*PrimaryExpressionContext) IsPrimaryExpressionContext() {}
 
-func NewPrimaryExprContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PrimaryExprContext {
-	var p = new(PrimaryExprContext)
+func NewPrimaryExpressionContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PrimaryExpressionContext {
+	var p = new(PrimaryExpressionContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = unsafeParserRULE_primaryExpr
+	p.RuleIndex = unsafeParserRULE_primaryExpression
 
 	return p
 }
 
-func (s *PrimaryExprContext) GetParser() antlr.Parser { return s.parser }
+func (s *PrimaryExpressionContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *PrimaryExprContext) NUMBER() antlr.TerminalNode {
+func (s *PrimaryExpressionContext) NUMBER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserNUMBER, 0)
 }
 
-func (s *PrimaryExprContext) STRING() antlr.TerminalNode {
+func (s *PrimaryExpressionContext) STRING() antlr.TerminalNode {
 	return s.GetToken(unsafeParserSTRING, 0)
 }
 
-func (s *PrimaryExprContext) IDENTIFIER() antlr.TerminalNode {
+func (s *PrimaryExpressionContext) BOOLEAN() antlr.TerminalNode {
+	return s.GetToken(unsafeParserBOOLEAN, 0)
+}
+
+func (s *PrimaryExpressionContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, 0)
 }
 
-func (s *PrimaryExprContext) VarExpr() IVarExprContext {
+func (s *PrimaryExpressionContext) NUMBER_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNUMBER_STMT, 0)
+}
+
+func (s *PrimaryExpressionContext) STRING_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTRING_STMT, 0)
+}
+
+func (s *PrimaryExpressionContext) BOOLEAN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserBOOLEAN_STMT, 0)
+}
+
+func (s *PrimaryExpressionContext) VarExpr() IVarExprContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IVarExprContext); ok {
@@ -2506,11 +3540,11 @@ func (s *PrimaryExprContext) VarExpr() IVarExprContext {
 	return t.(IVarExprContext)
 }
 
-func (s *PrimaryExprContext) LPAREN() antlr.TerminalNode {
+func (s *PrimaryExpressionContext) LPAREN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserLPAREN, 0)
 }
 
-func (s *PrimaryExprContext) Expression() IExpressionContext {
+func (s *PrimaryExpressionContext) Expression() IExpressionContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IExpressionContext); ok {
@@ -2526,42 +3560,98 @@ func (s *PrimaryExprContext) Expression() IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *PrimaryExprContext) RPAREN() antlr.TerminalNode {
+func (s *PrimaryExpressionContext) RPAREN() antlr.TerminalNode {
 	return s.GetToken(unsafeParserRPAREN, 0)
 }
 
-func (s *PrimaryExprContext) GetRuleContext() antlr.RuleContext {
+func (s *PrimaryExpressionContext) FunctionCall() IFunctionCallContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IFunctionCallContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IFunctionCallContext)
+}
+
+func (s *PrimaryExpressionContext) NOT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNOT, 0)
+}
+
+func (s *PrimaryExpressionContext) PrimaryExpression() IPrimaryExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPrimaryExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPrimaryExpressionContext)
+}
+
+func (s *PrimaryExpressionContext) NOT_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNOT_STMT, 0)
+}
+
+func (s *PrimaryExpressionContext) PrimaryExpressionStmt() IPrimaryExpressionStmtContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPrimaryExpressionStmtContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPrimaryExpressionStmtContext)
+}
+
+func (s *PrimaryExpressionContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *PrimaryExprContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *PrimaryExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *PrimaryExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *PrimaryExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case unsafeParserVisitor:
-		return t.VisitPrimaryExpr(s)
+		return t.VisitPrimaryExpression(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
-	localctx = NewPrimaryExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 24, unsafeParserRULE_primaryExpr)
-	p.SetState(137)
+func (p *unsafeParser) PrimaryExpression() (localctx IPrimaryExpressionContext) {
+	localctx = NewPrimaryExpressionContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 32, unsafeParserRULE_primaryExpression)
+	p.SetState(204)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetTokenStream().LA(1) {
-	case unsafeParserNUMBER:
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 13, p.GetParserRuleContext()) {
+	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(129)
+			p.SetState(187)
 			p.Match(unsafeParserNUMBER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2569,10 +3659,10 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 
-	case unsafeParserSTRING:
+	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(130)
+			p.SetState(188)
 			p.Match(unsafeParserSTRING)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2580,10 +3670,21 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 
-	case unsafeParserIDENTIFIER:
+	case 3:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(131)
+			p.SetState(189)
+			p.Match(unsafeParserBOOLEAN)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 4:
+		p.EnterOuterAlt(localctx, 4)
+		{
+			p.SetState(190)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2591,17 +3692,50 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 
-	case unsafeParserDOLLAR:
-		p.EnterOuterAlt(localctx, 4)
+	case 5:
+		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(132)
+			p.SetState(191)
+			p.Match(unsafeParserNUMBER_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 6:
+		p.EnterOuterAlt(localctx, 6)
+		{
+			p.SetState(192)
+			p.Match(unsafeParserSTRING_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 7:
+		p.EnterOuterAlt(localctx, 7)
+		{
+			p.SetState(193)
+			p.Match(unsafeParserBOOLEAN_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 8:
+		p.EnterOuterAlt(localctx, 8)
+		{
+			p.SetState(194)
 			p.VarExpr()
 		}
 
-	case unsafeParserLPAREN:
-		p.EnterOuterAlt(localctx, 5)
+	case 9:
+		p.EnterOuterAlt(localctx, 9)
 		{
-			p.SetState(133)
+			p.SetState(195)
 			p.Match(unsafeParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2609,11 +3743,11 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 		{
-			p.SetState(134)
+			p.SetState(196)
 			p.Expression()
 		}
 		{
-			p.SetState(135)
+			p.SetState(197)
 			p.Match(unsafeParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2621,8 +3755,44 @@ func (p *unsafeParser) PrimaryExpr() (localctx IPrimaryExprContext) {
 			}
 		}
 
-	default:
-		p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
+	case 10:
+		p.EnterOuterAlt(localctx, 10)
+		{
+			p.SetState(199)
+			p.FunctionCall()
+		}
+
+	case 11:
+		p.EnterOuterAlt(localctx, 11)
+		{
+			p.SetState(200)
+			p.Match(unsafeParserNOT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(201)
+			p.PrimaryExpression()
+		}
+
+	case 12:
+		p.EnterOuterAlt(localctx, 12)
+		{
+			p.SetState(202)
+			p.Match(unsafeParserNOT_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(203)
+			p.PrimaryExpressionStmt()
+		}
+
+	case antlr.ATNInvalidAltNumber:
 		goto errorExit
 	}
 
@@ -2714,10 +3884,10 @@ func (s *VarExprContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 
 func (p *unsafeParser) VarExpr() (localctx IVarExprContext) {
 	localctx = NewVarExprContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 26, unsafeParserRULE_varExpr)
+	p.EnterRule(localctx, 34, unsafeParserRULE_varExpr)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(139)
+		p.SetState(206)
 		p.Match(unsafeParserDOLLAR)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2725,7 +3895,7 @@ func (p *unsafeParser) VarExpr() (localctx IVarExprContext) {
 		}
 	}
 	{
-		p.SetState(140)
+		p.SetState(207)
 		p.Match(unsafeParserIDENTIFIER)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2755,8 +3925,8 @@ type IFunctionCallContext interface {
 
 	// Getter signatures
 	IDENTIFIER() antlr.TerminalNode
-	AllPrimaryExpr() []IPrimaryExprContext
-	PrimaryExpr(i int) IPrimaryExprContext
+	AllExpression() []IExpressionContext
+	Expression(i int) IExpressionContext
 	LPAREN() antlr.TerminalNode
 	RPAREN() antlr.TerminalNode
 	AllCOMMA() []antlr.TerminalNode
@@ -2802,20 +3972,20 @@ func (s *FunctionCallContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(unsafeParserIDENTIFIER, 0)
 }
 
-func (s *FunctionCallContext) AllPrimaryExpr() []IPrimaryExprContext {
+func (s *FunctionCallContext) AllExpression() []IExpressionContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(IPrimaryExprContext); ok {
+		if _, ok := ctx.(IExpressionContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]IPrimaryExprContext, len)
+	tst := make([]IExpressionContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(IPrimaryExprContext); ok {
-			tst[i] = t.(IPrimaryExprContext)
+		if t, ok := ctx.(IExpressionContext); ok {
+			tst[i] = t.(IExpressionContext)
 			i++
 		}
 	}
@@ -2823,11 +3993,11 @@ func (s *FunctionCallContext) AllPrimaryExpr() []IPrimaryExprContext {
 	return tst
 }
 
-func (s *FunctionCallContext) PrimaryExpr(i int) IPrimaryExprContext {
+func (s *FunctionCallContext) Expression(i int) IExpressionContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IPrimaryExprContext); ok {
+		if _, ok := ctx.(IExpressionContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -2840,7 +4010,7 @@ func (s *FunctionCallContext) PrimaryExpr(i int) IPrimaryExprContext {
 		return nil
 	}
 
-	return t.(IPrimaryExprContext)
+	return t.(IExpressionContext)
 }
 
 func (s *FunctionCallContext) LPAREN() antlr.TerminalNode {
@@ -2879,51 +4049,51 @@ func (s *FunctionCallContext) Accept(visitor antlr.ParseTreeVisitor) interface{}
 
 func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 	localctx = NewFunctionCallContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 28, unsafeParserRULE_functionCall)
+	p.EnterRule(localctx, 36, unsafeParserRULE_functionCall)
 	var _la int
 
 	var _alt int
 
-	p.SetState(162)
+	p.SetState(229)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 13, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 17, p.GetParserRuleContext()) {
 	case 1:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(142)
+			p.SetState(209)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(146)
+		p.SetState(213)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 14, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 		for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 			if _alt == 1 {
 				{
-					p.SetState(143)
-					p.PrimaryExpr()
+					p.SetState(210)
+					p.Expression()
 				}
 
 			}
-			p.SetState(148)
+			p.SetState(215)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
-			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext())
+			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 14, p.GetParserRuleContext())
 			if p.HasError() {
 				goto errorExit
 			}
@@ -2932,7 +4102,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(149)
+			p.SetState(216)
 			p.Match(unsafeParserIDENTIFIER)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2940,28 +4110,28 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 			}
 		}
 		{
-			p.SetState(150)
+			p.SetState(217)
 			p.Match(unsafeParserLPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(152)
+		p.SetState(219)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 
-		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&14696704) != 0 {
+		if (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&279223198237606144) != 0 {
 			{
-				p.SetState(151)
-				p.PrimaryExpr()
+				p.SetState(218)
+				p.Expression()
 			}
 
 		}
-		p.SetState(158)
+		p.SetState(225)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2970,7 +4140,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 
 		for _la == unsafeParserCOMMA {
 			{
-				p.SetState(154)
+				p.SetState(221)
 				p.Match(unsafeParserCOMMA)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -2978,11 +4148,11 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 				}
 			}
 			{
-				p.SetState(155)
-				p.PrimaryExpr()
+				p.SetState(222)
+				p.Expression()
 			}
 
-			p.SetState(160)
+			p.SetState(227)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -2990,7 +4160,7 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 		{
-			p.SetState(161)
+			p.SetState(228)
 			p.Match(unsafeParserRPAREN)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2999,6 +4169,966 @@ func (p *unsafeParser) FunctionCall() (localctx IFunctionCallContext) {
 		}
 
 	case antlr.ATNInvalidAltNumber:
+		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ILogicalOrExpressionStmtContext is an interface to support dynamic dispatch.
+type ILogicalOrExpressionStmtContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllLogicalAndExpressionStmt() []ILogicalAndExpressionStmtContext
+	LogicalAndExpressionStmt(i int) ILogicalAndExpressionStmtContext
+	AllOR_STMT() []antlr.TerminalNode
+	OR_STMT(i int) antlr.TerminalNode
+
+	// IsLogicalOrExpressionStmtContext differentiates from other interfaces.
+	IsLogicalOrExpressionStmtContext()
+}
+
+type LogicalOrExpressionStmtContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyLogicalOrExpressionStmtContext() *LogicalOrExpressionStmtContext {
+	var p = new(LogicalOrExpressionStmtContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalOrExpressionStmt
+	return p
+}
+
+func InitEmptyLogicalOrExpressionStmtContext(p *LogicalOrExpressionStmtContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalOrExpressionStmt
+}
+
+func (*LogicalOrExpressionStmtContext) IsLogicalOrExpressionStmtContext() {}
+
+func NewLogicalOrExpressionStmtContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *LogicalOrExpressionStmtContext {
+	var p = new(LogicalOrExpressionStmtContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_logicalOrExpressionStmt
+
+	return p
+}
+
+func (s *LogicalOrExpressionStmtContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *LogicalOrExpressionStmtContext) AllLogicalAndExpressionStmt() []ILogicalAndExpressionStmtContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(ILogicalAndExpressionStmtContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]ILogicalAndExpressionStmtContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(ILogicalAndExpressionStmtContext); ok {
+			tst[i] = t.(ILogicalAndExpressionStmtContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *LogicalOrExpressionStmtContext) LogicalAndExpressionStmt(i int) ILogicalAndExpressionStmtContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ILogicalAndExpressionStmtContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ILogicalAndExpressionStmtContext)
+}
+
+func (s *LogicalOrExpressionStmtContext) AllOR_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserOR_STMT)
+}
+
+func (s *LogicalOrExpressionStmtContext) OR_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserOR_STMT, i)
+}
+
+func (s *LogicalOrExpressionStmtContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *LogicalOrExpressionStmtContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *LogicalOrExpressionStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitLogicalOrExpressionStmt(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) LogicalOrExpressionStmt() (localctx ILogicalOrExpressionStmtContext) {
+	localctx = NewLogicalOrExpressionStmtContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 38, unsafeParserRULE_logicalOrExpressionStmt)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(231)
+		p.LogicalAndExpressionStmt()
+	}
+	p.SetState(236)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == unsafeParserOR_STMT {
+		{
+			p.SetState(232)
+			p.Match(unsafeParserOR_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(233)
+			p.LogicalAndExpressionStmt()
+		}
+
+		p.SetState(238)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ILogicalAndExpressionStmtContext is an interface to support dynamic dispatch.
+type ILogicalAndExpressionStmtContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllEqualityExpressionStmt() []IEqualityExpressionStmtContext
+	EqualityExpressionStmt(i int) IEqualityExpressionStmtContext
+	AllAND_STMT() []antlr.TerminalNode
+	AND_STMT(i int) antlr.TerminalNode
+
+	// IsLogicalAndExpressionStmtContext differentiates from other interfaces.
+	IsLogicalAndExpressionStmtContext()
+}
+
+type LogicalAndExpressionStmtContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyLogicalAndExpressionStmtContext() *LogicalAndExpressionStmtContext {
+	var p = new(LogicalAndExpressionStmtContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalAndExpressionStmt
+	return p
+}
+
+func InitEmptyLogicalAndExpressionStmtContext(p *LogicalAndExpressionStmtContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_logicalAndExpressionStmt
+}
+
+func (*LogicalAndExpressionStmtContext) IsLogicalAndExpressionStmtContext() {}
+
+func NewLogicalAndExpressionStmtContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *LogicalAndExpressionStmtContext {
+	var p = new(LogicalAndExpressionStmtContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_logicalAndExpressionStmt
+
+	return p
+}
+
+func (s *LogicalAndExpressionStmtContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *LogicalAndExpressionStmtContext) AllEqualityExpressionStmt() []IEqualityExpressionStmtContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IEqualityExpressionStmtContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IEqualityExpressionStmtContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IEqualityExpressionStmtContext); ok {
+			tst[i] = t.(IEqualityExpressionStmtContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *LogicalAndExpressionStmtContext) EqualityExpressionStmt(i int) IEqualityExpressionStmtContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IEqualityExpressionStmtContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IEqualityExpressionStmtContext)
+}
+
+func (s *LogicalAndExpressionStmtContext) AllAND_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserAND_STMT)
+}
+
+func (s *LogicalAndExpressionStmtContext) AND_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserAND_STMT, i)
+}
+
+func (s *LogicalAndExpressionStmtContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *LogicalAndExpressionStmtContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *LogicalAndExpressionStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitLogicalAndExpressionStmt(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) LogicalAndExpressionStmt() (localctx ILogicalAndExpressionStmtContext) {
+	localctx = NewLogicalAndExpressionStmtContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 40, unsafeParserRULE_logicalAndExpressionStmt)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(239)
+		p.EqualityExpressionStmt()
+	}
+	p.SetState(244)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == unsafeParserAND_STMT {
+		{
+			p.SetState(240)
+			p.Match(unsafeParserAND_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(241)
+			p.EqualityExpressionStmt()
+		}
+
+		p.SetState(246)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IEqualityExpressionStmtContext is an interface to support dynamic dispatch.
+type IEqualityExpressionStmtContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllComparisonExpressionStmt() []IComparisonExpressionStmtContext
+	ComparisonExpressionStmt(i int) IComparisonExpressionStmtContext
+	AllEQ_STMT() []antlr.TerminalNode
+	EQ_STMT(i int) antlr.TerminalNode
+	AllNE_STMT() []antlr.TerminalNode
+	NE_STMT(i int) antlr.TerminalNode
+
+	// IsEqualityExpressionStmtContext differentiates from other interfaces.
+	IsEqualityExpressionStmtContext()
+}
+
+type EqualityExpressionStmtContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyEqualityExpressionStmtContext() *EqualityExpressionStmtContext {
+	var p = new(EqualityExpressionStmtContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_equalityExpressionStmt
+	return p
+}
+
+func InitEmptyEqualityExpressionStmtContext(p *EqualityExpressionStmtContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_equalityExpressionStmt
+}
+
+func (*EqualityExpressionStmtContext) IsEqualityExpressionStmtContext() {}
+
+func NewEqualityExpressionStmtContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *EqualityExpressionStmtContext {
+	var p = new(EqualityExpressionStmtContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_equalityExpressionStmt
+
+	return p
+}
+
+func (s *EqualityExpressionStmtContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *EqualityExpressionStmtContext) AllComparisonExpressionStmt() []IComparisonExpressionStmtContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IComparisonExpressionStmtContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IComparisonExpressionStmtContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IComparisonExpressionStmtContext); ok {
+			tst[i] = t.(IComparisonExpressionStmtContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *EqualityExpressionStmtContext) ComparisonExpressionStmt(i int) IComparisonExpressionStmtContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IComparisonExpressionStmtContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IComparisonExpressionStmtContext)
+}
+
+func (s *EqualityExpressionStmtContext) AllEQ_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserEQ_STMT)
+}
+
+func (s *EqualityExpressionStmtContext) EQ_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserEQ_STMT, i)
+}
+
+func (s *EqualityExpressionStmtContext) AllNE_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserNE_STMT)
+}
+
+func (s *EqualityExpressionStmtContext) NE_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserNE_STMT, i)
+}
+
+func (s *EqualityExpressionStmtContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *EqualityExpressionStmtContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *EqualityExpressionStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitEqualityExpressionStmt(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) EqualityExpressionStmt() (localctx IEqualityExpressionStmtContext) {
+	localctx = NewEqualityExpressionStmtContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 42, unsafeParserRULE_equalityExpressionStmt)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(247)
+		p.ComparisonExpressionStmt()
+	}
+	p.SetState(252)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == unsafeParserEQ_STMT || _la == unsafeParserNE_STMT {
+		{
+			p.SetState(248)
+			_la = p.GetTokenStream().LA(1)
+
+			if !(_la == unsafeParserEQ_STMT || _la == unsafeParserNE_STMT) {
+				p.GetErrorHandler().RecoverInline(p)
+			} else {
+				p.GetErrorHandler().ReportMatch(p)
+				p.Consume()
+			}
+		}
+		{
+			p.SetState(249)
+			p.ComparisonExpressionStmt()
+		}
+
+		p.SetState(254)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IComparisonExpressionStmtContext is an interface to support dynamic dispatch.
+type IComparisonExpressionStmtContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	AllPrimaryExpressionStmt() []IPrimaryExpressionStmtContext
+	PrimaryExpressionStmt(i int) IPrimaryExpressionStmtContext
+	AllGT_STMT() []antlr.TerminalNode
+	GT_STMT(i int) antlr.TerminalNode
+	AllLT_STMT() []antlr.TerminalNode
+	LT_STMT(i int) antlr.TerminalNode
+	AllGE_STMT() []antlr.TerminalNode
+	GE_STMT(i int) antlr.TerminalNode
+	AllLE_STMT() []antlr.TerminalNode
+	LE_STMT(i int) antlr.TerminalNode
+
+	// IsComparisonExpressionStmtContext differentiates from other interfaces.
+	IsComparisonExpressionStmtContext()
+}
+
+type ComparisonExpressionStmtContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyComparisonExpressionStmtContext() *ComparisonExpressionStmtContext {
+	var p = new(ComparisonExpressionStmtContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_comparisonExpressionStmt
+	return p
+}
+
+func InitEmptyComparisonExpressionStmtContext(p *ComparisonExpressionStmtContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_comparisonExpressionStmt
+}
+
+func (*ComparisonExpressionStmtContext) IsComparisonExpressionStmtContext() {}
+
+func NewComparisonExpressionStmtContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ComparisonExpressionStmtContext {
+	var p = new(ComparisonExpressionStmtContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_comparisonExpressionStmt
+
+	return p
+}
+
+func (s *ComparisonExpressionStmtContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *ComparisonExpressionStmtContext) AllPrimaryExpressionStmt() []IPrimaryExpressionStmtContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IPrimaryExpressionStmtContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IPrimaryExpressionStmtContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IPrimaryExpressionStmtContext); ok {
+			tst[i] = t.(IPrimaryExpressionStmtContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *ComparisonExpressionStmtContext) PrimaryExpressionStmt(i int) IPrimaryExpressionStmtContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPrimaryExpressionStmtContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPrimaryExpressionStmtContext)
+}
+
+func (s *ComparisonExpressionStmtContext) AllGT_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserGT_STMT)
+}
+
+func (s *ComparisonExpressionStmtContext) GT_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserGT_STMT, i)
+}
+
+func (s *ComparisonExpressionStmtContext) AllLT_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserLT_STMT)
+}
+
+func (s *ComparisonExpressionStmtContext) LT_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserLT_STMT, i)
+}
+
+func (s *ComparisonExpressionStmtContext) AllGE_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserGE_STMT)
+}
+
+func (s *ComparisonExpressionStmtContext) GE_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserGE_STMT, i)
+}
+
+func (s *ComparisonExpressionStmtContext) AllLE_STMT() []antlr.TerminalNode {
+	return s.GetTokens(unsafeParserLE_STMT)
+}
+
+func (s *ComparisonExpressionStmtContext) LE_STMT(i int) antlr.TerminalNode {
+	return s.GetToken(unsafeParserLE_STMT, i)
+}
+
+func (s *ComparisonExpressionStmtContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *ComparisonExpressionStmtContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *ComparisonExpressionStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitComparisonExpressionStmt(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) ComparisonExpressionStmt() (localctx IComparisonExpressionStmtContext) {
+	localctx = NewComparisonExpressionStmtContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 44, unsafeParserRULE_comparisonExpressionStmt)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(255)
+		p.PrimaryExpressionStmt()
+	}
+	p.SetState(260)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&2111062325329920) != 0 {
+		{
+			p.SetState(256)
+			_la = p.GetTokenStream().LA(1)
+
+			if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&2111062325329920) != 0) {
+				p.GetErrorHandler().RecoverInline(p)
+			} else {
+				p.GetErrorHandler().ReportMatch(p)
+				p.Consume()
+			}
+		}
+		{
+			p.SetState(257)
+			p.PrimaryExpressionStmt()
+		}
+
+		p.SetState(262)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IPrimaryExpressionStmtContext is an interface to support dynamic dispatch.
+type IPrimaryExpressionStmtContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	NUMBER_STMT() antlr.TerminalNode
+	STRING_STMT() antlr.TerminalNode
+	BOOLEAN_STMT() antlr.TerminalNode
+	IDENTIFIER_STMT() antlr.TerminalNode
+	LPAREN_STMT() antlr.TerminalNode
+	Expression() IExpressionContext
+	RPAREN_STMT() antlr.TerminalNode
+	NOT_STMT() antlr.TerminalNode
+	PrimaryExpressionStmt() IPrimaryExpressionStmtContext
+
+	// IsPrimaryExpressionStmtContext differentiates from other interfaces.
+	IsPrimaryExpressionStmtContext()
+}
+
+type PrimaryExpressionStmtContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyPrimaryExpressionStmtContext() *PrimaryExpressionStmtContext {
+	var p = new(PrimaryExpressionStmtContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_primaryExpressionStmt
+	return p
+}
+
+func InitEmptyPrimaryExpressionStmtContext(p *PrimaryExpressionStmtContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = unsafeParserRULE_primaryExpressionStmt
+}
+
+func (*PrimaryExpressionStmtContext) IsPrimaryExpressionStmtContext() {}
+
+func NewPrimaryExpressionStmtContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *PrimaryExpressionStmtContext {
+	var p = new(PrimaryExpressionStmtContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = unsafeParserRULE_primaryExpressionStmt
+
+	return p
+}
+
+func (s *PrimaryExpressionStmtContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *PrimaryExpressionStmtContext) NUMBER_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNUMBER_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) STRING_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserSTRING_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) BOOLEAN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserBOOLEAN_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) IDENTIFIER_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserIDENTIFIER_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) LPAREN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserLPAREN_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) Expression() IExpressionContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IExpressionContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IExpressionContext)
+}
+
+func (s *PrimaryExpressionStmtContext) RPAREN_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserRPAREN_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) NOT_STMT() antlr.TerminalNode {
+	return s.GetToken(unsafeParserNOT_STMT, 0)
+}
+
+func (s *PrimaryExpressionStmtContext) PrimaryExpressionStmt() IPrimaryExpressionStmtContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IPrimaryExpressionStmtContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IPrimaryExpressionStmtContext)
+}
+
+func (s *PrimaryExpressionStmtContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *PrimaryExpressionStmtContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *PrimaryExpressionStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case unsafeParserVisitor:
+		return t.VisitPrimaryExpressionStmt(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
+func (p *unsafeParser) PrimaryExpressionStmt() (localctx IPrimaryExpressionStmtContext) {
+	localctx = NewPrimaryExpressionStmtContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 46, unsafeParserRULE_primaryExpressionStmt)
+	p.SetState(273)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+
+	switch p.GetTokenStream().LA(1) {
+	case unsafeParserNUMBER_STMT:
+		p.EnterOuterAlt(localctx, 1)
+		{
+			p.SetState(263)
+			p.Match(unsafeParserNUMBER_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case unsafeParserSTRING_STMT:
+		p.EnterOuterAlt(localctx, 2)
+		{
+			p.SetState(264)
+			p.Match(unsafeParserSTRING_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case unsafeParserBOOLEAN_STMT:
+		p.EnterOuterAlt(localctx, 3)
+		{
+			p.SetState(265)
+			p.Match(unsafeParserBOOLEAN_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case unsafeParserIDENTIFIER_STMT:
+		p.EnterOuterAlt(localctx, 4)
+		{
+			p.SetState(266)
+			p.Match(unsafeParserIDENTIFIER_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case unsafeParserLPAREN_STMT:
+		p.EnterOuterAlt(localctx, 5)
+		{
+			p.SetState(267)
+			p.Match(unsafeParserLPAREN_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(268)
+			p.Expression()
+		}
+		{
+			p.SetState(269)
+			p.Match(unsafeParserRPAREN_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case unsafeParserNOT_STMT:
+		p.EnterOuterAlt(localctx, 6)
+		{
+			p.SetState(271)
+			p.Match(unsafeParserNOT_STMT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(272)
+			p.PrimaryExpressionStmt()
+		}
+
+	default:
+		p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
 		goto errorExit
 	}
 

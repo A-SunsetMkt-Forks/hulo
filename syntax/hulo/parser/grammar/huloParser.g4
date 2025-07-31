@@ -52,11 +52,12 @@ statement:
 //
 // expression
 
-// assignModifier ident = expr
+// assignModifier assignScope ident = expr
 assignStatement:
-    assignModifier = (LET | CONST | VAR) (Identifier | variableNames) (COLON type)? (
-        ASSIGN (expression | matchStatement)
-    )?
+    assignModifier = (COMPTIME | PUB)* assignScope = (LET | CONST | VAR) (
+        Identifier
+        | variableNames
+    ) (COLON type)? (ASSIGN (expression | matchStatement))?
     | (variableExpression | variableNullableExpressions) (
         ASSIGN
         | ADD_ASSIGN
@@ -850,7 +851,7 @@ channelInputStatement:
 ;
 channelOutputExpression: BACKARROW variableExpression;
 
-unsafeExpression: UnsafeLiteral;
+unsafeExpression: UNSAFE StringLiteral;
 
 comptimeExpression:
     COMPTIME block

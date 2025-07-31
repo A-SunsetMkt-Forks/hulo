@@ -7,20 +7,32 @@
 // license that can be found in the LICENSE file.
 lexer grammar unsafeLexer;
 
-COMMENT_LBRACE   : '{#' -> pushMode(COMMENT_MODE);
-DOUBLE_LBRACE    : '{{' -> pushMode(EXPRESSION_MODE);
-STATEMENT_LBRACE : '{%' -> pushMode(STATEMENT_MODE);
+COMMENT_START : '{#' -> pushMode(COMMENT_MODE);
+EXPR_START    : '{{' -> pushMode(EXPRESSION_MODE);
+STMT_START    : '{%' -> pushMode(STATEMENT_MODE);
 
 TEXT: ~[{]+;
 
+fragment TRUE  : 'true';
+fragment FALSE : 'false';
+
+fragment Identifier: [a-zA-Z_][a-zA-Z0-9_]*;
+
+fragment SINGLE_QUOTE : '\'';
+fragment QUOTE        : '"';
+fragment ESC          : '\\' ['"\\bfnrt];
+
+fragment String : SINGLE_QUOTE (ESC | ~['\\\n])* SINGLE_QUOTE | QUOTE (ESC | ~["\\\n])* QUOTE;
+fragment Number : '-'? [0-9]+ ('.' [0-9]+)? ([eE] [+\-]? [0-9]+)?;
+
 mode COMMENT_MODE;
 
-COMMENT_RBRACE  : '#}' -> popMode;
-COMMENT_CONTENT : .+?  -> skip;
+COMMENT_END     : '#}' -> popMode;
+COMMENT_CONTENT : ~[#}]+;
 
 mode EXPRESSION_MODE;
 
-DOUBLE_RBRACE: '}}' -> popMode;
+EXPR_END: '}}' -> popMode;
 
 LPAREN : '(';
 RPAREN : ')';
@@ -28,41 +40,70 @@ RPAREN : ')';
 LBRACE : '{';
 RBRACE : '}';
 
-HASH         : '#';
-MOD          : '%';
-DOLLAR       : '$';
-PIPE         : '|';
-COMMA        : ',';
-COLON_EQUAL  : ':=';
-DOT          : '.';
-SINGLE_QUOTE : '\'';
-QUOTE        : '"';
+HASH        : '#';
+MOD         : '%';
+DOLLAR      : '$';
+PIPE        : '|';
+COMMA       : ',';
+COLON_EQUAL : ':=';
+DOT         : '.';
 
-STRING : SINGLE_QUOTE (ESC | ~['\\\n])* SINGLE_QUOTE | QUOTE (ESC | ~["\\\n])* QUOTE;
-NUMBER : [0-9]+ ('.' [0-9]+)? ([eE] [+\-]? [0-9]+)?;
+// Comparison operators
+EQ : '==';
+NE : '!=';
+GT : '>';
+LT : '<';
+GE : '>=';
+LE : '<=';
 
-IDENTIFIER: [a-zA-Z_][a-zA-Z0-9_]*;
+// Logical operators
+AND : '&&';
+OR  : '||';
+NOT : '!';
 
-ESC: '\\' ['"\\bfnrt];
+STRING  : String;
+NUMBER  : Number;
+BOOLEAN : TRUE | FALSE;
+
+IDENTIFIER: Identifier;
 
 WS: [ \t\r\n]+ -> skip;
 
 mode STATEMENT_MODE;
 
-STATEMENT_RBRACE: '%}' -> popMode;
+STMT_END: '%}' -> popMode;
 
-IF       : 'if';
-ELSE     : 'else';
-LOOP     : 'loop';
-IN       : 'in';
-MACRO    : 'macro';
-TEMPLATE : 'template';
+LPAREN_STMT : '(';
+RPAREN_STMT : ')';
+
+IF    : 'if';
+ELSE  : 'else';
+LOOP  : 'loop';
+IN    : 'in';
+MACRO : 'macro';
 
 END      : 'end';
 ENDIF    : 'endif';
 ENDLOOP  : 'endloop';
 ENDMACRO : 'endmacro';
 
-IDENTIFIER_STMT: [a-zA-Z_][a-zA-Z0-9_]*;
+// Comparison operators in STATEMENT_MODE
+EQ_STMT : '==';
+NE_STMT : '!=';
+GT_STMT : '>';
+LT_STMT : '<';
+GE_STMT : '>=';
+LE_STMT : '<=';
+
+// Logical operators in STATEMENT_MODE
+AND_STMT : '&&';
+OR_STMT  : '||';
+NOT_STMT : '!';
+
+STRING_STMT  : String;
+NUMBER_STMT  : Number;
+BOOLEAN_STMT : TRUE | FALSE;
+
+IDENTIFIER_STMT: Identifier;
 
 WS_STMT: [ \t\r\n]+ -> skip;

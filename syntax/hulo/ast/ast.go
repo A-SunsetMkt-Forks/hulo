@@ -427,14 +427,15 @@ func (g *CommentGroup) End() token.Pos { return g.List[len(g.List)-1].End() }
 type (
 	// An AssignStmt node represents an assignment or a short variable declaration.
 	AssignStmt struct {
-		Docs     *CommentGroup
-		Scope    token.Token // const | var | let
-		ScopePos token.Pos
-		Lhs      Expr
-		Colon    token.Pos // position of ":"
-		Type     Expr
-		Tok      token.Token // assignment token, e.g., := or =
-		Rhs      Expr
+		Docs      *CommentGroup
+		Modifiers []Modifier
+		Scope     token.Token // const | var | let
+		ScopePos  token.Pos
+		Lhs       Expr
+		Colon     token.Pos // position of ":"
+		Type      Expr
+		Tok       token.Token // assignment token, e.g., := or =
+		Rhs       Expr
 	}
 
 	// A CmdStmt node represents a command statement.
@@ -464,16 +465,6 @@ type (
 		Cond     Expr      // optional condition
 		Body     Stmt
 		Else     Stmt
-	}
-
-	// An UnsafeStmt node represents an unsafe block.
-	// unsafe { ... } or ${ ... }
-	UnsafeStmt struct {
-		Docs   *CommentGroup
-		Unsafe token.Pos // position of "unsafe" or "$"
-		Start  token.Pos // position of `{`
-		Text   string
-		EndPos token.Pos // position of `}`
 	}
 
 	// A BlockStmt node represents a braced statement list.
@@ -595,6 +586,16 @@ type (
 		X    Expr // expression
 	}
 
+	// An UnsafeExpr node represents an unsafe block.
+	// unsafe { ... } or ${ ... }
+	UnsafeExpr struct {
+		Docs   *CommentGroup
+		Unsafe token.Pos // position of "unsafe" or "$"
+		Start  token.Pos // position of `{`
+		Text   string
+		EndPos token.Pos // position of `}`
+	}
+
 	// A TryStmt node represents a try-catch-finally statement.
 	TryStmt struct {
 		Docs    *CommentGroup
@@ -639,7 +640,7 @@ type (
 func (s *AssignStmt) Pos() token.Pos   { return s.ScopePos }
 func (s *CmdStmt) Pos() token.Pos      { return s.Name.Pos() }
 func (s *ComptimeStmt) Pos() token.Pos { return s.Comptime }
-func (s *UnsafeStmt) Pos() token.Pos   { return s.Unsafe }
+func (s *UnsafeExpr) Pos() token.Pos   { return s.Unsafe }
 func (s *TryStmt) Pos() token.Pos      { return s.Try }
 func (s *CatchClause) Pos() token.Pos  { return s.Catch }
 func (s *FinallyStmt) Pos() token.Pos  { return s.Finally }
@@ -663,7 +664,7 @@ func (s *LabelStmt) Pos() token.Pos    { return s.Name.Pos() }
 func (s *AssignStmt) End() token.Pos   { return s.Rhs.End() }
 func (s *CmdStmt) End() token.Pos      { return s.Recv[len(s.Recv)-1].End() }
 func (s *ComptimeStmt) End() token.Pos { return s.Body.End() }
-func (s *UnsafeStmt) End() token.Pos   { return s.EndPos }
+func (s *UnsafeExpr) End() token.Pos   { return s.EndPos }
 func (s *TryStmt) End() token.Pos      { return s.Body.Rbrace }
 func (s *CatchClause) End() token.Pos  { return s.Body.Rbrace }
 func (s *FinallyStmt) End() token.Pos  { return s.Body.Rbrace }
@@ -693,7 +694,6 @@ func (*AssignStmt) stmtNode()   {}
 func (*CmdStmt) stmtNode()      {}
 func (*ComptimeStmt) stmtNode() {}
 func (*ComptimeStmt) exprNode() {}
-func (*UnsafeStmt) stmtNode()   {}
 func (*TryStmt) stmtNode()      {}
 func (*CatchClause) stmtNode()  {}
 func (*FinallyStmt) stmtNode()  {}
@@ -1508,6 +1508,7 @@ func (x *InferType) End() token.Pos              { return x.X.End() }
 // 	return fmt.Sprintf("infer %s", x.X)
 // }
 
+func (*UnsafeExpr) exprNode()             {}
 func (*BinaryExpr) exprNode()             {}
 func (*CallExpr) exprNode()               {}
 func (*CmdExpr) exprNode()                {}

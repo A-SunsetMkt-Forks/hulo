@@ -508,6 +508,9 @@ func (a *Analyzer) VisitStatement(ctx *generated.StatementContext) any {
 		if ctx.ExternDeclaration() != nil {
 			return a.VisitExternDeclaration(ctx.ExternDeclaration().(*generated.ExternDeclarationContext))
 		}
+		if ctx.ModuleDeclaration() != nil {
+			return a.VisitModuleDeclaration(ctx.ModuleDeclaration().(*generated.ModuleDeclarationContext))
+		}
 		// TODO: Add more statement types
 
 		return nil
@@ -569,6 +572,14 @@ func (a *Analyzer) VisitAssignStatement(ctx *generated.AssignStatementContext) a
 			scopePos = token.Pos(ctx.VAR().GetSymbol().GetStart())
 		}
 
+		var modifiers []ast.Modifier
+		if len(ctx.AllCOMPTIME()) > 0 {
+			// TODO
+		}
+		if len(ctx.AllPUB()) > 0 {
+			modifiers = append(modifiers, &ast.PubModifier{})
+		}
+
 		// Get left hand side expression
 		var lhs ast.Expr
 		if ctx.Identifier() != nil {
@@ -618,13 +629,14 @@ func (a *Analyzer) VisitAssignStatement(ctx *generated.AssignStatementContext) a
 		}
 
 		return &ast.AssignStmt{
-			Docs:     a.collectComments(),
-			Scope:    scope,
-			ScopePos: scopePos,
-			Lhs:      lhs,
-			Type:     type_,
-			Tok:      tok,
-			Rhs:      rhs,
+			Docs:      a.collectComments(),
+			Modifiers: modifiers,
+			Scope:     scope,
+			ScopePos:  scopePos,
+			Lhs:       lhs,
+			Type:      type_,
+			Tok:       tok,
+			Rhs:       rhs,
 		}
 	})
 }
@@ -1787,6 +1799,12 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 		// Get parameters
 		params, _ := accept[[]ast.Expr](ctx.ReceiverParameters(), a)
 
+		// Get return type
+		var returnType ast.Expr
+		if ctx.FunctionReturnValue() != nil {
+			returnType, _ = accept[ast.Expr](ctx.FunctionReturnValue(), a)
+		}
+
 		// Get function body
 		body, _ := accept[*ast.BlockStmt](ctx.Block(), a)
 
@@ -1810,6 +1828,7 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
 			Name:      funcName,
 			Recv:      params,
+			Type:      returnType,
 			Body:      body,
 		}
 
@@ -3525,21 +3544,95 @@ func (a *Analyzer) VisitExternItem(ctx *generated.ExternItemContext) any {
 func (a *Analyzer) VisitUnsafeExpression(ctx *generated.UnsafeExpressionContext) any {
 	return a.visitWrapper("UnsafeExpression", ctx, func() any {
 		// Handle unsafe block: unsafe { ... }
-		if ctx.UnsafeLiteral() != nil {
-			unsafeBlock := ctx.UnsafeLiteral()
-			// Get the text from the UnsafeBlock token
-			blockText := unsafeBlock.GetText()
+		if ctx.StringLiteral() != nil {
+			unsafeBlock := ctx.StringLiteral()
+			unsafeBlockText := unsafeBlock.GetText()
+			unsafeBlockText = strings.TrimLeft(unsafeBlockText, "\"")
+			unsafeBlockText = strings.TrimRight(unsafeBlockText, "\"")
 
-			// Extract content inside unsafe { ... }
-			// The format is: "unsafe { content }"
-			content := extractUnsafeContent(blockText)
-
-			return &ast.UnsafeStmt{
+			return &ast.UnsafeExpr{
 				Unsafe: token.Pos(unsafeBlock.GetSymbol().GetStart()),
 				Start:  token.Pos(unsafeBlock.GetSymbol().GetStart()),
-				Text:   content, // The extracted content inside the block
+				Text:   unsafeBlockText, // The extracted content inside the block
 				EndPos: token.Pos(unsafeBlock.GetSymbol().GetStop()),
 			}
+		}
+
+		return nil
+	})
+}
+
+// VisitModuleDeclaration implements the Visitor interface for ModuleDeclaration
+func (a *Analyzer) VisitModuleDeclaration(ctx *generated.ModuleDeclarationContext) any {
+	return a.visitWrapper("ModuleDeclaration", ctx, func() any {
+		// Get module name
+		moduleName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Get module statements
+		var statements []ast.Stmt
+		for _, stmtCtx := range ctx.AllModuleStatement() {
+			if stmt, ok := accept[ast.Stmt](stmtCtx, a); ok {
+				statements = append(statements, stmt)
+			}
+		}
+
+		// Create block statement from module statements
+		body := &ast.BlockStmt{
+			Lbrace: token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			List:   statements,
+			Rbrace: token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+		}
+
+		// Check if module is public
+		var pubPos token.Pos
+		if ctx.PUB() != nil {
+			pubPos = token.Pos(ctx.PUB().GetSymbol().GetStart())
+		}
+
+		// Get mod keyword position
+		modPos := token.Pos(ctx.MOD_LIT().GetSymbol().GetStart())
+
+		return &ast.ModDecl{
+			Pub:  pubPos,
+			Mod:  modPos,
+			Name: moduleName,
+			Body: body,
+		}
+	})
+}
+
+// VisitModuleStatement implements the Visitor interface for ModuleStatement
+func (a *Analyzer) VisitModuleStatement(ctx *generated.ModuleStatementContext) any {
+	return a.visitWrapper("ModuleStatement", ctx, func() any {
+		// Handle different types of module statements
+		if ctx.UseDeclaration() != nil {
+			return a.VisitUseDeclaration(ctx.UseDeclaration().(*generated.UseDeclarationContext))
+		}
+		if ctx.ModuleDeclaration() != nil {
+			return a.VisitModuleDeclaration(ctx.ModuleDeclaration().(*generated.ModuleDeclarationContext))
+		}
+		if ctx.ClassDeclaration() != nil {
+			return a.VisitClassDeclaration(ctx.ClassDeclaration().(*generated.ClassDeclarationContext))
+		}
+		if ctx.EnumDeclaration() != nil {
+			return a.VisitEnumDeclaration(ctx.EnumDeclaration().(*generated.EnumDeclarationContext))
+		}
+		if ctx.TraitDeclaration() != nil {
+			// TODO: Implement trait declaration
+			return nil
+		}
+		if ctx.FunctionDeclaration() != nil {
+			return a.VisitFunctionDeclaration(ctx.FunctionDeclaration().(*generated.FunctionDeclarationContext))
+		}
+		if ctx.ExtendDeclaration() != nil {
+			// TODO: Implement extend declaration
+			return nil
+		}
+		if ctx.AssignStatement() != nil {
+			return a.VisitAssignStatement(ctx.AssignStatement().(*generated.AssignStatementContext))
 		}
 
 		return nil

@@ -16,52 +16,110 @@ template: (content | statement)*;
 content: TEXT;
 
 statement:
-    ifStatement
+    commentStatement
+    | ifStatement
     | loopStatement
     | expressionStatement
     | macroStatement
-    | templateStatement
     | variableStatement
 ;
 
-variableStatement: STATEMENT_LBRACE IDENTIFIER COLON_EQUAL expression STATEMENT_RBRACE;
+commentStatement: COMMENT_START COMMENT_CONTENT COMMENT_END;
+
+variableStatement: STMT_START IDENTIFIER COLON_EQUAL expression STMT_END;
 
 ifStatement:
-    STATEMENT_LBRACE IF expression STATEMENT_RBRACE template elseStatement? STATEMENT_LBRACE (
-        END
-        | ENDIF
-    ) STATEMENT_RBRACE
+    STMT_START IF expression STMT_END template elseStatement? STMT_START (END | ENDIF) STMT_END
 ;
 
-elseStatement: STATEMENT_LBRACE ELSE STATEMENT_RBRACE template;
+elseStatement: STMT_START ELSE STMT_END template;
 
 loopStatement:
-    STATEMENT_LBRACE LOOP IDENTIFIER IN IDENTIFIER STATEMENT_RBRACE template STATEMENT_LBRACE (
-        END
-        | ENDLOOP
-    ) STATEMENT_RBRACE
+    STMT_START LOOP IDENTIFIER_STMT IN IDENTIFIER_STMT STMT_END template STMT_START (END | ENDLOOP) STMT_END
 ;
 
-expressionStatement: DOUBLE_LBRACE expression DOUBLE_RBRACE;
+expressionStatement: EXPR_START pipelineExpression EXPR_END;
 
 macroStatement:
-    STATEMENT_LBRACE MACRO IDENTIFIER (LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN)? STATEMENT_RBRACE template STATEMENT_LBRACE (
-        END
-        | ENDMACRO
-    ) STATEMENT_RBRACE
+    STMT_START MACRO IDENTIFIER_STMT (
+        LPAREN_STMT (IDENTIFIER_STMT (COMMA IDENTIFIER_STMT)*)? RPAREN_STMT
+    )? STMT_END template STMT_START (END | ENDMACRO) STMT_END
 ;
 
-templateStatement: STATEMENT_LBRACE TEMPLATE IDENTIFIER expression* STATEMENT_RBRACE;
+pipelineExpression: expression (PIPE expression)*;
 
-expression: pipelineExpr;
+expression:
+    NUMBER
+    | STRING
+    | BOOLEAN
+    | IDENTIFIER
+    | NUMBER_STMT
+    | STRING_STMT
+    | BOOLEAN_STMT
+    | varExpr
+    | LPAREN expression RPAREN
+    | functionCall
+    | logicalOrExpression
+    | logicalOrExpressionStmt
+;
 
-pipelineExpr: functionCall (PIPE functionCall)*;
+logicalOrExpression:
+    logicalAndExpression (OR logicalAndExpression)*
+;
 
-primaryExpr: NUMBER | STRING | IDENTIFIER | varExpr | LPAREN expression RPAREN;
+logicalAndExpression:
+    equalityExpression (AND equalityExpression)*
+;
+
+equalityExpression:
+    comparisonExpression ((EQ | NE) comparisonExpression)*
+;
+
+comparisonExpression:
+    primaryExpression ((GT | LT | GE | LE) primaryExpression)*
+;
+
+primaryExpression:
+    NUMBER
+    | STRING
+    | BOOLEAN
+    | IDENTIFIER
+    | NUMBER_STMT
+    | STRING_STMT
+    | BOOLEAN_STMT
+    | varExpr
+    | LPAREN expression RPAREN
+    | functionCall
+    | NOT primaryExpression
+    | NOT_STMT primaryExpressionStmt
+;
 
 varExpr: DOLLAR IDENTIFIER;
 
-functionCall:
-    IDENTIFIER (primaryExpr)*
-    | IDENTIFIER LPAREN primaryExpr? (COMMA primaryExpr)* RPAREN
+functionCall: IDENTIFIER (expression)* | IDENTIFIER LPAREN expression? (COMMA expression)* RPAREN;
+
+// Statement mode expressions
+logicalOrExpressionStmt:
+    logicalAndExpressionStmt (OR_STMT logicalAndExpressionStmt)*
+;
+
+logicalAndExpressionStmt:
+    equalityExpressionStmt (AND_STMT equalityExpressionStmt)*
+;
+
+equalityExpressionStmt:
+    comparisonExpressionStmt ((EQ_STMT | NE_STMT) comparisonExpressionStmt)*
+;
+
+comparisonExpressionStmt:
+    primaryExpressionStmt ((GT_STMT | LT_STMT | GE_STMT | LE_STMT) primaryExpressionStmt)*
+;
+
+primaryExpressionStmt:
+    NUMBER_STMT
+    | STRING_STMT
+    | BOOLEAN_STMT
+    | IDENTIFIER_STMT
+    | LPAREN_STMT expression RPAREN_STMT
+    | NOT_STMT primaryExpressionStmt
 ;

@@ -220,10 +220,22 @@ func (p *PowerShellTranspiler) Convert(node hast.Node) past.Node {
 		return p.ConvertRefExpr(n)
 	case *hast.Import:
 		return p.ConvertImport(n)
+	case *hast.UnsafeExpr:
+		return p.ConvertUnsafeExpr(n)
+	case *hast.ExternDecl:
+		return p.ConvertExternDecl(n)
 	default:
 		fmt.Printf("Unhandled node type: %T\n", node)
 		return nil
 	}
+}
+
+func (p *PowerShellTranspiler) ConvertExternDecl(node *hast.ExternDecl) past.Node {
+	return nil
+}
+
+func (p *PowerShellTranspiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) past.Node {
+	return &past.Ident{Name: node.Text}
 }
 
 func (p *PowerShellTranspiler) ConvertImport(node *hast.Import) past.Node {

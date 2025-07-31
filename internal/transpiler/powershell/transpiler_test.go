@@ -407,6 +407,85 @@ func TestTranspileDoWhile(t *testing.T) {
 	}
 }
 
+func TestTranspileUnsafe(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+		unsafe """
+function Convert-CentigradeToFahrenheit ([double]$tempC) {
+    return ($tempC * (9.0 / 5.0)) + 32.0
+}
+New-Alias c2f Convert-CentigradeToFahrenheit
+
+function Convert-FahrenheitToCentigrade ([double]$tempF) {
+    return ($tempF - 32.0) * (5.0 / 9.0)
+}
+"""
+
+extern Convert-CentigradeToFahrenheit: (tempC: num) -> num;
+echo Convert-CentigradeToFahrenheit(100);
+`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileUnsafeExpression(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `echo Convert-CentigradeToFahrenheit(100) unsafe " | echo";`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileUnsafeWithTemplate(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"main.hl": `
+let name = "World"
+unsafe """
+echo "Hello, {{ name }}!"
+"""
+`,
+	}
+
+	for path, content := range testFiles {
+		fs.WriteFile(path, []byte(content), 0644)
+	}
+
+	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
 func TestTranspileClass(t *testing.T) {
 	fs := memvfs.New()
 	testFiles := map[string]string{

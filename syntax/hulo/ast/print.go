@@ -552,7 +552,7 @@ func (p *printer) visit(node Node) {
 		}
 		p.indent--
 		p.indentWrite("}")
-	case *UnsafeStmt:
+	case *UnsafeExpr:
 		p.write(fmt.Sprintf("*ast.UnsafeStmt (Text: %q)", n.Text))
 	case *ExternDecl:
 		p.write("*ast.ExternDecl {\n")
@@ -684,6 +684,27 @@ func (p *printer) visit(node Node) {
 			for i, arg := range n.BuiltinArgs {
 				p.indentWrite(fmt.Sprintf("%d: ", i))
 				p.visit(arg)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *TypeReference:
+		p.write("*ast.TypeReference {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			p.visit(n.Name)
+			p.write("\n")
+		}
+		if len(n.TypeParams) > 0 {
+			p.indentWrite("TypeParams: [\n")
+			p.indent++
+			for i, param := range n.TypeParams {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(param)
 				p.write("\n")
 			}
 			p.indent--
@@ -859,7 +880,7 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitMatchStmt(n)
 	case *ConditionalExpr:
 		return p.visitConditionalExpr(n)
-	case *UnsafeStmt:
+	case *UnsafeExpr:
 		return p.visitUnsafeStmt(n)
 	case *ExternDecl:
 		return p.visitExternDecl(n)
@@ -1894,7 +1915,7 @@ func (p *prettyPrinter) visitConditionalExpr(n *ConditionalExpr) Visitor {
 }
 
 // visitUnsafeStmt pretty printer for unsafe statements
-func (p *prettyPrinter) visitUnsafeStmt(n *UnsafeStmt) Visitor {
+func (p *prettyPrinter) visitUnsafeStmt(n *UnsafeExpr) Visitor {
 	p.indentWrite("unsafe {\n")
 	p.indent++
 

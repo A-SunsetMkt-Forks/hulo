@@ -283,8 +283,8 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 		return &vast.ExprStmt{
 			X: expr.(vast.Expr),
 		}
-	case *hast.UnsafeStmt:
-		return v.ConvertUnsafeStmt(node)
+	case *hast.UnsafeExpr:
+		return v.ConvertUnsafeExpr(node)
 	case *hast.ExternDecl:
 		return v.ConvertExternDecl(node)
 	case *hast.CallExpr:
@@ -392,7 +392,7 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 	return nil
 }
 
-func (v *VBScriptTranspiler) ConvertUnsafeStmt(node *hast.UnsafeStmt) vast.Node {
+func (v *VBScriptTranspiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) vast.Node {
 	return &vast.ExprStmt{
 		X: &vast.Ident{
 			Name: node.Text,

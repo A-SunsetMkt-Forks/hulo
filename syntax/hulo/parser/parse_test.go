@@ -294,3 +294,9 @@ func TestParseUltraCommand(t *testing.T) {
 	assert.NoError(t, err)
 	ast.Inspect(node, os.Stdout)
 }
+
+func TestParseFunctionType(t *testing.T) {
+	node, err := ParseSourceScript(`fn add(a: num, b: num) -> num { return a + b }`, OptionTracerASTTree(os.Stdout))
+	assert.NoError(t, err)
+	ast.Inspect(node, os.Stdout)
+}
