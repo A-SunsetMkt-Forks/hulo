@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
+	"github.com/opencommand/tinge"
 )
 
 // Clean removes generated files and build artifacts.
 func Clean() {
-	log.Info("starting clean...")
+	log.Info(tinge.Styled().Bold("starting clean...").String())
 	start := time.Now()
 
 	dirs := []string{"dist"}

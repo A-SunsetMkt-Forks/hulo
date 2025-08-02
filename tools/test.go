@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
+	"github.com/opencommand/tinge"
 )
 
 // Test runs all unit tests with coverage.
 func Test() {
-	log.Info("running tests...")
+	log.Info(tinge.Styled().Bold("running tests...").String())
 	start := time.Now()
 
 	err := runCmd("go", "test", "./...", "-coverprofile=coverage.txt", "-covermode=atomic")

@@ -10,11 +10,12 @@ import (
 
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 // Build compiles and packages the project using GoReleaser.
 func Build() {
-	log.Info("starting build...")
+	log.Info(tinge.Styled().Bold("starting build...").String())
 	start := time.Now()
 
 	mg.Deps(generateHuloParser)

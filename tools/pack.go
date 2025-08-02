@@ -9,12 +9,13 @@ import (
 
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 // builds distributable archives into current directory.
 func Pack() {
 	mg.Deps(resolveVersion)
-	log.Info("running pack...")
+	log.Info(tinge.Styled().Bold("running pack...").String())
 	start := time.Now()
 
 	outputZip := fmt.Sprintf("%s-v%s.zip", name, version.SemVer)
