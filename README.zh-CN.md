@@ -38,7 +38,7 @@ tools/scripts/setup.ps1
 tools/scripts/setup.sh
 
 # 构建
-mage release:all
+mage r
 ```
 
 ### **包管理器**

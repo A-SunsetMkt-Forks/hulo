@@ -37,7 +37,7 @@ tools/scripts/setup.ps1
 # for linux
 tools/scripts/setup.sh
 
-mage release:all
+mage r
 ```
 
 ### **Package Managers**

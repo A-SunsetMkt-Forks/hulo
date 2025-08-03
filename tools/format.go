@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
+	"github.com/opencommand/tinge"
 )
 
 // Format automatically formats the source code using goimports.
 func Format() {
-	log.Info("formatting code...")
+	log.Info(tinge.Styled().Bold("formatting code...").String())
 	start := time.Now()
 
 	err := runCmd("goimports", "-w", ".")

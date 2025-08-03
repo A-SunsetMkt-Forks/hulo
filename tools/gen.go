@@ -8,11 +8,12 @@ import (
 
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 // generates code (Go bindings, DSL grammar, etc).
 func Generate() {
-	log.Info("generating code...")
+	log.Info(tinge.Styled().Bold("generating code...").String())
 	start := time.Now()
 
 	mg.Deps(generateHuloParser, generateUnsafeParser, generateStringer)

@@ -15,6 +15,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 
 // Doctor checks the development environment and reports any issues.
 func Doctor() {
-	log.Info("checking development environment...")
+	log.Info(tinge.Styled().Bold("checking development environment...").String())
 	start := time.Now()
 
 	mg.Deps(

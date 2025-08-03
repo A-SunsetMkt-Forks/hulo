@@ -18,11 +18,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 // Setup prepares the development environment and downloads dependencies.
 func Setup() {
-	log.Info("setting up development environment...")
+	log.Info(tinge.Styled().Bold("setting up development environment...").String())
 	start := time.Now()
 
 	mg.Deps(installDevDeps, ensureAntlrJar, downloadDeps)

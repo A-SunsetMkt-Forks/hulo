@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/caarlos0/log"
+	"github.com/opencommand/tinge"
 )
 
 // Lint runs golangci-lint on the codebase.
 func Lint() {
-	log.Info("running linter...")
+	log.Info(tinge.Styled().Bold("running linter...").String())
 	start := time.Now()
 
 	err := runCmd("golangci-lint", "run", "./...")
