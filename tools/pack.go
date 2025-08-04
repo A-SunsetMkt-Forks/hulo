@@ -14,11 +14,11 @@ import (
 
 // builds distributable archives into current directory.
 func Pack() {
-	mg.Deps(resolveVersion)
 	log.Info(tinge.Styled().Bold("running pack...").String())
+	mg.Deps(resolveVersion)
 	start := time.Now()
 
-	outputZip := fmt.Sprintf("%s-v%s.zip", name, version.SemVer)
+	outputZip := fmt.Sprintf("hulo-v%s.zip", version.SemVer)
 	fileCount, err := ZipDirWithGitIgnore(".", outputZip)
 	if err != nil {
 		elapsed := time.Since(start)

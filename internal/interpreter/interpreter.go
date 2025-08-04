@@ -42,16 +42,28 @@ func NewInterpreter(env *Environment) *Interpreter {
 }
 
 func (interp *Interpreter) shouldBreak(node ast.Node) bool {
-	// pos := node.Pos()
-	if bp, ok := interp.debugger.breakpoints["file"][1]; ok {
-		fmt.Println(bp, "如果是条件断点，评估条件")
+	if interp.debugger == nil {
+		return false
 	}
-	return false
+	return interp.debugger.shouldBreak(node)
+}
+
+// SetDebugger 设置调试器
+func (interp *Interpreter) SetDebugger(debugger *Debugger) {
+	interp.debugger = debugger
 }
 
 func (interp *Interpreter) Eval(node ast.Node) ast.Node {
 	log.Debugf("enter %T", node)
 	defer log.Debugf("exit %T", node)
+
+	// 检查是否需要断点
+	if interp.shouldBreak(node) {
+		// 如果调试器暂停了，等待恢复
+		if interp.debugger != nil && interp.debugger.isPaused {
+			interp.debugger.waitForResume()
+		}
+	}
 	switch node := node.(type) {
 	/// Static World
 	case *ast.File:

@@ -9,23 +9,16 @@ import (
 
 	"github.com/caarlos0/log"
 	"github.com/magefile/mage/mg"
+	"github.com/opencommand/tinge"
 )
 
 // Project metadata for release configuration
-var (
-	name        = "hulo"
-	version     = GitVersion{}
-	description = "Hulo is a batch-oriented programming language."
-	homepage    = "https://hulo-lang.github.io/docs/"
-	repository  = "https://github.com/hulo-lang/hulo"
-	author      = "The Hulo Authors"
-	license     = "MIT"
-	keywords    = []string{"hulo", "batch", "programming", "language", "vbs", "vbscript"}
-)
+var version = GitVersion{}
 
 // Release creates a new release using GoReleaser with snapshot mode.
 // This function sets up environment variables and runs the release process.
 func Release() {
+	log.Info(tinge.Styled().Bold("running release...").String())
 	mg.Deps(resolveVersion)
 
 	// Set version environment variable for GoReleaser

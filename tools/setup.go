@@ -99,7 +99,7 @@ func checkJavaVersion() error {
 	minor := ver.Minor()
 
 	// ANTLR 4.13.2 requires Java 8 or higher
-	if major < 8 || (major == 8 && minor < 0) {
+	if major < 8 || major == 8 {
 		log.WithError(ErrJavaVersionUnsupported).
 			Errorf("Java version must be 8 or higher, current version: %d.%d", major, minor)
 		return ErrJavaVersionUnsupported

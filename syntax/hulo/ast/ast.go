@@ -7,6 +7,13 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
+type Position struct {
+	File   string
+	Line   int
+	Column int
+	Node   Node
+}
+
 type Node interface {
 	Pos() token.Pos
 	End() token.Pos
