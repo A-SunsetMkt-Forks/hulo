@@ -32,12 +32,21 @@ type Interpreter struct {
 	fs vfs.VFS
 
 	cvt object.Converter
+
+	// 解释器调用栈（用于调试）
+	interpreterCallStack []*CallFrame
+
+	// 文件位置信息
+	fileSet     *ast.FileSet
+	currentFile string
 }
 
 func NewInterpreter(env *Environment) *Interpreter {
 	return &Interpreter{
-		env: env,
-		cvt: &object.ASTConverter{},
+		env:                  env,
+		cvt:                  &object.ASTConverter{},
+		interpreterCallStack: make([]*CallFrame, 0),
+		fileSet:              ast.NewFileSet(),
 	}
 }
 
@@ -51,6 +60,88 @@ func (interp *Interpreter) shouldBreak(node ast.Node) bool {
 // SetDebugger 设置调试器
 func (interp *Interpreter) SetDebugger(debugger *Debugger) {
 	interp.debugger = debugger
+}
+
+// GetCurrentEnvironment 获取当前环境
+func (interp *Interpreter) GetCurrentEnvironment() *Environment {
+	return interp.env
+}
+
+// GetInterpreterCallStack 获取解释器的调用栈
+func (interp *Interpreter) GetInterpreterCallStack() []*CallFrame {
+	return interp.interpreterCallStack
+}
+
+// pushInterpreterCallFrame 压入调用帧到解释器调用栈
+func (interp *Interpreter) pushInterpreterCallFrame(node ast.Node) {
+	frame := &CallFrame{
+		FunctionName: getFunctionName(node),
+		Line:         interp.getNodeLineWithFileSet(node),
+		Variables:    interp.env.GetAll(),
+	}
+	interp.interpreterCallStack = append(interp.interpreterCallStack, frame)
+}
+
+// popInterpreterCallFrame 从解释器调用栈弹出调用帧
+func (interp *Interpreter) popInterpreterCallFrame() {
+	if len(interp.interpreterCallStack) > 0 {
+		interp.interpreterCallStack = interp.interpreterCallStack[:len(interp.interpreterCallStack)-1]
+	}
+}
+
+// getFunctionName 获取函数名（简化实现）
+func getFunctionName(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.FuncDecl:
+		return n.Name.Name
+	case *ast.BlockStmt:
+		return "block"
+	case *ast.ExprStmt:
+		return "expression"
+	case *ast.AssignStmt:
+		return "assignment"
+	default:
+		return fmt.Sprintf("%T", node)
+	}
+}
+
+// SetFileContent 设置文件内容，用于位置计算
+func (interp *Interpreter) SetFileContent(filename, content string) {
+	interp.fileSet.AddFile(filename, content)
+}
+
+// SetCurrentFile 设置当前文件名
+func (interp *Interpreter) SetCurrentFile(filename string) {
+	interp.currentFile = filename
+}
+
+// getCurrentFile 获取当前文件名
+func (interp *Interpreter) getCurrentFile() string {
+	if interp.currentFile != "" {
+		return interp.currentFile
+	}
+	return "unknown"
+}
+
+// getNodeLineWithFileSet 获取节点的行号（需要 Interpreter 实例）
+func (interp *Interpreter) getNodeLineWithFileSet(node ast.Node) int {
+	if node == nil {
+		return 1
+	}
+
+	pos := node.Pos()
+	if !pos.IsValid() {
+		return 1
+	}
+
+	file := interp.getCurrentFile()
+	fi := interp.fileSet.GetFile(file)
+	if fi == nil {
+		return 1 // 如果文件不存在，返回默认值
+	}
+
+	line, _ := fi.PosToLineColumn(pos)
+	return line
 }
 
 func (interp *Interpreter) Eval(node ast.Node) ast.Node {
@@ -564,6 +655,19 @@ func (w *WarpValue) Interface() any {
 func (interp *Interpreter) evalComptimeStmt(node ast.Stmt) object.Value {
 	log.Debugf("enter %T", node)
 	defer log.Debugf("exit %T", node)
+
+	// 压入调用帧
+	interp.pushInterpreterCallFrame(node)
+	defer interp.popInterpreterCallFrame()
+
+	// 检查是否需要断点
+	if interp.shouldBreak(node) {
+		// 如果调试器暂停了，等待恢复
+		if interp.debugger != nil && interp.debugger.isPaused {
+			interp.debugger.waitForResume()
+		}
+	}
+
 	switch node := node.(type) {
 	case *ast.BlockStmt:
 		// 默认最后一行为给编译器的值
@@ -806,6 +910,18 @@ func (interp *Interpreter) evalTypeDecl(node *ast.TypeDecl) object.Value {
 }
 
 func (interp *Interpreter) evalComptimeExpr(node ast.Expr) object.Value {
+	// 压入调用帧
+	interp.pushInterpreterCallFrame(node)
+	defer interp.popInterpreterCallFrame()
+
+	// 检查是否需要断点
+	if interp.shouldBreak(node) {
+		// 如果调试器暂停了，等待恢复
+		if interp.debugger != nil && interp.debugger.isPaused {
+			interp.debugger.waitForResume()
+		}
+	}
+
 	switch node := node.(type) {
 	case *ast.Ident:
 		return interp.evalIdent(node)

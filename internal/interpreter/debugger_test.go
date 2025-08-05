@@ -138,6 +138,7 @@ func TestDebuggerPosition(t *testing.T) {
 let y = 20
 let z = $x + $y`
 	debugger.SetFileContent("test.hl", script)
+	debugger.SetCurrentFile("test.hl")
 
 	// 测试位置获取
 	node, err := parser.ParseSourceScript(script)
@@ -202,6 +203,7 @@ if $x > 5 {
 }`
 
 	debugger.SetFileContent("test.hl", content)
+	debugger.SetCurrentFile("test.hl")
 
 	// 解析脚本并测试位置获取
 	script := `let x = 10`
@@ -225,7 +227,7 @@ func (t *testDebugListener) OnBreakpointHit(bp *Breakpoint, pos *ast.Position) {
 	}
 }
 
-func (t *testDebugListener) OnStep(pos *ast.Position)                             {}
+func (t *testDebugListener) OnStep(pos *ast.Position)                         {}
 func (t *testDebugListener) OnVariableChanged(name string, value interface{}) {}
 func (t *testDebugListener) OnFunctionEnter(frame *CallFrame)                 {}
 func (t *testDebugListener) OnFunctionExit(frame *CallFrame)                  {}

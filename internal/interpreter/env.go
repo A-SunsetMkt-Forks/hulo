@@ -186,3 +186,35 @@ func (e *Environment) IsReadOnly(name string) bool {
 	}
 	return false
 }
+
+// GetAll 获取所有变量的映射
+func (e *Environment) GetAll() map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// 添加 const 变量
+	for name, info := range e.consts {
+		result[name] = info.Value.Interface()
+	}
+
+	// 添加 let 变量
+	for name, info := range e.lets {
+		result[name] = info.Value.Interface()
+	}
+
+	// 添加 var 变量
+	for name, info := range e.vars {
+		result[name] = info.Value.Interface()
+	}
+
+	// 递归添加外层环境的变量
+	if e.outer != nil {
+		outerVars := e.outer.GetAll()
+		for name, value := range outerVars {
+			if _, exists := result[name]; !exists {
+				result[name] = value
+			}
+		}
+	}
+
+	return result
+}

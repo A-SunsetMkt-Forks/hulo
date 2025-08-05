@@ -199,6 +199,11 @@ func (d *Debugger) shouldBreak(node ast.Node) bool {
 	// 更新命中次数
 	bp.HitCount++
 
+	// 捕获当前解释器状态
+	d.currentPos = pos
+	d.variables = d.interpreter.GetCurrentEnvironment().GetAll()
+	d.callStack = d.interpreter.GetInterpreterCallStack()
+
 	// 通知监听器
 	d.notifyBreakpointHit(bp, pos)
 
@@ -306,17 +311,27 @@ func (d *Debugger) handleCommand(cmd DebugCommand) {
 }
 
 func (d *Debugger) pause() {
+	d.isPaused = true
 	d.notifyClient(&DebugState{})
 
-	<-d.resumeChan
+	// 等待恢复命令
+	cmd := <-d.resumeChan
+	// 处理恢复命令
+	d.handleCommand(cmd)
 }
 
 func (d *Debugger) notifyClient(*DebugState) {}
 
-func (d *Debugger) stepInto()        {}
-func (d *Debugger) stepOver()        {}
-func (d *Debugger) stepOut()         {}
-func (d *Debugger) continue_()       {}
+func (d *Debugger) stepInto() {}
+func (d *Debugger) stepOver() {}
+func (d *Debugger) stepOut()  {}
+func (d *Debugger) continue_() {
+	// 发送恢复命令到 resumeChan
+	select {
+	case d.resumeChan <- DebugCommand{Type: CmdContinue}:
+	default:
+	}
+}
 func (d *Debugger) inspectVariable() {}
 
 func (d *Debugger) AddListener(listener DebugListener) {
@@ -335,19 +350,16 @@ func (d *Debugger) GetVariables() map[string]interface{} {
 	return d.variables
 }
 
-func (d *Debugger) pushCallFrame(frame *CallFrame) {
-	d.callStack = append(d.callStack, frame)
-}
-
-func (d *Debugger) popCallFrame() {
-	if len(d.callStack) > 0 {
-		d.callStack = d.callStack[:len(d.callStack)-1]
-	}
-}
-
 func (d *Debugger) getCurrentFile() string {
 	if len(d.callStack) > 0 {
 		return d.callStack[len(d.callStack)-1].File
+	}
+	// 如果没有调用栈，返回第一个断点的文件名
+	d.breakpointMutex.RLock()
+	defer d.breakpointMutex.RUnlock()
+
+	for filename := range d.breakpoints {
+		return filename
 	}
 	return "unknown"
 }
@@ -355,6 +367,22 @@ func (d *Debugger) getCurrentFile() string {
 // SetFileContent 设置文件内容，用于位置计算
 func (d *Debugger) SetFileContent(filename, content string) {
 	d.fileSet.AddFile(filename, content)
+}
+
+// SetCurrentFile 设置当前文件名
+func (d *Debugger) SetCurrentFile(filename string) {
+	// 创建一个默认的调用栈帧来设置当前文件
+	if len(d.callStack) == 0 {
+		frame := &CallFrame{
+			FunctionName: "main",
+			File:         filename,
+			Line:         1,
+			Variables:    make(map[string]interface{}),
+		}
+		d.callStack = append(d.callStack, frame)
+	} else {
+		d.callStack[0].File = filename
+	}
 }
 
 func (d *Debugger) getLineFromPos(pos token.Pos) int {
