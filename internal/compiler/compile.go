@@ -4,13 +4,16 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 
 	// "github.com/hulo-lang/hulo/internal/build/bash"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/interpreter"
+	"github.com/hulo-lang/hulo/internal/linker"
 	"github.com/hulo-lang/hulo/internal/optimizer"
-	build "github.com/hulo-lang/hulo/internal/transpiler/bash"
+	"github.com/hulo-lang/hulo/internal/transpiler"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 )
 
@@ -18,10 +21,10 @@ type Compiler struct {
 	analyzer    *parser.Analyzer
 	optimizer   *optimizer.Optimizer
 	interpreter *interpreter.Interpreter
-	// transpiler
+	transpilers map[string]transpiler.Transpiler[any]
+	// moduleMgr
+	linker *linker.Linker
 }
-
-// TODO transpiler 输出未知符号信息，让 ld 链接上
 
 func Compile(cfg *config.Huloc) error {
 	file, err := parser.ParseSourceFile(cfg.Main)
@@ -33,17 +36,34 @@ func Compile(cfg *config.Huloc) error {
 		interpreter.Evaluate(ctx, file)
 	}
 
+	c := &Compiler{
+		transpilers: make(map[string]transpiler.Transpiler[any]),
+	}
+
+	// 注册映射关系
+
 	for _, target := range cfg.Targets {
-		switch target {
-		case "bash":
-			_, err := build.Transpile(cfg, nil, ".")
-			if err != nil {
-				return err
-			}
+		transpiler, ok := c.transpilers[target]
+		if !ok {
+			return fmt.Errorf("transpiler for target %s not found", target)
 		}
+
+		files, unresolvedSymbols, err := transpiler.Transpile(cfg.Main)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(files)
+		fmt.Println(unresolvedSymbols)
 	}
 
 	return nil
+}
+
+func (c *Compiler) BindTarget(transpiler transpiler.Transpiler[any], targets ...string) {
+	for _, target := range targets {
+		c.transpilers[target] = transpiler
+	}
 }
 
 func canEval(file *ast.File) bool {
