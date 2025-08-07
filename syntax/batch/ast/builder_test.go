@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hulo-lang/hulo/syntax/batch/token"
+	"github.com/stretchr/testify/assert"
 )
 
 type FileBuilder struct {
@@ -184,7 +185,7 @@ func ExitStmt(args ...Expr) *ExprStmt {
 }
 
 // GotoStmt 创建 GOTO 语句
-func GotoStmt(label string) *GotoStmt {
+func Goto(label string) *GotoStmt {
 	return &GotoStmt{Label: label}
 }
 
@@ -302,10 +303,10 @@ func TestIfStatement(t *testing.T) {
 		EchoOff().
 		If(Eq(Str("VAR"), Literal("value"))).
 		Then(
-			EchoStmt(Literal("Match")),
+			&ExprStmt{X: Cmd("ECHO", Literal("Match"))},
 		).
 		Else(
-			EchoStmt(Literal("No Match")),
+			&ExprStmt{X: Cmd("ECHO", Literal("No Match"))},
 		).
 		EndIf().
 		Exit(Literal("0")).
@@ -408,15 +409,13 @@ func TestNestedIfExample(t *testing.T) {
 		Exit(Literal("0")).
 		Build()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	Print(file)
 }
 
-// TestAST 测试辅助函数
-func TestAST(t *testing.T, name string, builder func() (*File, error)) {
+// testAST 测试辅助函数
+func testAST(t *testing.T, name string, builder func() (*File, error)) {
 	t.Run(name, func(t *testing.T) {
 		file, err := builder()
 		if err != nil {
@@ -429,7 +428,7 @@ func TestAST(t *testing.T, name string, builder func() (*File, error)) {
 }
 
 func TestWithHelper(t *testing.T) {
-	TestAST(t, "Basic IF", func() (*File, error) {
+	testAST(t, "Basic IF", func() (*File, error) {
 		return NewFile().
 			EchoOff().
 			If(Eq(Str("VAR"), Literal("value"))).
