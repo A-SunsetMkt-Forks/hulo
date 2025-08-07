@@ -5,193 +5,325 @@ package module
 
 import (
 	"fmt"
-	"sync"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/caarlos0/log"
+	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/container"
+	"github.com/hulo-lang/hulo/internal/vfs"
+	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
+	"github.com/hulo-lang/hulo/syntax/hulo/parser"
+	"gopkg.in/yaml.v3"
 )
 
-// DependencyResolver 依赖解析器
-type DependencyResolver struct {
-	modules map[string]*ModuleImpl
-	visited map[string]bool
-	stack   map[string]bool
-	order   []string
-	mutex   sync.RWMutex
+type DependecyResolver struct {
+	modules         map[string]*Module
+	visited         container.Set[string]
+	stack           container.Set[string]
+	order           []string
+	current         *Module
+	pkgs            map[string]*config.HuloPkg
+	options         *config.Huloc
+	fs              vfs.VFS
+	huloModulesPath string
+	huloPath        string
 }
 
-// NewDependencyResolver 创建依赖解析器
-func NewDependencyResolver() *DependencyResolver {
-	return &DependencyResolver{
-		modules: make(map[string]*ModuleImpl),
-		visited: make(map[string]bool),
-		stack:   make(map[string]bool),
-		order:   make([]string, 0),
-	}
+func NewDependecyResolver() *DependecyResolver {
+	return &DependecyResolver{}
 }
 
-// AddModule 添加模块
-func (dr *DependencyResolver) AddModule(module *ModuleImpl) {
-	dr.mutex.Lock()
-	defer dr.mutex.Unlock()
-	dr.modules[module.Name()] = module
-}
-
-// DetectCycles 检测循环依赖
-func (dr *DependencyResolver) DetectCycles() ([]string, error) {
-	dr.mutex.Lock()
-	defer dr.mutex.Unlock()
-
-	// 重置状态
-	dr.visited = make(map[string]bool)
-	dr.stack = make(map[string]bool)
-	dr.order = make([]string, 0)
-
-	// 检测循环依赖
-	for name := range dr.modules {
-		if !dr.visited[name] {
-			if dr.hasCycle(name) {
-				return dr.getCycle(), nil
+// 返回绝对路径
+func (r *DependecyResolver) resolvePath(parent string, path string) (string, error) {
+	log.WithField("parent", parent).Infof("resolvePath: %s", path)
+	if r.isRelativePath(path) {
+		ret, err := filepath.Abs(filepath.Join(filepath.Dir(parent), path))
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve path: %w", err)
+		}
+		if r.fs.Exists(ret) {
+			stat, err := r.fs.Stat(ret)
+			if err != nil {
+				return "", fmt.Errorf("failed to stat path: %w", err)
+			}
+			if !stat.IsDir() {
+				return ret, nil
 			}
 		}
+		if r.fs.Exists(ret + ".hl") {
+			return ret + ".hl", nil
+		}
+		if r.fs.Exists(filepath.Join(ret, "index.hl")) {
+			return filepath.Join(ret, "index.hl"), nil
+		}
+		return "", fmt.Errorf("no file found for %s", ret)
+	}
+	if r.isCoreLibPath(path) {
+		return filepath.Join(r.huloPath, path, "index.hl"), nil
 	}
 
-	return nil, nil
-}
-
-// hasCycle 检测是否有循环依赖
-func (dr *DependencyResolver) hasCycle(name string) bool {
-	if dr.stack[name] {
-		return true // 发现循环
-	}
-
-	if dr.visited[name] {
-		return false // 已访问过
-	}
-
-	dr.visited[name] = true
-	dr.stack[name] = true
-
-	module := dr.modules[name]
-	if module != nil {
-		for depName := range module.GetDependencies() {
-			if dr.hasCycle(depName) {
-				return true
+	// hulo-lang/hello-world hulo-lang/hello-world/abc
+	// 要区分是 abc.hl abc/index.hl 以及 hello-world 的入口点在什么地方
+	// 根据版本信息，以及suffix 以及 main 表示文件夹入口 确认到底哪个文件
+	if ownerRepoVer, suffix, ok := r.isModulePath(path); ok {
+		if pkg, ok := r.pkgs[ownerRepoVer]; ok {
+			pend := filepath.Join(r.huloModulesPath, ownerRepoVer, pkg.Main, suffix)
+			if r.fs.Exists(pend + ".hl") {
+				return pend + ".hl", nil
 			}
+			if r.fs.Exists(filepath.Join(pend, "index.hl")) {
+				return filepath.Join(pend, "index.hl"), nil
+			}
+			return "", fmt.Errorf("no index.hl found for %s", pend)
 		}
+		pkgPath := filepath.Join(r.huloModulesPath, ownerRepoVer, config.HuloPkgFileName)
+		if !r.fs.Exists(pkgPath) {
+			return "", fmt.Errorf("no hulo.pkg.yaml found for %s", pkgPath)
+		}
+		content, err := r.fs.ReadFile(pkgPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read pkg file: %w", err)
+		}
+		pkg := &config.HuloPkg{}
+		if err := yaml.Unmarshal(content, pkg); err != nil {
+			return "", fmt.Errorf("failed to unmarshal pkg file: %w", err)
+		}
+		r.pkgs[ownerRepoVer] = pkg
+		pend := filepath.Join(r.huloModulesPath, ownerRepoVer, pkg.Main, suffix)
+		if r.fs.Exists(filepath.Join(pend, "index.hl")) {
+			return filepath.Join(pend, "index.hl"), nil
+		}
+		return "", fmt.Errorf("no index.hl found for %s", pend)
 	}
 
-	dr.stack[name] = false
-	dr.order = append(dr.order, name)
-	return false
+	return "", fmt.Errorf("invalid path: %s", path)
 }
 
-// getCycle 获取循环依赖路径
-func (dr *DependencyResolver) getCycle() []string {
-	// 简化实现，返回所有在栈中的模块
-	cycle := make([]string, 0)
-	for name, inStack := range dr.stack {
-		if inStack {
-			cycle = append(cycle, name)
-		}
-	}
-	return cycle
+func (r *DependecyResolver) isCoreLibPath(path string) bool {
+	return r.fs.Exists(filepath.Join(r.huloPath, path, "index.hl"))
 }
 
-// TopologicalSort 拓扑排序
-func (dr *DependencyResolver) TopologicalSort() ([]string, error) {
-	dr.mutex.Lock()
-	defer dr.mutex.Unlock()
+func (r *DependecyResolver) isRelativePath(path string) bool {
+	return strings.HasPrefix(path, ".")
+}
 
-	// 计算入度
-	inDegree := make(map[string]int)
-	for name := range dr.modules {
-		inDegree[name] = 0
+func (r *DependecyResolver) isModulePath(path string) (string, string, bool) {
+	if r.current.Pkg == nil {
+		return "", "", false
 	}
 
-	// 计算每个模块的入度
-	for _, module := range dr.modules {
-		for depName := range module.GetDependencies() {
-			inDegree[depName]++
+	for name, version := range r.current.Pkg.Dependencies {
+		if strings.HasPrefix(path, name) {
+			symbolName := strings.TrimPrefix(path, name)
+			return filepath.Join(name, version), symbolName, true
 		}
 	}
 
-	// 找到入度为0的节点
-	queue := make([]string, 0)
-	for name, degree := range inDegree {
-		if degree == 0 {
-			queue = append(queue, name)
+	return "", "", false
+}
+
+func (r *DependecyResolver) resolveRecursive(parentPkg *Module, parent, filepath string) error {
+	absPath, err := r.resolvePath(parent, filepath)
+	if err != nil {
+		return err
+	}
+	log.IncreasePadding()
+	defer log.DecreasePadding()
+
+	if r.visited.Contains(absPath) {
+		return nil
+	}
+
+	if r.stack.Contains(absPath) {
+		return fmt.Errorf("circular dependency detected: %s", absPath)
+	}
+
+	r.visited.Add(absPath)
+	r.stack.Add(absPath)
+	defer func() { r.stack.Remove(absPath) }()
+
+	log.Infof("loadModule: %s", absPath)
+	module, err := r.loadModule(parentPkg, absPath, filepath)
+	if err != nil {
+		return err
+	}
+
+	// 保存当前的 current 模块
+	oldCurrent := r.current
+	r.current = module
+	defer func() { r.current = oldCurrent }()
+
+	// 递归解析依赖
+	for _, dep := range module.Dependencies {
+		if err := r.resolveRecursive(module, absPath, dep); err != nil {
+			return err
 		}
 	}
 
-	// 拓扑排序
-	result := make([]string, 0)
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-		result = append(result, current)
+	r.order = append(r.order, absPath)
 
-		// 更新依赖当前模块的模块的入度
-		currentModule := dr.modules[current]
-		if currentModule != nil {
-			for depName := range currentModule.dependents {
-				inDegree[depName]--
-				if inDegree[depName] == 0 {
-					queue = append(queue, depName)
+	return nil
+}
+
+func (r *DependecyResolver) findNearestPkgYaml(filePath string) (string, error) {
+	dir := filepath.Dir(filePath)
+	for {
+		pkgPath := filepath.Join(dir, config.HuloPkgFileName)
+		if r.fs.Exists(pkgPath) {
+			return pkgPath, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// 已经到达根目录
+			break
+		}
+		dir = parent
+	}
+	return "", fmt.Errorf("no hulo.pkg.yaml found for %s", filePath)
+}
+
+// 收集 importInfo 以及 载入配置文件
+func (r *DependecyResolver) loadModule(parentPkg *Module, absPath string, symbolName string) (*Module, error) {
+	if module, ok := r.modules[absPath]; ok {
+		return module, nil
+	}
+
+	content, err := r.fs.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", absPath, err)
+	}
+
+	opts := []parser.ParserOptions{}
+	if len(r.options.Parser.ShowASTTree) > 0 {
+		switch r.options.Parser.ShowASTTree {
+		case "stdout":
+			opts = append(opts, parser.OptionTracerASTTree(os.Stdout))
+		case "stderr":
+			opts = append(opts, parser.OptionTracerASTTree(os.Stderr))
+		case "file":
+			file, err := r.fs.Open(r.options.Parser.ShowASTTree)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file %s: %w", r.options.Parser.ShowASTTree, err)
+			}
+			defer file.Close()
+			opts = append(opts, parser.OptionTracerASTTree(file))
+		}
+	}
+	if !r.options.Parser.EnableTracer {
+		opts = append(opts, parser.OptionDisableTracer())
+	}
+	if r.options.Parser.DisableTiming {
+		opts = append(opts, parser.OptionTracerDisableTiming())
+	}
+
+	log.WithField("symbolName", symbolName).Infof("parse file: %s", absPath)
+	ast, err := parser.ParseSourceScript(string(content), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse file %s: %w", absPath, err)
+	}
+
+	imports, dependencies := r.extractImports(ast, absPath)
+	log.WithField("dependencies", dependencies).Infof("extractImports: %s", absPath)
+
+	module := &Module{
+		Path:         absPath,
+		Imports:      imports,
+		Dependencies: dependencies,
+		AST:          ast,
+		Exports:      make(map[string]*ExportInfo),
+	}
+
+	if r.isRelativePath(symbolName) {
+		pkgPath, err := r.findNearestPkgYaml(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find nearest pkg file: %w", err)
+		}
+		content, err := r.fs.ReadFile(pkgPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pkg file: %w", err)
+		}
+		module.Pkg = &config.HuloPkg{}
+		if err := yaml.Unmarshal(content, module.Pkg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal pkg file: %w", err)
+		}
+
+		r.pkgs[pkgPath] = module.Pkg
+	} else if _, _, ok := r.isModulePath(symbolName); ok {
+		// 按照 owner/repo/version 的路径去拿包下面的 hulo.pkg.yaml 文件
+		pkgPath, err := r.findNearestPkgYaml(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find nearest pkg file: %w", err)
+		}
+		// pkgPath 出来后要读取这个文件
+		content, err := r.fs.ReadFile(pkgPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pkg file: %w", err)
+		}
+
+		module.Pkg = &config.HuloPkg{}
+		if err := yaml.Unmarshal(content, module.Pkg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal pkg file: %w", err)
+		}
+
+		r.pkgs[pkgPath] = module.Pkg
+	}
+
+	// 将模块添加到 modules 中
+	r.modules[absPath] = module
+
+	return module, nil
+}
+
+func (r *DependecyResolver) extractImports(ast *hast.File, currentModulePath string) ([]*ImportInfo, []string) {
+	imports := []*ImportInfo{}
+	dependencies := []string{}
+	dependencySet := container.NewMapSet[string]()
+
+	for _, stmt := range ast.Stmts {
+		if importStmt, ok := stmt.(*hast.Import); ok {
+			var importInfo *ImportInfo
+
+			switch {
+			case importStmt.ImportSingle != nil:
+				importInfo = &ImportInfo{
+					ModulePath: importStmt.ImportSingle.Path,
+					Alias:      importStmt.ImportSingle.Alias,
+					Kind:       ImportSingle,
+				}
+			case importStmt.ImportMulti != nil:
+				var symbols []string
+				for _, field := range importStmt.ImportMulti.List {
+					symbols = append(symbols, field.Field)
+				}
+				importInfo = &ImportInfo{
+					ModulePath: importStmt.ImportMulti.Path,
+					SymbolName: symbols,
+					Kind:       ImportMulti,
+				}
+			case importStmt.ImportAll != nil:
+				importInfo = &ImportInfo{
+					ModulePath: importStmt.ImportAll.Path,
+					Alias:      importStmt.ImportAll.Alias,
+					Kind:       ImportAll,
 				}
 			}
+
+			if importInfo != nil {
+				imports = append(imports, importInfo)
+				dependencySet.Add(importInfo.ModulePath)
+			}
 		}
 	}
 
-	// 检查是否有循环依赖
-	if len(result) != len(dr.modules) {
-		return nil, fmt.Errorf("circular dependency detected")
+	for _, dep := range dependencySet.Items() {
+		dependencies = append(dependencies, dep)
 	}
 
-	return result, nil
+	return imports, dependencies
 }
 
-// ResolveDependencies 解析所有依赖
-func (dr *DependencyResolver) ResolveDependencies() error {
-	// 检测循环依赖
-	cycles, err := dr.DetectCycles()
-	if err != nil {
-		return err
-	}
-
-	if len(cycles) > 0 {
-		return fmt.Errorf("circular dependency detected: %v", cycles)
-	}
-
-	// 拓扑排序
-	order, err := dr.TopologicalSort()
-	if err != nil {
-		return err
-	}
-
-	// 按顺序初始化模块
-	for _, moduleName := range order {
-		module := dr.modules[moduleName]
-		if module != nil {
-			module.SetState(ModuleInitialized)
-		}
-	}
-
-	return nil
-}
-
-// BreakCycle 打破循环依赖
-func (dr *DependencyResolver) BreakCycle(cycle []string) error {
-	if len(cycle) < 2 {
-		return fmt.Errorf("invalid cycle: %v", cycle)
-	}
-
-	// 简单的循环打破策略：移除最后一个依赖
-	lastModule := dr.modules[cycle[len(cycle)-1]]
-	firstModule := dr.modules[cycle[0]]
-
-	if lastModule != nil && firstModule != nil {
-		// 移除依赖
-		delete(lastModule.deps, firstModule.name)
-		delete(firstModule.dependents, lastModule.name)
-	}
-
-	return nil
+func (r *DependecyResolver) parseSymbolName(symbolName string) (string, string) {
+	return "", ""
 }
