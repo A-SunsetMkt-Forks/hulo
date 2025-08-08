@@ -1,12 +1,14 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package ast_test
 
 import (
 	"testing"
 
 	"github.com/hulo-lang/hulo/syntax/bash/ast"
+	"github.com/hulo-lang/hulo/syntax/bash/astutil"
 	"github.com/hulo-lang/hulo/syntax/bash/token"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,15 +17,15 @@ var NotNullPos = token.Pos(1)
 
 func TestAssignStmt(t *testing.T) {
 	actual := ast.String(&ast.AssignStmt{
-		Lhs: ast.Identifier("count"),
-		Rhs: ast.Literal("0"),
+		Lhs: astutil.Ident("count"),
+		Rhs: astutil.Word("0"),
 	})
 	assert.Equal(t, "count=0\n", actual)
 
 	actual = ast.String(&ast.AssignStmt{
 		Local: NotNullPos,
-		Lhs:   ast.Identifier("count"),
-		Rhs:   ast.Literal("0"),
+		Lhs:   astutil.Ident("count"),
+		Rhs:   astutil.Word("0"),
 	})
 	assert.Equal(t, "local count=0\n", actual)
 }
@@ -32,16 +34,16 @@ func TestIfStmt(t *testing.T) {
 	nestedIf := &ast.IfStmt{
 		Cond: &ast.TestExpr{
 			X: &ast.BinaryExpr{
-				X:  &ast.VarExpExpr{X: ast.Identifier("count")},
+				X:  &ast.VarExpExpr{X: astutil.Ident("count")},
 				Op: token.Assgn,
-				Y:  ast.Literal(`""`),
+				Y:  astutil.Word(`""`),
 			},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{
 					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-					Rhs: ast.Literal("0"),
+					Rhs: astutil.Word("0"),
 				},
 			},
 		},
@@ -52,14 +54,14 @@ func TestIfStmt(t *testing.T) {
 			X: &ast.BinaryExpr{
 				X:  &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
 				Op: token.Assgn,
-				Y:  ast.Literal(`""`),
+				Y:  astutil.Word(`""`),
 			},
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.AssignStmt{
 					Lhs: &ast.VarExpExpr{X: &ast.Ident{Name: "count"}},
-					Rhs: ast.Literal("0"),
+					Rhs: astutil.Word("0"),
 				},
 				nestedIf,
 			},
@@ -72,11 +74,11 @@ func TestIfStmt(t *testing.T) {
 
 func TestFuncDecl(t *testing.T) {
 	ast.Print(&ast.FuncDecl{
-		Name: ast.Identifier("myecho"),
+		Name: astutil.Ident("myecho"),
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
 				&ast.ExprStmt{
-					X: ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+					X: astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
 				},
 			},
 		},
@@ -86,17 +88,17 @@ func TestFuncDecl(t *testing.T) {
 func TestForStmt(t *testing.T) {
 	ast.Print(&ast.ForStmt{
 		Init: &ast.AssignStmt{
-			Lhs: ast.Identifier("i"),
-			Rhs: ast.Literal("0"),
+			Lhs: astutil.Ident("i"),
+			Rhs: astutil.Word("0"),
 		},
 		Cond: &ast.BinaryExpr{
-			X:  ast.Identifier("i"),
+			X:  astutil.Ident("i"),
 			Op: token.TsLss,
-			Y:  ast.Literal("10"),
+			Y:  astutil.Word("10"),
 		},
 		Post: &ast.AssignStmt{
-			Lhs: ast.Identifier("i"),
-			Rhs: ast.BinaryExpression(ast.Identifier("i"), token.Plus, ast.Literal("1")),
+			Lhs: astutil.Ident("i"),
+			Rhs: astutil.Binary(astutil.Ident("i"), token.Plus, astutil.Word("1")),
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
@@ -122,11 +124,11 @@ func TestForStmt(t *testing.T) {
 							// TODO "$var"
 							X:  &ast.VarExpExpr{X: &ast.Ident{Name: "var"}},
 							Op: token.Assgn,
-							Y:  ast.Literal(`"."`),
+							Y:  astutil.Word(`"."`),
 						},
 					},
 					Body: &ast.BlockStmt{
-						List: []ast.Stmt{&ast.ExprStmt{X: ast.Break()}},
+						List: []ast.Stmt{&ast.ExprStmt{X: astutil.Break()}},
 					},
 				},
 			},
@@ -139,12 +141,12 @@ func TestPipelineExpr(t *testing.T) {
 		X: &ast.PipelineExpr{
 			CtrOp: token.OrAnd,
 			Cmds: []ast.Expr{
-				ast.CmdExpression("echo", ast.Option("-n"), ast.Literal(`"Hello, World!"`)),
+				astutil.CmdExpr("echo", astutil.Option("-n"), astutil.Word(`"Hello, World!"`)),
 				&ast.PipelineExpr{
 					CtrOp: token.Or,
 					Cmds: []ast.Expr{
-						ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
-						ast.CmdExpression("echo", ast.Option("-n"), ast.Literal(`"Hello, World!"`)),
+						astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
+						astutil.CmdExpr("echo", astutil.Option("-n"), astutil.Word(`"Hello, World!"`)),
 					},
 				},
 			},
@@ -156,16 +158,16 @@ func TestCmdListExpr(t *testing.T) {
 	ast.Print(&ast.CmdListExpr{
 		CtrOp: token.OrOr,
 		Cmds: []ast.Expr{
-			ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+			astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
 			&ast.CmdListExpr{
 				CtrOp: token.AndAnd,
 				Cmds: []ast.Expr{
-					ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+					astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
 					&ast.CmdListExpr{
 						CtrOp: token.OrOr,
 						Cmds: []ast.Expr{
-							ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
-							ast.CmdExpression("echo", ast.Literal(`"Hello, World!"`)),
+							astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
+							astutil.CmdExpr("echo", astutil.Word(`"Hello, World!"`)),
 						},
 					},
 				},
@@ -179,16 +181,16 @@ func TestRedirect(t *testing.T) {
 		Stmts: []ast.Stmt{
 			&ast.ExprStmt{
 				X: &ast.Redirect{
-					N:     ast.Literal(`"Hello, World!"`),
+					N:     astutil.Word(`"Hello, World!"`),
 					CtrOp: token.RdrOut,
-					Word:  ast.Literal("a.txt"),
+					Word:  astutil.Word("a.txt"),
 				},
 			},
 			&ast.ExprStmt{
 				X: &ast.Redirect{
 					N:     &ast.Word{Val: "2"},
 					CtrOp: token.ClbOut,
-					Word:  ast.Literal("1"),
+					Word:  astutil.Word("1"),
 				},
 			},
 		},
@@ -251,7 +253,7 @@ func TestStmt(t *testing.T) {
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
-							X: ast.CmdExpression("echo"),
+							X: astutil.CmdExpr("echo"),
 						},
 					},
 				},
@@ -263,8 +265,8 @@ func TestStmt(t *testing.T) {
 					X: &ast.PipelineExpr{
 						CtrOp: token.Or,
 						Cmds: []ast.Expr{
-							ast.CmdExpression("echo", ast.Literal("-e"), ast.Literal(`"${string}"`)),
-							ast.CmdExpression("rev"),
+							astutil.CmdExpr("echo", astutil.Word("-e"), astutil.Word(`"${string}"`)),
+							astutil.CmdExpr("rev"),
 						},
 					},
 				},
@@ -289,7 +291,7 @@ func TestPrint(t *testing.T) {
 											&ast.ExprStmt{
 												&ast.CmdExpr{
 													Name: &ast.Ident{Name: "echo"},
-													Recv: []ast.Expr{ast.Literal(`"string"`)},
+													Recv: []ast.Expr{astutil.Word(`"string"`)},
 												},
 											},
 										},
@@ -300,7 +302,7 @@ func TestPrint(t *testing.T) {
 									&ast.ExprStmt{
 										&ast.CmdExpr{
 											Name: &ast.Ident{Name: "echo"},
-											Recv: []ast.Expr{ast.Literal(`"string"`)},
+											Recv: []ast.Expr{astutil.Word(`"string"`)},
 										},
 									},
 								},
@@ -330,7 +332,7 @@ func TestPrint(t *testing.T) {
 					Op: token.ExclMark,
 					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
-							X:  ast.Literal(`"$number"`),
+							X:  astutil.Word(`"$number"`),
 							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
@@ -340,7 +342,7 @@ func TestPrint(t *testing.T) {
 						&ast.ExprStmt{
 							X: &ast.CmdExpr{
 								Name: &ast.Ident{Name: "echo"},
-								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
+								Recv: []ast.Expr{astutil.Word(`"input is invalid"`)},
 							},
 						},
 					},
@@ -348,7 +350,7 @@ func TestPrint(t *testing.T) {
 					Op: token.ExclMark,
 					X: &ast.ExtendedTestExpr{
 						X: &ast.BinaryExpr{
-							X:  ast.Literal(`"$number"`),
+							X:  astutil.Word(`"$number"`),
 							Op: token.NotEqual,
 							Y:  &ast.Ident{Name: "^[0-9]+$"},
 						},
@@ -358,7 +360,7 @@ func TestPrint(t *testing.T) {
 						&ast.ExprStmt{
 							X: &ast.CmdExpr{
 								Name: &ast.Ident{Name: "echo"},
-								Recv: []ast.Expr{ast.Literal(`"input is invalid"`)},
+								Recv: []ast.Expr{astutil.Word(`"input is invalid"`)},
 							},
 						},
 					},

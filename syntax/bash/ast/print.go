@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package ast
 
 import (
@@ -11,6 +12,539 @@ import (
 
 	"github.com/hulo-lang/hulo/syntax/bash/token"
 )
+
+// Inspect prints a detailed representation of the AST node to the output writer.
+func Inspect(node Node, output io.Writer) {
+	printer := &inspectPrinter{output: output, indent: 0}
+	Walk(printer, node)
+}
+
+var _ Visitor = (*inspectPrinter)(nil)
+
+// inspectPrinter is a visitor that prints the AST node in a detailed format.
+type inspectPrinter struct {
+	output io.Writer
+	indent int
+}
+
+func (p *inspectPrinter) write(s string) {
+	fmt.Fprint(p.output, s)
+}
+
+func (p *inspectPrinter) indentWrite(s string) {
+	fmt.Fprint(p.output, strings.Repeat("  ", p.indent))
+	fmt.Fprint(p.output, s)
+}
+
+// Visit implements the Visitor interface for inspectPrinter
+func (p *inspectPrinter) Visit(node Node) Visitor {
+	if node == nil {
+		p.write("nil")
+		return nil
+	}
+
+	switch n := node.(type) {
+	case *File:
+		p.write("*ast.File {\n")
+		p.indent++
+		if len(n.Stmts) > 0 {
+			p.indentWrite("Stmts: [\n")
+			p.indent++
+			for i, stmt := range n.Stmts {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, stmt)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *FuncDecl:
+		p.write("*ast.FuncDecl {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			Walk(p, n.Name)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ExprStmt:
+		p.write("*ast.ExprStmt {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *BlockStmt:
+		p.write("*ast.BlockStmt {\n")
+		p.indent++
+		if len(n.List) > 0 {
+			p.indentWrite("List: [\n")
+			p.indent++
+			for i, stmt := range n.List {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, stmt)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *WhileStmt:
+		p.write("*ast.WhileStmt {\n")
+		p.indent++
+		if n.Cond != nil {
+			p.indentWrite("Cond: ")
+			Walk(p, n.Cond)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *UntilStmt:
+		p.write("*ast.UntilStmt {\n")
+		p.indent++
+		if n.Cond != nil {
+			p.indentWrite("Cond: ")
+			Walk(p, n.Cond)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ForStmt:
+		p.write("*ast.ForStmt {\n")
+		p.indent++
+		if n.Init != nil {
+			p.indentWrite("Init: ")
+			Walk(p, n.Init)
+			p.write("\n")
+		}
+		if n.Cond != nil {
+			p.indentWrite("Cond: ")
+			Walk(p, n.Cond)
+			p.write("\n")
+		}
+		if n.Post != nil {
+			p.indentWrite("Post: ")
+			Walk(p, n.Post)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ForInStmt:
+		p.write("*ast.ForInStmt {\n")
+		p.indent++
+		if n.Var != nil {
+			p.indentWrite("Var: ")
+			Walk(p, n.Var)
+			p.write("\n")
+		}
+		if n.List != nil {
+			p.indentWrite("List: ")
+			Walk(p, n.List)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *SelectStmt:
+		p.write("*ast.SelectStmt {\n")
+		p.indent++
+		if n.Var != nil {
+			p.indentWrite("Var: ")
+			Walk(p, n.Var)
+			p.write("\n")
+		}
+		if n.List != nil {
+			p.indentWrite("List: ")
+			Walk(p, n.List)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *IfStmt:
+		p.write("*ast.IfStmt {\n")
+		p.indent++
+		if n.Cond != nil {
+			p.indentWrite("Cond: ")
+			Walk(p, n.Cond)
+			p.write("\n")
+		}
+		if n.Body != nil {
+			p.indentWrite("Body: ")
+			Walk(p, n.Body)
+			p.write("\n")
+		}
+		if n.Else != nil {
+			p.indentWrite("Else: ")
+			Walk(p, n.Else)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *CaseStmt:
+		p.write("*ast.CaseStmt {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		if len(n.Patterns) > 0 {
+			p.indentWrite("Patterns: [\n")
+			p.indent++
+			for i, pattern := range n.Patterns {
+				p.indentWrite(fmt.Sprintf("%d: *ast.CasePattern {\n", i))
+				p.indent++
+				if len(pattern.Conds) > 0 {
+					p.indentWrite("Conds: [\n")
+					p.indent++
+					for j, cond := range pattern.Conds {
+						p.indentWrite(fmt.Sprintf("%d: ", j))
+						Walk(p, cond)
+						p.write("\n")
+					}
+					p.indent--
+					p.indentWrite("]\n")
+				}
+				if pattern.Body != nil {
+					p.indentWrite("Body: ")
+					Walk(p, pattern.Body)
+					p.write("\n")
+				}
+				p.indent--
+				p.indentWrite("}\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		if n.Else != nil {
+			p.indentWrite("Else: ")
+			Walk(p, n.Else)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *AssignStmt:
+		p.write("*ast.AssignStmt {\n")
+		p.indent++
+		if n.Lhs != nil {
+			p.indentWrite("Lhs: ")
+			Walk(p, n.Lhs)
+			p.write("\n")
+		}
+		if n.Rhs != nil {
+			p.indentWrite("Rhs: ")
+			Walk(p, n.Rhs)
+			p.write("\n")
+		}
+		p.indentWrite(fmt.Sprintf("Local: %t\n", n.Local.IsValid()))
+		p.indent--
+		p.indentWrite("}")
+	case *PipelineExpr:
+		p.write("*ast.PipelineExpr {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("CtrOp: %s\n", n.CtrOp))
+		if len(n.Cmds) > 0 {
+			p.indentWrite("Cmds: [\n")
+			p.indent++
+			for i, cmd := range n.Cmds {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, cmd)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *Redirect:
+		p.write("*ast.Redirect {\n")
+		p.indent++
+		if n.N != nil {
+			p.indentWrite("N: ")
+			Walk(p, n.N)
+			p.write("\n")
+		}
+		p.indentWrite(fmt.Sprintf("CtrOp: %s\n", n.CtrOp))
+		if n.Word != nil {
+			p.indentWrite("Word: ")
+			Walk(p, n.Word)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *Word:
+		p.write(fmt.Sprintf("*ast.Word (Val: %q)", n.Val))
+	case *Ident:
+		p.write(fmt.Sprintf("*ast.Ident (Name: %q)", n.Name))
+	case *BinaryExpr:
+		p.write("*ast.BinaryExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indentWrite(fmt.Sprintf("Op: %s\n", n.Op))
+		if n.Y != nil {
+			p.indentWrite("Y: ")
+			Walk(p, n.Y)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *CmdExpr:
+		p.write("*ast.CmdExpr {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			Walk(p, n.Name)
+			p.write("\n")
+		}
+		if len(n.Recv) > 0 {
+			p.indentWrite("Recv: [\n")
+			p.indent++
+			for i, arg := range n.Recv {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, arg)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *TestExpr:
+		p.write("*ast.TestExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ExtendedTestExpr:
+		p.write("*ast.ExtendedTestExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ArithEvalExpr:
+		p.write("*ast.ArithEvalExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *CmdSubst:
+		p.write("*ast.CmdSubst {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("Tok: %s\n", n.Tok))
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ProcSubst:
+		p.write("*ast.ProcSubst {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("CtrOp: %s\n", n.CtrOp))
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ArithExpr:
+		p.write("*ast.ArithExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *VarExpExpr:
+		p.write("*ast.VarExpExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ParamExpExpr:
+		p.write("*ast.ParamExpExpr {\n")
+		p.indent++
+		if n.Var != nil {
+			p.indentWrite("Var: ")
+			Walk(p, n.Var)
+			p.write("\n")
+		}
+		if n.ParamExp != nil {
+			p.indentWrite("ParamExp: ")
+			p.write(fmt.Sprintf("%T", n.ParamExp))
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *IndexExpr:
+		p.write("*ast.IndexExpr {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		if n.Y != nil {
+			p.indentWrite("Y: ")
+			Walk(p, n.Y)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ArrExpr:
+		p.write("*ast.ArrExpr {\n")
+		p.indent++
+		if len(n.Vars) > 0 {
+			p.indentWrite("Vars: [\n")
+			p.indent++
+			for i, v := range n.Vars {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, v)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *UnaryExpr:
+		p.write("*ast.UnaryExpr {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("Op: %s\n", n.Op))
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *CmdListExpr:
+		p.write("*ast.CmdListExpr {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("CtrOp: %s\n", n.CtrOp))
+		if len(n.Cmds) > 0 {
+			p.indentWrite("Cmds: [\n")
+			p.indent++
+			for i, cmd := range n.Cmds {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, cmd)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *CmdGroup:
+		p.write("*ast.CmdGroup {\n")
+		p.indent++
+		p.indentWrite(fmt.Sprintf("Op: %s\n", n.Op))
+		if len(n.List) > 0 {
+			p.indentWrite("List: [\n")
+			p.indent++
+			for i, item := range n.List {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, item)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *Comment:
+		p.write(fmt.Sprintf("*ast.Comment (Text: %q)", n.Text))
+	case *CommentGroup:
+		p.write("*ast.CommentGroup {\n")
+		p.indent++
+		if len(n.List) > 0 {
+			p.indentWrite("List: [\n")
+			p.indent++
+			for i, comment := range n.List {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				Walk(p, comment)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ReturnStmt:
+		p.write("*ast.ReturnStmt {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			Walk(p, n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	default:
+		p.write(fmt.Sprintf("unknown node type: %T", node))
+	}
+	return nil
+}
 
 var _ Visitor = (*prettyPrinter)(nil)
 

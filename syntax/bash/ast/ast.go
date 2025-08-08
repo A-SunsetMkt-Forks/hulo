@@ -4,6 +4,7 @@
 //
 // Package ast declares the types used to represent syntax trees for bash scripts.
 // Bash reference: https://www.gnu.org/software/bash/manual/bash.html
+
 package ast
 
 import (

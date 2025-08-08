@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package ast
 
 // A Visitor's Visit method is invoked for each node encountered by Walk.
@@ -10,6 +11,10 @@ type Visitor interface {
 	Visit(node Node) (w Visitor)
 }
 
+// Walk traverses an AST in depth-first order;
+// if the visitor w returned by v.Visit(node) is not nil,
+// Walk visits each of the children of node with the visitor w,
+// followed by a call of w.Visit(nil).
 func Walk(v Visitor, node Node) {
 	if v = v.Visit(node); v == nil {
 		return
@@ -24,9 +29,7 @@ func Walk(v Visitor, node Node) {
 		// nothing to do
 
 	case *CommentGroup:
-		for _, c := range n.List {
-			Walk(v, c)
-		}
+		walkList(v, n.List)
 
 	case *Ident:
 		// nothing to do
@@ -101,9 +104,7 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n.Rhs)
 
 	case *BlockStmt:
-		for _, s := range n.List {
-			Walk(v, s)
-		}
+		walkList(v, n.List)
 
 	// Expressions
 	case *BinaryExpr:
@@ -112,19 +113,13 @@ func Walk(v Visitor, node Node) {
 
 	case *CmdExpr:
 		Walk(v, n.Name)
-		for _, arg := range n.Recv {
-			Walk(v, arg)
-		}
+		walkList(v, n.Recv)
 
 	case *CmdListExpr:
-		for _, cmd := range n.Cmds {
-			Walk(v, cmd)
-		}
+		walkList(v, n.Cmds)
 
 	case *CmdGroup:
-		for _, expr := range n.List {
-			Walk(v, expr)
-		}
+		walkList(v, n.List)
 
 	case *TestExpr:
 		Walk(v, n.X)
@@ -175,17 +170,13 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n.Y)
 
 	case *ArrExpr:
-		for _, var_ := range n.Vars {
-			Walk(v, var_)
-		}
+		walkList(v, n.Vars)
 
 	case *UnaryExpr:
 		Walk(v, n.X)
 
 	case *PipelineExpr:
-		for _, cmd := range n.Cmds {
-			Walk(v, cmd)
-		}
+		walkList(v, n.Cmds)
 
 	case *Redirect:
 		if n.N != nil {
@@ -198,21 +189,26 @@ func Walk(v Visitor, node Node) {
 		if n.Doc != nil {
 			Walk(v, n.Doc)
 		}
-		for _, s := range n.Stmts {
-			Walk(v, s)
-		}
+		walkList(v, n.Stmts)
 	}
 }
 
-type inspector func(Node) bool
+func walkList[N Node](v Visitor, list []N) {
+	for _, node := range list {
+		Walk(v, node)
+	}
+}
 
-func (f inspector) Visit(node Node) Visitor {
+type predicate func(Node) bool
+
+func (f predicate) Visit(node Node) Visitor {
 	if f(node) {
 		return f
 	}
 	return nil
 }
 
-func Inspect(node Node, f func(Node) bool) {
-	Walk(inspector(f), node)
+// WalkIf walks the AST if the predicate returns true.
+func WalkIf(node Node, f predicate) {
+	Walk(predicate(f), node)
 }
