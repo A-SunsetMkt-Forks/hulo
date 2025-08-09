@@ -42,6 +42,10 @@ func (l *Lifter) convert(node bast.Node) hast.Node {
 		return &hast.Ident{Name: node.Name}
 	case *bast.Word:
 		return &hast.Ident{Name: node.Val}
+	case *bast.FuncDecl:
+		return l.convertFuncDecl(node)
+	case *bast.AssignStmt:
+		return l.convertAssignStmt(node)
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", node))
 	}
@@ -70,5 +74,23 @@ func (l *Lifter) convertCmdExpr(cmd *bast.CmdExpr) hast.Node {
 	return &hast.CallExpr{
 		Fun:  fun,
 		Recv: args,
+	}
+}
+
+func (l *Lifter) convertFuncDecl(decl *bast.FuncDecl) hast.Node {
+	body := &hast.BlockStmt{}
+	for _, stmt := range decl.Body.List {
+		body.List = append(body.List, l.convert(stmt).(hast.Stmt))
+	}
+	return &hast.FuncDecl{
+		Name: &hast.Ident{Name: decl.Name.Name},
+		Body: body,
+	}
+}
+
+func (l *Lifter) convertAssignStmt(stmt *bast.AssignStmt) hast.Node {
+	return &hast.AssignStmt{
+		Lhs: l.convert(stmt.Lhs).(hast.Expr),
+		Rhs: l.convert(stmt.Rhs).(hast.Expr),
 	}
 }
