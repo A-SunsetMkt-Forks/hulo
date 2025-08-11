@@ -35,6 +35,25 @@ func NewDependecyResolver() *DependecyResolver {
 	return &DependecyResolver{}
 }
 
+func (r *DependecyResolver) GetModule(path string) *Module {
+	return r.modules[path]
+}
+
+func (r *DependecyResolver) Order() []string {
+	return r.order
+}
+
+func (r *DependecyResolver) VisitModules(callback func(mod *Module) error) error {
+	for _, path := range r.order {
+		if mod, ok := r.modules[path]; ok {
+			if err := callback(mod); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // 返回绝对路径
 func (r *DependecyResolver) resolvePath(parent string, path string) (string, error) {
 	log.WithField("parent", parent).Infof("resolvePath: %s", path)

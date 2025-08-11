@@ -12,6 +12,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestNestedIf(t *testing.T) {
+	ifBuilder := NewIfBuilder(BinaryExpr(Ident("x"), token.EQ, Num("10")))
+	ifBuilder.Add(
+		&ast.ExprStmt{X: CmdExpr("echo", Str("x is 10"))},
+	)
+
+	ifBuilder.Add(
+		&ast.ExprStmt{X: CmdExpr("echo", Str("x is not 10"))},
+	)
+
+	file := ifBuilder.End().(*FileBuilder).Build()
+	assert.Len(t, file.Stmts, 2)
+}
+
 func TestFileBuilder_Basic(t *testing.T) {
 	// 测试基本的文件构建
 	builder := NewFileBuilder()
@@ -300,20 +314,20 @@ func TestFileBuilder_ComplexNesting(t *testing.T) {
 	// 在函数体中构建if语句
 	// ifBuilder := funcBuilder.If(BinaryExpr(Ident("data"), token.NEQ, NULL))
 	// ifBuilder.Then(
-		// &ast.AssignStmt{Lhs: Ident("i"), Tok: token.ASSIGN, Rhs: Num("0")},
+	// &ast.AssignStmt{Lhs: Ident("i"), Tok: token.ASSIGN, Rhs: Num("0")},
 	// )
 
 	// 在if的then分支中构建while循环
 	// whileBuilder := ifBuilder.While(BinaryExpr(Ident("i"), token.LT, Ident("data")))
 	// whileBuilder.Do(
-		// &ast.ExprStmt{X: CmdExpr("process_item", Ident("i"))},
-		// &ast.AssignStmt{Lhs: Ident("i"), Tok: token.PLUS_ASSIGN, Rhs: Num("1")},
+	// &ast.ExprStmt{X: CmdExpr("process_item", Ident("i"))},
+	// &ast.AssignStmt{Lhs: Ident("i"), Tok: token.PLUS_ASSIGN, Rhs: Num("1")},
 	// )
 
 	// 结束while，继续if
 	// ifBuilder = whileBuilder.End().(*IfBuilder)
 	// ifBuilder.Else(
-		// &ast.ExprStmt{X: CmdExpr("echo", Str("No data"))},
+	// &ast.ExprStmt{X: CmdExpr("echo", Str("No data"))},
 	// )
 
 	// 结束if，继续函数

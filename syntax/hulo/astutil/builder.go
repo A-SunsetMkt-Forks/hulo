@@ -9,6 +9,36 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
+type controlFlowBuilder struct{}
+
+type declarationBuilder struct{}
+
+type expressionBuilder struct{}
+
+type ifBuilder struct {
+	controlFlowBuilder
+	parent any
+	node   *ast.IfStmt
+}
+
+func NewIfBuilder(cond ast.Expr) *ifBuilder {
+	return &ifBuilder{node: &ast.IfStmt{Cond: cond}}
+}
+
+func (b *ifBuilder) Add(node any) *ifBuilder {
+	if b.node.Body == nil {
+		b.node.Body = &ast.BlockStmt{}
+	}
+	if stmt, ok := node.(ast.Stmt); ok {
+		b.node.Body.List = append(b.node.Body.List, stmt)
+	}
+	return b
+}
+
+func (b *ifBuilder) End() any {
+	return b.parent
+}
+
 // StatementBuilder 是一个接口，用于支持嵌套的语句构建
 type StatementBuilder interface {
 	// AddStmt 添加一个语句到当前构建器

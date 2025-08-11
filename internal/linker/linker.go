@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hulo-lang/hulo/internal/vfs"
+	"maps"
 )
 
 type BeginEnd struct {
@@ -41,9 +42,7 @@ func (l *Linker) Read(file string) error {
 	if listeners, exists := l.listeners[ext]; exists {
 		for _, beginEnd := range listeners {
 			extractedSymbols := l.extractSymbols(string(content), beginEnd)
-			for name, symbol := range extractedSymbols {
-				symbols[name] = symbol
-			}
+			maps.Copy(symbols, extractedSymbols)
 		}
 	}
 

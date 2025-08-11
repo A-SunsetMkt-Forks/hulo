@@ -1,10 +1,13 @@
 package transpiler
 
-import "github.com/hulo-lang/hulo/syntax/hulo/ast"
+import (
+	"github.com/hulo-lang/hulo/internal/module"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
+)
 
 type Transpiler[T any] interface {
 	// 转译主文件，会返回所有关联的文件，然后输出未解析的符号信息让linker去解析
-	Transpile(mainFile string) (files map[string]T, unresolvedSymbols []T, err error)
+	Transpile(main *module.Module) (files map[string]T, unresolvedSymbols []T, err error)
 
 	Convert(node ast.Node) (T, error)
 
