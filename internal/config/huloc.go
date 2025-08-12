@@ -18,8 +18,9 @@ type Huloc struct {
 	// EnableMangle is the option to enable variable name mangling.
 	// If true, the variable name will be mangled to a random string, like `_scope_0_1`.
 	// If false, the variable name will be used as is.
-	EnableMangle bool          `yaml:"enable_mangle"`
-	Parser       ParserOptions `yaml:"parser_options"`
+	EnableMangle bool             `yaml:"enable_mangle"`
+	Parser       ParserOptions    `yaml:"parser_options"`
+	Optimizer    OptimizerOptions `yaml:"optimizer_options"`
 	// OutDir is the output directory.
 	OutDir string `yaml:"out_dir"`
 	// Targets is the targets to compile.
@@ -39,6 +40,14 @@ type CompilerOptions struct {
 	VBScript *VBScriptOptions `yaml:"vbs"`
 }
 
+func DefaultCompilerOptions() CompilerOptions {
+	return CompilerOptions{
+		Bash:  DefaultBashOptions(),
+		Batch: DefaultBatchOptions(),
+		// VBScript: DefaultVBScriptOptions(),
+	}
+}
+
 // ParserOptions is the options for the parser.
 type ParserOptions struct {
 	// ShowASTTree is the option to show the AST tree.
@@ -52,4 +61,16 @@ type ParserOptions struct {
 	DisableTiming bool `yaml:"disable_timing"`
 	// WatchNode is the option to watch the node.
 	WatchNode []string `yaml:"watch_node"`
+}
+
+type OptimizerOptions struct {
+	UnusedVar bool `yaml:"unused_var"`
+	DeadCode  bool `yaml:"dead_code"`
+}
+
+func DefaultOptimizerOptions() *OptimizerOptions {
+	return &OptimizerOptions{
+		UnusedVar: true,
+		DeadCode:  true,
+	}
 }

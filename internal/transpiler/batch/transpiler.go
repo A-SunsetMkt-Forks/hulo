@@ -1,12 +1,14 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler
+package batch
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/linker"
 	"github.com/hulo-lang/hulo/internal/module"
 	"github.com/hulo-lang/hulo/internal/transpiler"
 	"github.com/hulo-lang/hulo/internal/vfs"
@@ -17,25 +19,51 @@ import (
 )
 
 func Transpile(opts *config.Huloc, fs vfs.VFS, main string) (map[string]string, error) {
-	moduleMgr := module.NewDependecyResolver()
+	moduleMgr := module.NewDependecyResolver(opts, fs)
 	err := module.ResolveAllDependencies(moduleMgr, opts.Main)
 	if err != nil {
 		return nil, err
 	}
-	transpiler := &Transpiler{
-		opts:      opts,
-		moduleMgr: moduleMgr,
-	}
-	results := make(map[string]string)
+	transpiler := NewTranspiler(opts, moduleMgr)
+	transpiler.hcrDispatcher.Register(RuleCommentSyntax, &REMCommentHandler{}, &DoubleColonCommentHandler{})
+	transpiler.hcrDispatcher.Register(RuleBoolFormat, &BoolAsNumberHandler{}, &BoolAsStringHandler{}, &BoolAsCmdHandler{})
+
+	transpiler.hcrDispatcher.Bind(RuleCommentSyntax, opts.CompilerOptions.Batch.CommentSyntax)
+	transpiler.hcrDispatcher.Bind(RuleBoolFormat, opts.CompilerOptions.Batch.BoolFormat)
+
+	results := make(map[string]bast.Node)
 	err = moduleMgr.VisitModules(func(mod *module.Module) error {
-		bashAST := transpiler.Convert(mod.AST)
-		results[mod.Path] = bast.String(bashAST)
+		batAST := transpiler.Convert(mod.AST)
+		results[strings.Replace(mod.Path, ".hl", ".bat", 1)] = batAST
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return results, nil
+	ld := linker.NewLinker(fs)
+	ld.Listen(".bat", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"})
+	ld.Listen(".cmd", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"})
+	for _, nodes := range transpiler.unresolvedSymbols {
+		for _, node := range nodes {
+			// 先Load没有在Read, 并且没符号的时候全部导入所有符号，并且还要处理好外部文件和内部文件
+			err := ld.Read(node.AST.Path)
+			if err != nil {
+				return nil, err
+			}
+			linkable := ld.Load(node.AST.Path)
+			symbol := linkable.Lookup(node.AST.Symbol)
+			if symbol == nil {
+				return nil, fmt.Errorf("symbol %s not found in %s", node.AST.Symbol, node.AST.Path)
+			}
+			node.Node.(*bast.Lit).Val = symbol.Text()
+			results[node.AST.Path] = node.Node
+		}
+	}
+	ret := make(map[string]string)
+	for path, node := range results {
+		ret[path] = bast.String(node)
+	}
+	return ret, nil
 }
 
 type UnresolvedSymbol struct {
@@ -57,20 +85,26 @@ type Transpiler struct {
 	// 这里为了简便设计 先手动管理作用域
 	scopes *ScopeStack
 
-	unresolvedSymbols map[string][]string
+	unresolvedSymbols map[string][]linker.UnknownSymbolNode[bast.Node]
 
-	// HCRMgr
-	strategies map[string]transpiler.Strategy[any]
+	hcrDispatcher *transpiler.HCRDispatcher[bast.Node]
 
 	counter uint64
 }
 
-func (t *Transpiler) UnresolvedSymbols() []any {
-	return nil
+func NewTranspiler(opts *config.Huloc, moduleMgr *module.DependecyResolver) *Transpiler {
+	return &Transpiler{
+		scopes:            &ScopeStack{scopes: []*Scope{{Type: GlobalScope}}},
+		counter:           0,
+		opts:              opts,
+		moduleMgr:         moduleMgr,
+		unresolvedSymbols: make(map[string][]linker.UnknownSymbolNode[bast.Node]),
+		hcrDispatcher:     transpiler.NewHCRDispatcher[bast.Node](),
+	}
 }
 
-func (t *Transpiler) GetTargetType() bast.Node {
-	return &bast.File{}
+func (t *Transpiler) UnresolvedSymbols() map[string][]linker.UnknownSymbolNode[bast.Node] {
+	return t.unresolvedSymbols
 }
 
 func (t *Transpiler) GetTargetExt() string {
@@ -97,10 +131,8 @@ func (t *Transpiler) Convert(node hast.Node) bast.Node {
 		return &bast.Lit{Val: node.Value}
 	case *hast.NumericLiteral:
 		return &bast.Lit{Val: node.Value}
-	case *hast.TrueLiteral:
-		return &bast.Lit{Val: "true"}
-	case *hast.FalseLiteral:
-		return &bast.Lit{Val: "false"}
+	case *hast.TrueLiteral, *hast.FalseLiteral:
+		return t.invokeHCR(RuleBoolFormat, node)
 	case *hast.BreakStmt:
 		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":break"}}}}
 	case *hast.ContinueStmt:
@@ -119,6 +151,44 @@ func (t *Transpiler) Convert(node hast.Node) bast.Node {
 		return &bast.Comment{Text: "try/catch/throw not supported in batch, skipped"}
 	case *hast.DeclareDecl, *hast.ExternDecl, *hast.Parameter, *hast.ComptimeStmt:
 		return &bast.Comment{Text: "declaration/extern/parameter/comptime not supported in batch, skipped"}
+	case *hast.CmdExpr:
+		return t.ConvertCmdExpr(node)
+	case *hast.ReturnStmt:
+		return t.ConvertReturnStmt(node)
+	case *hast.MatchStmt:
+		return t.ConvertMatchStmt(node)
+	case *hast.IncDecExpr:
+		return t.ConvertIncDecExpr(node)
+	case *hast.AssignStmt:
+		return t.ConvertAssignStmt(node)
+	case *hast.DoWhileStmt:
+		return t.ConvertDoWhileStmt(node)
+	case *hast.WhileStmt:
+		return t.ConvertWhileStmt(node)
+	case *hast.IfStmt:
+		return t.ConvertIfStmt(node)
+	case *hast.BlockStmt:
+		return t.ConvertBlockStmt(node)
+	case *hast.FuncDecl:
+		return t.ConvertFuncDecl(node)
+	case *hast.BinaryExpr:
+		return t.ConvertBinaryExpr(node)
+	case *hast.CallExpr:
+		return t.ConvertCallExpr(node)
+	case *hast.CommentGroup:
+		return t.ConvertCommentGroup(node)
+	case *hast.Import:
+		return t.ConvertImport(node)
+	case *hast.RefExpr:
+		return t.ConvertRefExpr(node)
+	case *hast.ArrayLiteralExpr:
+		return t.ConvertArrayLiteralExpr(node)
+	case *hast.ForeachStmt:
+		return t.ConvertForeachStmt(node)
+	case *hast.UnresolvedSymbol:
+		sym := &bast.Lit{Val: "[PLACEHOLDER]"}
+		t.unresolvedSymbols[node.Path] = append(t.unresolvedSymbols[node.Path], linker.UnknownSymbolNode[bast.Node]{AST: node, Node: sym})
+		return &bast.ExprStmt{X: sym}
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", node))
 	}
@@ -428,18 +498,20 @@ func (bt *Transpiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	return &bast.CallExpr{Fun: bt.Convert(node.Fun).(bast.Expr), Recv: recv}
 }
 
+func (bt *Transpiler) invokeHCR(name transpiler.RuleID, node hast.Node) bast.Node {
+	rule, err := bt.hcrDispatcher.Get(name)
+	if err != nil {
+		return nil
+	}
+	converted, err := rule.Apply(bt, node)
+	if err != nil {
+		return nil
+	}
+	return converted
+}
+
 func (bt *Transpiler) ConvertCommentGroup(node *hast.CommentGroup) bast.Node {
-	var tok btok.Token
-	if bt.opts.CompilerOptions.Batch != nil && bt.opts.CompilerOptions.Batch.CommentSyntax == "::" {
-		tok = btok.DOUBLE_COLON
-	} else {
-		tok = btok.REM
-	}
-	docs := make([]*bast.Comment, len(node.List))
-	for i, d := range node.List {
-		docs[i] = &bast.Comment{Tok: tok, Text: d.Text}
-	}
-	return &bast.CommentGroup{Comments: docs}
+	return bt.invokeHCR(RuleCommentSyntax, node)
 }
 
 func (bt *Transpiler) ConvertFile(node *hast.File) bast.Node {

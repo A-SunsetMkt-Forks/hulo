@@ -1,7 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler_test
+package batch_test
 
 import (
 	"fmt"
@@ -20,14 +20,13 @@ func TestCommandStmt(t *testing.T) {
 	assert.NoError(t, err)
 
 	// hast.Print(node)
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
 	assert.NoError(t, err)
 
-	for file, code := range results {
-		fmt.Printf("=== %s ===\n", file)
-		fmt.Println(code)
-		fmt.Println()
-	}
+	assert.Equal(t, 1, len(results))
+	assert.NotNil(t, results["main.bat"])
+	assert.Contains(t, results["main.bat"], `@echo off`)
+	assert.Contains(t, results["main.bat"], `echo Hello, World! 3.14 1`)
 }
 
 func TestComment(t *testing.T) {
@@ -48,7 +47,42 @@ func TestComment(t *testing.T) {
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl", CompilerOptions: config.CompilerOptions{Batch: &config.BatchOptions{CommentSyntax: "::"}}}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestLinker(t *testing.T) {
+	fs := memvfs.New()
+	testFiles := map[string]string{
+		"math.bat": `REM HULO_LINK_BEGIN abs
+:abs
+setlocal enabledelayedexpansion
+
+set "input=%~1"
+set /a "absValue=%input%"
+
+if !input! lss 0 (
+    set /a "absValue=-!input!"
+)
+
+(endlocal & set %2=%absValue%)
+exit /b
+REM HULO_LINK_END`,
+		"main.hl": `// @hulo:link math.bat abs`,
+	}
+	for path, content := range testFiles {
+		err := fs.WriteFile(path, []byte(content), 0644)
+		assert.NoError(t, err)
+	}
+
+	// hast.Print(node)
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.CompilerOptions{Batch: &config.BatchOptions{CommentSyntax: "::"}}}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -67,7 +101,7 @@ func TestAssign(t *testing.T) {
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl"}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -89,7 +123,7 @@ func TestIf(t *testing.T) {
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl"}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {

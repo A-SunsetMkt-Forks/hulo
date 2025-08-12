@@ -10,6 +10,8 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
+// TODO import 的时候未使用的变量优化
+
 type Optimizer struct {
 	scissors []Scissor // 各种剪枝工具
 }

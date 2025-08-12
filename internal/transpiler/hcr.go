@@ -1,52 +1,62 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
 package transpiler
 
 import (
-	"errors"
-	"strings"
+	"fmt"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
-var (
-	// ErrInvalidRule is returned when the rule is invalid.
-	ErrInvalidRule = errors.New("invalid rule")
-)
-
-type HuloCompilerRule struct {
-	name    string
-	version *semver.Version
-	raw     string
+// HuloCompileRule is the interface for the compile rule.
+type HuloCompileRule[T any] interface {
+	// Strategy returns the strategy of the rule.
+	Strategy() string
+	// Apply applies the rule to the node.
+	Apply(transpiler Transpiler[T], node ast.Node) (T, error)
 }
 
-// ParseRule parses the rule and returns the HuloCompilerRule.
-//
-// The rule is in the format of "name&version".
-// If the version is not provided, the rule is parsed as the latest version.
-func ParseRule(fullRule string) (hcr *HuloCompilerRule, err error) {
-	rules := strings.Split(fullRule, "&")
-	if len(rules) == 0 {
-		return nil, ErrInvalidRule
-	}
-	hcr = &HuloCompilerRule{name: rules[0], raw: fullRule}
+// HCRDispatcher is the dispatcher for the compile rule.
+// It is used to dispatch the compile rule to the correct rule.
+type HCRDispatcher[T any] struct {
+	rules  map[RuleID][]HuloCompileRule[T]
+	cached map[RuleID]HuloCompileRule[T]
+}
 
-	if len(rules) > 1 {
-		hcr.version, err = semver.NewVersion(rules[1])
-		if err != nil {
-			return nil, err
+func NewHCRDispatcher[T any]() *HCRDispatcher[T] {
+	return &HCRDispatcher[T]{
+		rules:  make(map[RuleID][]HuloCompileRule[T]),
+		cached: make(map[RuleID]HuloCompileRule[T]),
+	}
+}
+
+func (hcrd *HCRDispatcher[T]) Register(name RuleID, rules ...HuloCompileRule[T]) {
+	hcrd.rules[name] = append(hcrd.rules[name], rules...)
+}
+
+func (hcrd *HCRDispatcher[T]) Get(key RuleID) (HuloCompileRule[T], error) {
+	rule, ok := hcrd.cached[key]
+	if ok {
+		return rule, nil
+	}
+	return nil, fmt.Errorf("rule %s not found or not bound", key)
+}
+
+func (hcrd *HCRDispatcher[T]) Bind(key RuleID, value string) error {
+	_, ok := hcrd.cached[key]
+	if ok {
+		return fmt.Errorf("rule %s already bound", key)
+	}
+	for _, rule := range hcrd.rules[key] {
+		if rule.Strategy() == value {
+			hcrd.cached[key] = rule
+			return nil
 		}
 	}
-
-	return
+	return fmt.Errorf("rule %s not found", key)
 }
 
-func (r *HuloCompilerRule) Name() string {
-	return r.name
-}
-
-func (r *HuloCompilerRule) Version() *semver.Version {
-	return r.version
-}
-
-func (r *HuloCompilerRule) Raw() string {
-	return r.raw
+type RuleID interface {
+	String() string
 }

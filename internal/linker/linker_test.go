@@ -213,8 +213,8 @@ End Function
 ' HULO_LINK_END`
 
 	beginEnd := BeginEnd{
-		begin: "' HULO_LINK_BEGIN",
-		end:   "' HULO_LINK_END",
+		Begin: "' HULO_LINK_BEGIN",
+		End:   "' HULO_LINK_END",
 	}
 
 	symbols := linker.extractSymbols(testContent, beginEnd)
@@ -259,8 +259,8 @@ REM HULO_LINK_END`
 
 	// 测试自定义分隔符
 	beginEnd1 := BeginEnd{
-		begin: "begin",
-		end:   "ending",
+		Begin: "begin",
+		End:   "ending",
 	}
 
 	symbols1 := linker.extractSymbols(testContent, beginEnd1)
@@ -273,8 +273,8 @@ REM HULO_LINK_END`
 
 	// 测试REM格式
 	beginEnd2 := BeginEnd{
-		begin: "REM HULO_LINK_BEGIN",
-		end:   "REM HULO_LINK_END",
+		Begin: "REM HULO_LINK_BEGIN",
+		End:   "REM HULO_LINK_END",
 	}
 
 	symbols2 := linker.extractSymbols(testContent, beginEnd2)
@@ -298,8 +298,8 @@ End Function
 
 	linker := NewLinker(fs)
 	linker.Listen(".vbs", BeginEnd{
-		begin: "' HULO_LINK_BEGIN",
-		end:   "' HULO_LINK_END",
+		Begin: "' HULO_LINK_BEGIN",
+		End:   "' HULO_LINK_END",
 	})
 
 	err := linker.Read("test.vbs")

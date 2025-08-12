@@ -8,3 +8,10 @@ type BashOptions struct {
 	MultiString   string `yaml:"multi_string"`
 	BooleanFormat string `yaml:"boolean_format" validate:"oneof=number string command"`
 }
+
+func DefaultBashOptions() *BashOptions {
+	return &BashOptions{
+		MultiString:   "off",
+		BooleanFormat: "number",
+	}
+}

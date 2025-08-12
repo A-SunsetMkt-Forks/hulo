@@ -38,4 +38,8 @@ type VFS interface {
 
 	// Glob returns all files matching the given pattern.
 	Glob(pattern string) ([]string, error)
+
+	// ResolvePath resolves a relative path to an absolute path within this file system.
+	// This method allows each file system to implement its own path resolution logic.
+	ResolvePath(parent, path string) (string, error)
 }

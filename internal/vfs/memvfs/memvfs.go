@@ -52,3 +52,9 @@ func (m *MemVFS) Walk(root string, walkFn filepath.WalkFunc) error {
 func (m *MemVFS) Glob(pattern string) ([]string, error) {
 	return afero.Glob(m.Fs, pattern)
 }
+
+// ResolvePath resolves a relative path to an absolute path for the memory file system.
+// For memory file systems, we don't need to use filepath.Abs since there's no real filesystem.
+func (m *MemVFS) ResolvePath(parent, path string) (string, error) {
+	return filepath.Join(filepath.Dir(parent), path), nil
+}

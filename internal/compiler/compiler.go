@@ -6,6 +6,7 @@ package compiler
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 
@@ -32,7 +33,7 @@ type Compiler struct {
 
 func Compile(cfg *config.Huloc, fs vfs.VFS) error {
 	// 直接调用moduleMgr来执行
-	moduleMgr := module.NewDependecyResolver()
+	moduleMgr := module.NewDependecyResolver(cfg, fs)
 	if err := module.ResolveAllDependencies(moduleMgr, cfg.Main); err != nil {
 		return err
 	}
@@ -41,7 +42,14 @@ func Compile(cfg *config.Huloc, fs vfs.VFS) error {
 		transpilers: make(map[string]transpiler.Transpiler[any]),
 	}
 
-	// 注册映射关系
+	// 注册转译器映射关系
+
+	ld := linker.NewLinker(fs)
+	ld.Listen(".bat", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"}, linker.BeginEnd{Begin: ":: HULO_LINK_BEGIN", End: ":: HULO_LINK_END"})
+	ld.Listen(".vbs", linker.BeginEnd{Begin: "' HULO_LINK_BEGIN", End: "' HULO_LINK_END"})
+	ld.Listen(".cmd", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"})
+	ld.Listen(".ps1", linker.BeginEnd{Begin: "# HULO_LINK_BEGIN", End: "# HULO_LINK_END"})
+	ld.Listen(".sh", linker.BeginEnd{Begin: "# HULO_LINK_BEGIN", End: "# HULO_LINK_END"})
 
 	for _, target := range cfg.Targets {
 		env := interpreter.NewEnvironment()
@@ -52,7 +60,9 @@ func Compile(cfg *config.Huloc, fs vfs.VFS) error {
 
 		err := moduleMgr.VisitModules(func(mod *module.Module) error {
 			// Eval 也应该按照 Module 的
+			// dap 调试器启动
 			mod.AST = interp.Eval(mod.AST).(*ast.File)
+			mod.AST = c.optimizer.Optimize(mod.AST).(*ast.File)
 			return nil
 		})
 		if err != nil {
@@ -67,27 +77,27 @@ func Compile(cfg *config.Huloc, fs vfs.VFS) error {
 		var results map[string]any
 
 		err = moduleMgr.VisitModules(func(mod *module.Module) error {
-			targetNode, err := transpiler.Convert(mod.AST)
-			if err != nil {
-				return err
-			}
-
-			results[mod.Path] = targetNode
+			targetAST := transpiler.Convert(mod.AST)
+			results[strings.Replace(mod.Path, ".hl", transpiler.GetTargetExt(), 1)] = targetAST
 			return nil
 		})
 		if err != nil {
 			return err
 		}
 
-		// 未知符号怎么拿？
-		// 转译器给符号表吧 因为Unsafe会链接
-		// unresolvedSymbols := transpiler.UnresolvedSymbols()
-		// 未知符号是一个数据结构？然后有待链接的文件名以及符号信息？？？按照Module遍历吧？每个Module独立符号
-		// for _, symbol := range unresolvedSymbols {
-		// 	fmt.Println(symbol)
-		// }
+		for _, nodes := range transpiler.UnresolvedSymbols() {
+			for _, node := range nodes {
+				ld.Read(node.AST.Path)
+				linkable := ld.Load(node.AST.Path)
+				symbol := linkable.Lookup(node.AST.Symbol)
+				if symbol == nil {
+					return fmt.Errorf("symbol %s not found in %s", node.AST.Symbol, node.AST.Path)
+				}
+				// node.Node.Val = symbol.Text()
+			}
+		}
 
-
+		// 写文件
 	}
 
 	return nil

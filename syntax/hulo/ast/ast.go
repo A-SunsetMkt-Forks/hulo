@@ -1808,3 +1808,13 @@ func (v *EnumVariant) End() token.Pos { return v.Rbrace }
 func (*BasicEnumBody) enumBodyNode()      {}
 func (*AssociatedEnumBody) enumBodyNode() {}
 func (*ADTEnumBody) enumBodyNode()        {}
+
+type UnresolvedSymbol struct {
+	Plain string
+	Symbol string
+	Path   string
+}
+
+func (*UnresolvedSymbol) Pos() token.Pos { return token.NoPos }
+func (*UnresolvedSymbol) End() token.Pos { return token.NoPos }
+func (*UnresolvedSymbol) stmtNode()      {}

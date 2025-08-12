@@ -442,21 +442,44 @@ func (a *Analyzer) VisitFile(ctx *generated.FileContext) any {
 	})
 }
 
+func (a *Analyzer) VisitCommentGroup(ctx *generated.CommentContext) ast.Node {
+	if ctx.LineComment() != nil {
+		text := ctx.LineComment().GetText()
+
+		if strings.HasPrefix(text, "// @hulo:link") {
+			text = strings.TrimSpace(text[len("// @hulo:link"):])
+			parts := strings.Split(text, " ")
+			sym := &ast.UnresolvedSymbol{
+				Plain: text,
+				Path:  parts[0],
+			}
+			if len(parts) > 1 {
+				sym.Symbol = parts[1]
+			}
+
+			return sym
+		}
+		cmt := a.fmtLineComment(text)
+		cmt.Slash = token.Pos(ctx.LineComment().GetSymbol().GetStart())
+		a.comments = append(a.comments, cmt)
+	} else {
+		cmts := a.fmtBlockComment(ctx.BlockComment().GetText())
+		for _, cmt := range cmts {
+			cmt.Slash = token.Pos(ctx.BlockComment().GetSymbol().GetStart())
+			a.comments = append(a.comments, cmt)
+		}
+	}
+	return nil
+}
+
 // VisitStatement implements the Visitor interface for Statement
 func (a *Analyzer) VisitStatement(ctx *generated.StatementContext) any {
 	return a.visitWrapper("Statement", ctx, func() any {
 
 		if ctx.Comment() != nil {
-			if ctx.Comment().LineComment() != nil {
-				cmt := a.fmtLineComment(ctx.Comment().LineComment().GetText())
-				cmt.Slash = token.Pos(ctx.Comment().LineComment().GetSymbol().GetStart())
-				a.comments = append(a.comments, cmt)
-			} else {
-				cmts := a.fmtBlockComment(ctx.Comment().BlockComment().GetText())
-				for _, cmt := range cmts {
-					cmt.Slash = token.Pos(ctx.Comment().BlockComment().GetSymbol().GetStart())
-					a.comments = append(a.comments, cmt)
-				}
+			ret := a.VisitCommentGroup(ctx.Comment().(*generated.CommentContext))
+			if ret != nil {
+				return ret
 			}
 		}
 		// Handle different types of statements
@@ -3637,34 +3660,6 @@ func (a *Analyzer) VisitModuleStatement(ctx *generated.ModuleStatementContext) a
 
 		return nil
 	})
-}
-
-// extractUnsafeContent extracts the content between __UNSAFE_BEGIN__ and __UNSAFE_END__
-// Handles the format: "__UNSAFE_BEGIN__content__UNSAFE_END__" and returns "content"
-func extractUnsafeContent(blockText string) string {
-	beginMarker := "__UNSAFE_BEGIN__"
-	endMarker := "__UNSAFE_END__"
-
-	// Find the begin marker
-	startIdx := strings.Index(blockText, beginMarker)
-	if startIdx == -1 {
-		return ""
-	}
-
-	// Find the end marker
-	endIdx := strings.Index(blockText, endMarker)
-	if endIdx == -1 {
-		return ""
-	}
-
-	// Extract content between markers
-	contentStart := startIdx + len(beginMarker)
-	content := blockText[contentStart:endIdx]
-
-	// Trim leading/trailing whitespace
-	content = strings.TrimSpace(content)
-
-	return content
 }
 
 // convertTokenType 将 ANTLR token 类型转换为 Hulo token 类型

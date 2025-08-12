@@ -31,8 +31,16 @@ type DependecyResolver struct {
 	huloPath        string
 }
 
-func NewDependecyResolver() *DependecyResolver {
-	return &DependecyResolver{}
+func NewDependecyResolver(options *config.Huloc, fs vfs.VFS) *DependecyResolver {
+	return &DependecyResolver{
+		fs:      fs,
+		visited: container.NewMapSet[string](),
+		stack:   container.NewMapSet[string](),
+		order:   []string{},
+		pkgs:    make(map[string]*config.HuloPkg),
+		modules: make(map[string]*Module),
+		options: options,
+	}
 }
 
 func (r *DependecyResolver) GetModule(path string) *Module {
@@ -58,10 +66,11 @@ func (r *DependecyResolver) VisitModules(callback func(mod *Module) error) error
 func (r *DependecyResolver) resolvePath(parent string, path string) (string, error) {
 	log.WithField("parent", parent).Infof("resolvePath: %s", path)
 	if r.isRelativePath(path) {
-		ret, err := filepath.Abs(filepath.Join(filepath.Dir(parent), path))
+		ret, err := r.fs.ResolvePath(parent, path)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve path: %w", err)
 		}
+
 		if r.fs.Exists(ret) {
 			stat, err := r.fs.Stat(ret)
 			if err != nil {
@@ -257,7 +266,10 @@ func (r *DependecyResolver) loadModule(parentPkg *Module, absPath string, symbol
 	if r.isRelativePath(symbolName) {
 		pkgPath, err := r.findNearestPkgYaml(absPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find nearest pkg file: %w", err)
+			// return nil, fmt.Errorf("failed to find nearest pkg file: %w", err)
+			r.modules[absPath] = module
+
+			return module, nil
 		}
 		content, err := r.fs.ReadFile(pkgPath)
 		if err != nil {

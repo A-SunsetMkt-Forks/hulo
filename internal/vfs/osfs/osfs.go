@@ -52,3 +52,8 @@ func (o *OSVFS) Walk(root string, walkFn filepath.WalkFunc) error {
 func (o *OSVFS) Glob(pattern string) ([]string, error) {
 	return afero.Glob(o.Fs, pattern)
 }
+
+// ResolvePath resolves a relative path to an absolute path for the OS file system.
+func (o *OSVFS) ResolvePath(parent, path string) (string, error) {
+	return filepath.Abs(filepath.Join(filepath.Dir(parent), path))
+}

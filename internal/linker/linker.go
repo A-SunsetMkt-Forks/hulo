@@ -8,12 +8,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hulo-lang/hulo/internal/vfs"
 	"maps"
+
+	"github.com/hulo-lang/hulo/internal/vfs"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
+type UnkownSymbol interface {
+	Resolve() error
+}
+
+type UnknownSymbolNode[T any] struct {
+	AST  *ast.UnresolvedSymbol
+	Node T
+}
+
+func (usn *UnknownSymbolNode[T]) Resolve(symbol string) {
+	// usn.Node.Val = symbol
+}
+
 type BeginEnd struct {
-	begin, end string
+	Begin, End string
 }
 
 type Linker struct {
@@ -78,9 +93,9 @@ func (l *Linker) extractSymbols(content string, beginEnd BeginEnd) map[string]*L
 		trimmedLine := strings.TrimSpace(line)
 
 		// 检查是否开始符号定义
-		if strings.HasPrefix(trimmedLine, beginEnd.begin) {
+		if strings.HasPrefix(trimmedLine, beginEnd.Begin) {
 			// 提取符号名称和参数
-			rest := strings.TrimSpace(trimmedLine[len(beginEnd.begin):])
+			rest := strings.TrimSpace(trimmedLine[len(beginEnd.Begin):])
 			parsed := l.parseSymbolDefinition(rest)
 
 			if parsed.name != "" {
@@ -95,9 +110,9 @@ func (l *Linker) extractSymbols(content string, beginEnd BeginEnd) map[string]*L
 		}
 
 		// 检查是否结束符号定义
-		if inSymbol && strings.HasPrefix(trimmedLine, beginEnd.end) {
+		if inSymbol && strings.HasPrefix(trimmedLine, beginEnd.End) {
 			if currentSymbol != nil && symbolName != "" {
-				currentSymbol.tags["content"] = strings.Join(symbolContent, "\n")
+				currentSymbol.text = strings.Join(symbolContent, "\n")
 				currentSymbol.tags["start_line"] = strconv.Itoa(i - len(symbolContent))
 				currentSymbol.tags["end_line"] = strconv.Itoa(i)
 				symbols[symbolName] = currentSymbol
@@ -180,7 +195,12 @@ func (lf *LinkableFile) Lookup(name string) *LinkableSymbol {
 }
 
 type LinkableSymbol struct {
+	text string
 	tags map[string]string
+}
+
+func (ls *LinkableSymbol) Text() string {
+	return ls.text
 }
 
 func (ls *LinkableSymbol) GetTag(name string) string {
