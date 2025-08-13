@@ -11,20 +11,12 @@ import (
 	"maps"
 
 	"github.com/hulo-lang/hulo/internal/vfs"
-	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
 
 type UnkownSymbol interface {
-	Resolve() error
-}
-
-type UnknownSymbolNode[T any] struct {
-	AST  *ast.UnresolvedSymbol
-	Node T
-}
-
-func (usn *UnknownSymbolNode[T]) Resolve(symbol string) {
-	// usn.Node.Val = symbol
+	Name() string
+	Source() string
+	Link(symbol *LinkableSymbol) error
 }
 
 type BeginEnd struct {

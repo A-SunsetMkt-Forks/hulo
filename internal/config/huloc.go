@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package config
 
 import "github.com/go-playground/validator/v10"
@@ -35,9 +36,10 @@ func (c *Huloc) Validate() error {
 
 // CompilerOptions is the configuration for the compiler.
 type CompilerOptions struct {
-	Bash     *BashOptions     `yaml:"bash"`
-	Batch    *BatchOptions    `yaml:"batch"`
-	VBScript *VBScriptOptions `yaml:"vbs"`
+	Bash     *BashOptions       `yaml:"bash"`
+	Batch    *BatchOptions      `yaml:"batch"`
+	VBScript *VBScriptOptions   `yaml:"vbs"`
+	Pwsh     *PowerShellOptions `yaml:"pwsh"`
 }
 
 func DefaultCompilerOptions() CompilerOptions {

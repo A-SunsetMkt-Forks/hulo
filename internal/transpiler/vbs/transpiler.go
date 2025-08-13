@@ -1,20 +1,19 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler
+
+package vbs
 
 import (
 	"fmt"
-	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/caarlos0/log"
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
-	"github.com/hulo-lang/hulo/internal/interpreter"
-	"github.com/hulo-lang/hulo/internal/object"
+	"github.com/hulo-lang/hulo/internal/linker"
+	"github.com/hulo-lang/hulo/internal/module"
+	"github.com/hulo-lang/hulo/internal/transpiler"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
@@ -22,247 +21,115 @@ import (
 	vtok "github.com/hulo-lang/hulo/syntax/vbs/token"
 )
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]string, error) {
-	tr := NewVBScriptTranspiler(opts, vfs)
-	tr.moduleManager.basePath = basePath
-	return tr.Transpile(opts.Main)
+func Transpile(opts *config.Huloc, fs vfs.VFS, basePath string) (map[string]string, error) {
+	moduleMgr := module.NewDependecyResolver(opts, fs)
+	err := module.ResolveAllDependencies(moduleMgr, opts.Main)
+	if err != nil {
+		return nil, err
+	}
+	transpiler := NewTranspiler(opts.CompilerOptions.VBScript, moduleMgr).RegisterDefaultRules()
+	err = transpiler.BindRules()
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[string]vast.Node)
+	err = moduleMgr.VisitModules(func(mod *module.Module) error {
+		transpiler.currentModule = mod
+		batAST := transpiler.Convert(mod.AST)
+		results[strings.Replace(mod.Path, ".hl", transpiler.GetTargetExt(), 1)] = batAST
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	ld := linker.NewLinker(fs)
+	ld.Listen(".sh", linker.BeginEnd{Begin: "# HULO_LINK_BEGIN", End: "# HULO_LINK_END"})
+
+	for _, nodes := range transpiler.unresolvedSymbols {
+		for _, node := range nodes {
+			// 先Load没有在Read, 并且没符号的时候全部导入所有符号，并且还要处理好外部文件和内部文件
+			err := ld.Read(node.Source())
+			if err != nil {
+				return nil, err
+			}
+			linkable := ld.Load(node.Source())
+			symbol := linkable.Lookup(node.Name())
+			if symbol == nil {
+				return nil, fmt.Errorf("symbol %s not found in %s", node.Name(), node.Source())
+			}
+			err = node.Link(symbol)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	ret := make(map[string]string)
+	for path, node := range results {
+		ret[path] = vast.String(node)
+	}
+	return ret, nil
 }
 
-type VBScriptTranspiler struct {
-	opts *config.Huloc
+type Transpiler struct {
+	opts *config.VBScriptOptions
 
 	buffer []vast.Stmt
 
-	moduleManager *ModuleManager
+	moduleMgr *module.DependecyResolver
 
-	vfs vfs.VFS
-
-	modules       map[string]*Module
-	currentModule *Module
-
-	builtinModules []*Module
-
-	globalSymbols *SymbolTable
-
-	scopeStack container.Stack[ScopeType]
-
-	currentScope *Scope
+	currentModule *module.Module
 
 	enableShell bool
 
-	undefinedSymbols container.Set[string] // TODO: 需要移动到 Module 里面
+	results map[string]*vast.File
+
+	callers container.Stack[CallFrame]
+
+	unresolvedSymbols map[string][]linker.UnkownSymbol
+
+	hcrDispatcher *transpiler.HCRDispatcher[vast.Node]
 }
 
-func NewVBScriptTranspiler(opts *config.Huloc, vfs vfs.VFS) *VBScriptTranspiler {
-	env := interpreter.NewEnvironment()
-	env.SetWithScope("TARGET", &object.StringValue{Value: "vbs"}, htok.CONST, true)
-	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
-	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
-	interp := interpreter.NewInterpreter(env)
-
-	return &VBScriptTranspiler{
-		opts:             opts,
-		vfs:              vfs,
-		undefinedSymbols: container.NewMapSet[string](),
-		// 初始化模块管理
-		moduleManager: &ModuleManager{
-			options:  opts,
-			vfs:      vfs,
-			basePath: "",
-			modules:  make(map[string]*Module),
-			resolver: &DependencyResolver{
-				visited: container.NewMapSet[string](),
-				stack:   container.NewMapSet[string](),
-				order:   make([]string, 0),
-			},
-			externalVBS: make(map[string]string),
-			interp:      interp,
-		},
-		modules: make(map[string]*Module),
-
-		// 初始化符号管理
-		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
-
-		// 初始化作用域管理
-		scopeStack: container.NewArrayStack[ScopeType](),
+func NewTranspiler(opts *config.VBScriptOptions, moduleMgr *module.DependecyResolver) *Transpiler {
+	return &Transpiler{
+		opts:              opts,
+		moduleMgr:         moduleMgr,
+		results:           make(map[string]*vast.File),
+		unresolvedSymbols: make(map[string][]linker.UnkownSymbol),
+		hcrDispatcher:     transpiler.NewHCRDispatcher[vast.Node](),
+		callers:           container.NewArrayStack[CallFrame](),
 	}
 }
 
-func (b *VBScriptTranspiler) Transpile(mainFile string) (map[string]string, error) {
-	// 解析内置模块
-	builtinModules, err := b.moduleManager.ResolveAllDependencies(filepath.Join(b.opts.HuloPath, "core/unsafe/vbs/index.hl"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve builtin dependencies: %w", err)
-	}
-
-	b.builtinModules = builtinModules
-
-	for _, module := range builtinModules {
-		if module.Symbols == nil {
-			module.Symbols = NewSymbolTable(module.Name, false)
-		}
-		b.analyzeModuleExports(module)
-	}
-
-	// 1. 解析所有依赖
-	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve dependencies: %w", err)
-	}
-
-	// 2. 将解析的模块同步到 transpiler 的 modules 中
-	for _, module := range modules {
-		b.modules[module.Path] = module
-		log.Debugf("Loaded module: %s (path: %s)", module.Name, module.Path)
-	}
-
-	// 3. 分析所有模块的导出符号
-	for _, module := range modules {
-		if module.Symbols == nil {
-			module.Symbols = NewSymbolTable(module.Name, false)
-		}
-		b.analyzeModuleExports(module)
-	}
-
-	// 4. 按依赖顺序翻译模块
-	results := make(map[string]string)
-	for _, module := range modules {
-		if err := b.translateModule(module); err != nil {
-			return nil, fmt.Errorf("failed to translate module %s: %w", module.Path, err)
-		}
-		path := strings.Replace(module.Path, ".hl", ".vbs", 1)
-		results[path] = vast.String(module.Transpiled)
-	}
-
-	return results, nil
+func (t *Transpiler) RegisterDefaultRules() *Transpiler {
+	return t
 }
 
-func (b *VBScriptTranspiler) translateModule(module *Module) error {
-	// 设置当前模块
-	b.currentModule = module
-
-	// 翻译模块内容
-	module.Transpiled = b.Convert(module.AST).(*vast.File)
-
+func (t *Transpiler) BindRules() error {
 	return nil
 }
 
-func (b *VBScriptTranspiler) analyzeModuleExports(module *Module) {
-	for _, stmt := range module.AST.Stmts {
-		switch s := stmt.(type) {
-		case *hast.FuncDecl:
-			// 检查是否有 pub 修饰符
-			for _, modifier := range s.Modifiers {
-				if _, ok := modifier.(*hast.PubModifier); ok {
-					module.Exports[s.Name.Name] = &ExportInfo{
-						Name:   s.Name.Name,
-						Value:  s,
-						Kind:   ExportFunction,
-						Public: true,
-					}
-					module.Symbols.AddFunction(s.Name.Name, s)
-					break
-				}
-			}
-
-			if len(s.Modifiers) == 0 {
-				module.Exports[s.Name.Name] = &ExportInfo{
-					Name:   s.Name.Name,
-					Value:  s,
-					Kind:   ExportFunction,
-					Public: false,
-				}
-				module.Symbols.AddFunction(s.Name.Name, s)
-			}
-
-		case *hast.DeclareDecl:
-			// 处理 declare fn
-			if funcDecl, ok := s.X.(*hast.FuncDecl); ok {
-				module.Exports[funcDecl.Name.Name] = &ExportInfo{
-					Name:   funcDecl.Name.Name,
-					Value:  funcDecl,
-					Kind:   ExportFunction,
-					Public: true, // declare 默认视为可用
-				}
-				module.Symbols.AddFunction(funcDecl.Name.Name, funcDecl)
-			}
-
-		case *hast.ClassDecl:
-			// 检查是否有 pub 修饰符
-			if s.Pub.IsValid() {
-				module.Exports[s.Name.Name] = &ExportInfo{
-					Name:   s.Name.Name,
-					Value:  s,
-					Kind:   ExportClass,
-					Public: true,
-				}
-				fields := make([]string, 0)
-				for _, field := range s.Fields.List {
-					fields = append(fields, field.Name.Name)
-				}
-				module.Symbols.AddClass(s.Name.Name, &ClassSymbol{
-					Name:   s.Name.Name,
-					Fields: fields,
-					Public: s.Pub.IsValid(),
-				})
-			}
-
-		case *hast.AssignStmt:
-			// 处理所有类型的赋值语句
-			var varName string
-			if refExpr, ok := s.Lhs.(*hast.RefExpr); ok {
-				// 从 $p 中提取变量名 p
-				if ident, ok := refExpr.X.(*hast.Ident); ok {
-					varName = ident.Name
-				}
-			} else if ident, ok := s.Lhs.(*hast.Ident); ok {
-				varName = ident.Name
-			}
-
-			if varName != "" {
-				switch s.Scope {
-				case htok.CONST:
-					module.Exports[varName] = &ExportInfo{
-						Name:   varName,
-						Value:  s,
-						Kind:   ExportConstant,
-						Public: false,
-					}
-					module.Symbols.AddConstant(varName, s)
-				case htok.VAR:
-					module.Exports[varName] = &ExportInfo{
-						Name:   varName,
-						Value:  s,
-						Kind:   ExportVariable,
-						Public: false,
-					}
-					module.Symbols.AddVariable(varName, s)
-				default:
-					// 普通赋值语句（如 let arr = [1, 2, 3]）
-					module.Symbols.AddVariable(varName, s)
-				}
-			}
-
-		case *hast.EnumDecl:
-			module.Exports[s.Name.Name] = &ExportInfo{
-				Name:   s.Name.Name,
-				Value:  s,
-				Kind:   ExportConstant,
-				Public: false,
-			}
-			module.Symbols.AddConstant(s.Name.Name, s)
-		}
-	}
+func (t *Transpiler) UnresolvedSymbols() map[string][]linker.UnkownSymbol {
+	return t.unresolvedSymbols
 }
 
-func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
+func (t *Transpiler) GetTargetExt() string {
+	return ".sh"
+}
+
+func (t *Transpiler) GetTargetName() string {
+	return "bash"
+}
+
+func (v *Transpiler) Convert(node hast.Node) vast.Node {
 	switch node := node.(type) {
 	case *hast.File:
 		return v.ConvertFile(node)
 	case *hast.CommentGroup:
 		docs := make([]*vast.Comment, len(node.List))
 		var tok vtok.Token
-		if v.opts.CompilerOptions.VBScript.CommentSyntax == "'" {
+		if v.opts.CommentSyntax == "'" {
 			tok = vtok.SGL_QUOTE
 		} else {
 			tok = vtok.REM
@@ -392,7 +259,7 @@ func (v *VBScriptTranspiler) Convert(node hast.Node) vast.Node {
 	return nil
 }
 
-func (v *VBScriptTranspiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) vast.Node {
+func (v *Transpiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) vast.Node {
 	return &vast.ExprStmt{
 		X: &vast.Ident{
 			Name: node.Text,
@@ -400,17 +267,17 @@ func (v *VBScriptTranspiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) vast.Node 
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertExternDecl(node *hast.ExternDecl) vast.Node {
+func (v *Transpiler) ConvertExternDecl(node *hast.ExternDecl) vast.Node {
 	for _, item := range node.List {
 		expr := v.Convert(item).(vast.Expr)
 		if expr, ok := expr.(*vast.Ident); ok {
-			v.currentModule.Symbols.AddVariable(expr.Name, item)
+			v.currentModule.Symbols.GlobalSymbols[expr.Name] = &module.BaseSymbol{}
 		}
 	}
 	return nil
 }
 
-func (v *VBScriptTranspiler) ConvertSelectExpr(node *hast.SelectExpr) vast.Node {
+func (v *Transpiler) ConvertSelectExpr(node *hast.SelectExpr) vast.Node {
 	return &vast.SelectorExpr{
 		X:   v.Convert(node.X).(vast.Expr),
 		Sel: v.Convert(node.Y).(vast.Expr),
@@ -419,7 +286,7 @@ func (v *VBScriptTranspiler) ConvertSelectExpr(node *hast.SelectExpr) vast.Node 
 
 // ConvertModAccessExpr 将模块访问表达式转换为相应的常量引用
 // 例如：Status::Pending 转换为 0（数字枚举）或生成常量声明（字符串枚举）
-func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast.Node {
+func (v *Transpiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast.Node {
 	// 获取模块名（枚举名）
 	moduleName := v.Convert(node.X).(*vast.Ident).Name
 
@@ -427,7 +294,7 @@ func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast
 	memberName := v.Convert(node.Y).(*vast.Ident).Name
 
 	// 检查是否是枚举访问
-	if v.currentModule.Symbols.HasEnum(moduleName) && v.currentModule.Symbols.HasEnumValue(moduleName, memberName) {
+	if v.currentModule.LookupEnumSymbol(moduleName) != nil {
 		// 检查是否是纯数字枚举，如果是则直接返回数值
 		if v.isNumericEnum(moduleName) {
 			// 对于数字枚举，直接返回数值
@@ -435,6 +302,8 @@ func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast
 		} else {
 			// 对于字符串/混合枚举，生成常量声明并返回常量名
 			constName := fmt.Sprintf("%s_%s", moduleName, memberName)
+
+			// 这个问题很恶心 又要符号表看是否在vbs中声明了这个变量，那需要抽象一个变量表了？或者直接在module中用引用计数解决
 
 			// 检查是否已经声明过这个常量
 			if !v.currentModule.Symbols.HasConstant(constName) {
@@ -464,10 +333,10 @@ func (v *VBScriptTranspiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast
 }
 
 // isNumericEnum 检查是否是纯数字枚举
-func (v *VBScriptTranspiler) isNumericEnum(enumName string) bool {
-	if enum, exists := v.currentModule.Symbols.GetEnum(enumName); exists {
+func (v *Transpiler) isNumericEnum(enumName string) bool {
+	if enum := v.currentModule.LookupEnumSymbol(enumName); enum != nil {
 		for _, value := range enum.Values {
-			if value.Type != "number" {
+			if value.Type != "num" {
 				return false
 			}
 		}
@@ -477,8 +346,8 @@ func (v *VBScriptTranspiler) isNumericEnum(enumName string) bool {
 }
 
 // getEnumNumericValue 获取枚举的数值
-func (v *VBScriptTranspiler) getEnumNumericValue(enumName, valueName string) vast.Expr {
-	if enum, exists := v.currentModule.Symbols.GetEnum(enumName); exists {
+func (v *Transpiler) getEnumNumericValue(enumName, valueName string) vast.Expr {
+	if enum := v.currentModule.LookupEnumSymbol(enumName); enum != nil {
 		for _, value := range enum.Values {
 			if value.Name == valueName {
 				return &vast.BasicLit{
@@ -496,8 +365,8 @@ func (v *VBScriptTranspiler) getEnumNumericValue(enumName, valueName string) vas
 }
 
 // getEnumStringValue 获取枚举的字符串值
-func (v *VBScriptTranspiler) getEnumStringValue(enumName, valueName string) vast.Expr {
-	if enum, exists := v.currentModule.Symbols.GetEnum(enumName); exists {
+func (v *Transpiler) getEnumStringValue(enumName, valueName string) vast.Expr {
+	if enum := v.currentModule.LookupEnumSymbol(enumName); enum != nil {
 		for _, value := range enum.Values {
 			if value.Name == valueName {
 				// 根据类型返回相应的字面量
@@ -528,9 +397,11 @@ func (v *VBScriptTranspiler) getEnumStringValue(enumName, valueName string) vast
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertImport(node *hast.Import) vast.Node {
+func (v *Transpiler) ConvertImport(node *hast.Import) vast.Node {
 	if node.ImportSingle != nil {
 		importPath := node.ImportSingle.Path
+
+		// Import 作为 Builtin 直接在未知符号声明一个即可，不然没法做这个需求
 		v.undefinedSymbols.Add("Import")
 		// 生成运行时导入代码
 		// 使用Import函数在运行时加载模块
@@ -546,18 +417,19 @@ func (v *VBScriptTranspiler) ConvertImport(node *hast.Import) vast.Node {
 	return nil
 }
 
-func (v *VBScriptTranspiler) ConvertDeclareDecl(node *hast.DeclareDecl) vast.Node {
+func (v *Transpiler) ConvertDeclareDecl(node *hast.DeclareDecl) vast.Node {
 	switch n := node.X.(type) {
 	case *hast.FuncDecl:
 		fnName := v.Convert(n.Name).(*vast.Ident)
-		v.currentModule.Symbols.AddFunction(fnName.Name, n)
+		// 先假定void
+		v.currentModule.Symbols.DeclareFunctionSymbol(fnName.Name, "void")
 		return nil
 	case *hast.BlockStmt:
 		for _, stmt := range n.List {
 			switch stmt := stmt.(type) {
 			case *hast.AssignStmt:
 				lhs := v.Convert(stmt.Lhs).(vast.Expr)
-				v.currentModule.Symbols.AddVariable(lhs.String(), stmt)
+				v.currentModule.Symbols.DeclareVariableSymbol(lhs.String(), stmt, "void")
 			default:
 			}
 		}
@@ -567,7 +439,7 @@ func (v *VBScriptTranspiler) ConvertDeclareDecl(node *hast.DeclareDecl) vast.Nod
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertIfStmt(node *hast.IfStmt) vast.Node {
+func (v *Transpiler) ConvertIfStmt(node *hast.IfStmt) vast.Node {
 	cond := v.Convert(node.Cond).(vast.Expr)
 	body := v.Convert(node.Body).(*vast.BlockStmt)
 	var elseStmt vast.Stmt
@@ -592,7 +464,7 @@ func (v *VBScriptTranspiler) ConvertIfStmt(node *hast.IfStmt) vast.Node {
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) vast.Node {
+func (v *Transpiler) ConvertReturnStmt(node *hast.ReturnStmt) vast.Node {
 	var x vast.Expr
 	if node.X != nil {
 		x = v.Convert(node.X).(vast.Expr)
@@ -604,18 +476,18 @@ func (v *VBScriptTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) vast.Node 
 		}
 	}
 
-	scope := v.currentModule.Symbols.CurrentScope()
-	if scope == nil || scope.Type != FunctionScope {
+	caller, ok := v.callers.Peek()
+	if !ok {
 		panic("return statement outside of function")
 	}
 
 	return &vast.AssignStmt{
-		Lhs: &vast.Ident{Name: scope.ID},
+		Lhs: &vast.Ident{Name: caller.(*FunctionFrame).Name},
 		Rhs: x,
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertStringLiteral(node *hast.StringLiteral) vast.Node {
+func (v *Transpiler) ConvertStringLiteral(node *hast.StringLiteral) vast.Node {
 	// 检查是否包含字符串插值
 	if !strings.Contains(node.Value, "$") {
 		return &vast.BasicLit{
@@ -666,243 +538,16 @@ func (v *VBScriptTranspiler) ConvertStringLiteral(node *hast.StringLiteral) vast
 }
 
 // ConvertEnumDecl 将 Hulo 的枚举声明转换为 VBScript 的常量声明
-func (v *VBScriptTranspiler) ConvertEnumDecl(node *hast.EnumDecl) vast.Node {
-	enumName := node.Name.Name
-	var enumValues []*EnumValue // 收集枚举值用于符号表
-
-	// 根据枚举体类型处理
-	switch body := node.Body.(type) {
-	case *hast.BasicEnumBody:
-		// 简单枚举：enum Status { Pending, Approved, Rejected }
-		// 检查是否有显式值，如果有，按递增逻辑；如果没有，按索引逻辑
-		hasExplicitValues := false
-		for _, value := range body.Values {
-			if value.Value != nil {
-				hasExplicitValues = true
-				break
-			}
-		}
-
-		if hasExplicitValues {
-			// 有关联值的枚举，使用递增逻辑
-			lastValue := 0
-			for _, value := range body.Values {
-				var constValue vast.Expr
-				var enumValue *EnumValue
-
-				if value.Value != nil {
-					// 如果有显式值，使用它
-					constValue = v.Convert(value.Value).(vast.Expr)
-
-					// 确定值的类型
-					var valueType string
-					if lit, ok := constValue.(*vast.BasicLit); ok {
-						switch lit.Kind {
-						case vtok.INTEGER:
-							valueType = "number"
-							// 更新 lastValue（如果是数字的话）
-							if val, err := strconv.Atoi(lit.Value); err == nil {
-								lastValue = val
-							}
-						case vtok.STRING:
-							valueType = "string"
-						case vtok.BOOLEAN:
-							valueType = "boolean"
-						default:
-							valueType = "number"
-						}
-					} else {
-						valueType = "number"
-					}
-
-					// 创建枚举值对象
-					var rawValue string
-					if lit, ok := constValue.(*vast.BasicLit); ok {
-						rawValue = lit.Value
-					} else {
-						rawValue = constValue.String()
-					}
-
-					enumValue = &EnumValue{
-						Name:  value.Name.Name,
-						Value: rawValue,
-						Type:  valueType,
-					}
-				} else {
-					// 没有显式值，使用上一个值 + 1
-					lastValue++
-					constValue = &vast.BasicLit{
-						Kind:  vtok.INTEGER,
-						Value: fmt.Sprintf("%d", lastValue),
-					}
-
-					// 创建枚举值对象
-					enumValue = &EnumValue{
-						Name:  value.Name.Name,
-						Value: fmt.Sprintf("%d", lastValue),
-						Type:  "number",
-					}
-				}
-
-				enumValues = append(enumValues, enumValue) // 收集枚举值
-			}
-		} else {
-			// 简单枚举，使用索引逻辑
-			for i, value := range body.Values {
-				// 创建枚举值对象
-				enumValue := &EnumValue{
-					Name:  value.Name.Name,
-					Value: fmt.Sprintf("%d", i),
-					Type:  "number",
-				}
-				enumValues = append(enumValues, enumValue) // 收集枚举值
-			}
-		}
-
-	case *hast.AssociatedEnumBody:
-		// 关联枚举：enum HttpCode { OK = 200, NotFound = 404, ... }
-		lastValue := 0 // 跟踪上一个值，用于自动递增
-		for _, value := range body.Values {
-			var constValue vast.Expr
-			var enumValue *EnumValue
-
-			if value.Data != nil && len(value.Data) > 0 {
-				// 如果有数据，使用第一个值
-				constValue = v.Convert(value.Data[0]).(vast.Expr)
-
-				// 确定值的类型
-				var valueType string
-				if lit, ok := constValue.(*vast.BasicLit); ok {
-					switch lit.Kind {
-					case vtok.INTEGER:
-						valueType = "number"
-						// 更新 lastValue（如果是数字的话）
-						if val, err := strconv.Atoi(lit.Value); err == nil {
-							lastValue = val
-						}
-					case vtok.STRING:
-						valueType = "string"
-					case vtok.BOOLEAN:
-						valueType = "boolean"
-					default:
-						valueType = "number"
-					}
-				} else {
-					valueType = "number"
-				}
-
-				// 创建枚举值对象
-				var rawValue string
-				if lit, ok := constValue.(*vast.BasicLit); ok {
-					rawValue = lit.Value
-				} else {
-					rawValue = constValue.String()
-				}
-
-				enumValue = &EnumValue{
-					Name:  value.Name.Name,
-					Value: rawValue,
-					Type:  valueType,
-				}
-			} else {
-				// 否则使用上一个值 + 1
-				lastValue++
-				constValue = &vast.BasicLit{
-					Kind:  vtok.INTEGER,
-					Value: fmt.Sprintf("%d", lastValue),
-				}
-
-				// 创建枚举值对象
-				enumValue = &EnumValue{
-					Name:  value.Name.Name,
-					Value: fmt.Sprintf("%d", lastValue),
-					Type:  "number",
-				}
-			}
-
-			enumValues = append(enumValues, enumValue) // 收集枚举值
-		}
-
-	case *hast.ADTEnumBody:
-		// ADT 枚举：enum Result { Success(num), Error(str) }
-		for i, variant := range body.Variants {
-			// 创建枚举值对象
-			enumValue := &EnumValue{
-				Name:  variant.Name.Name,
-				Value: fmt.Sprintf("%d", i),
-				Type:  "number",
-			}
-			enumValues = append(enumValues, enumValue) // 收集枚举值
-		}
-	}
-
-	// 将枚举信息添加到符号表
-	v.currentModule.Symbols.AddEnum(enumName, enumValues)
-
-	// 不生成任何语句，只收集符号表信息
+func (v *Transpiler) ConvertEnumDecl(node *hast.EnumDecl) vast.Node {
 	return nil
 }
 
-func (v *VBScriptTranspiler) escapeVBScriptString(s string) string {
+func (v *Transpiler) escapeVBScriptString(s string) string {
 	return strings.ReplaceAll(s, `"`, `""`)
 }
 
-func (v *VBScriptTranspiler) canResolveFunction(fun *vast.Ident) bool {
-	log.Debugf("[canResolveFunction] 查找函数: %s", fun.Name)
-	log.Debugf("[canResolveFunction] 当前模块: %s", v.currentModule.Path)
-	log.Debugf("[canResolveFunction] 当前模块符号表函数: %v", getMapKeys(v.currentModule.Symbols.functions))
-	log.Debugf("[canResolveFunction] 当前模块依赖: %v", v.currentModule.Dependencies)
-
-	// 1. 查当前模块
-	if v.currentModule.Symbols.HasFunction(fun.Name) {
-		log.Debugf("[canResolveFunction] 在当前模块符号表找到: %s", fun.Name)
-		return true
-	}
-
-	// 查找内置模块
-	for _, builtinModule := range v.builtinModules {
-		if builtinModule.Symbols.HasFunction(fun.Name) {
-			return true
-		}
-	}
-
-	// 2. 递归查所有依赖
-	visited := make(map[string]bool)
-	found := v.findFunctionInDependencies(v.currentModule, fun.Name, visited)
-	log.Debugf("[canResolveFunction] 递归依赖查找结果: %v", found)
-
-	// 3. 查 moduleManager.externalVBS
-	if _, ok := v.moduleManager.externalVBS[fun.Name]; ok {
-		log.Debugf("[canResolveFunction] 在 moduleManager.externalVBS 找到: %s", fun.Name)
-		return true
-	}
-
-	return found
-}
-
-// findFunctionInDependencies 递归查找模块及其所有依赖中是否存在指定函数
-func (v *VBScriptTranspiler) findFunctionInDependencies(module *Module, funcName string, visited map[string]bool) bool {
-	// 防止循环依赖
-	if visited[module.Path] {
-		return false
-	}
-	visited[module.Path] = true
-
-	// 查当前模块
-	if module.Symbols.HasFunction(funcName) {
-		return true
-	}
-
-	// 递归查所有依赖
-	for _, dep := range module.Dependencies {
-		if depModule, exists := v.modules[dep]; exists {
-			if v.findFunctionInDependencies(depModule, funcName, visited) {
-				return true
-			}
-		}
-	}
-
-	return false
+func (v *Transpiler) canResolveFunction(fun *vast.Ident) bool {
+	return v.currentModule.LookupFunctionSymbol(fun.Name) != nil
 }
 
 // 辅助函数：打印 map 的所有 key
@@ -914,48 +559,14 @@ func getMapKeys(m map[string]hast.Node) []string {
 	return keys
 }
 
-// findFunctionInModuleDependencies 递归查找指定模块及其依赖中是否存在指定函数
-func (v *VBScriptTranspiler) findFunctionInModuleDependencies(module *Module, targetModuleName, funcName string, visited map[string]bool) bool {
-	// 防止循环依赖
-	if visited[module.Path] {
-		return false
-	}
-	visited[module.Path] = true
-
-	// 检查当前模块是否是目标模块
-	if strings.HasSuffix(module.Path, targetModuleName) || module.Path == targetModuleName {
-		if module.Symbols.HasFunction(funcName) {
-			return true
-		}
-	}
-
-	// 检查内置模块
-	for _, builtinModule := range v.builtinModules {
-		if builtinModule.Symbols.HasFunction(funcName) {
-			return true
-		}
-	}
-
-	// 递归检查所有依赖
-	for _, dep := range module.Dependencies {
-		if depModule, exists := v.modules[dep]; exists {
-			if v.findFunctionInModuleDependencies(depModule, targetModuleName, funcName, visited) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func (v *VBScriptTranspiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
+func (v *Transpiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 	convertedFun := v.Convert(node.Fun)
 
 	// Handle different types of function expressions
 	switch fun := convertedFun.(type) {
 	case *vast.Ident:
 		// Simple function name
-		if v.currentModule.Symbols.HasClass(fun.Name) {
+		if v.currentModule.LookupClassSymbol(fun.Name) != nil {
 			return &vast.CmdExpr{
 				Cmd: &vast.Ident{Name: "New"},
 				Recv: []vast.Expr{
@@ -999,12 +610,11 @@ func (v *VBScriptTranspiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 	case *vast.SelectorExpr:
 		// Handle module access like utils.Calculate() or $p.greet()
 		// Check if this is a module access (e.g., utils.Calculate)
-		if moduleIdent, ok := fun.X.(*vast.Ident); ok {
+		if _, ok := fun.X.(*vast.Ident); ok {
 			if funcIdent, ok := fun.Sel.(*vast.Ident); ok {
 				// Check if this is a module access (e.g., utils.Calculate)
 				// vs object method call (e.g., $p2.greet())
-				visited := make(map[string]bool)
-				if v.findFunctionInModuleDependencies(v.currentModule, moduleIdent.Name, funcIdent.Name, visited) {
+				if v.currentModule.LookupFunctionSymbol(funcIdent.Name) != nil {
 					recv := []vast.Expr{}
 					for _, r := range node.Recv {
 						recv = append(recv, v.Convert(r).(vast.Expr))
@@ -1040,14 +650,14 @@ func (v *VBScriptTranspiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
+func (v *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
 	convertedFun := v.Convert(node.Cmd)
 
 	// Handle different types of function expressions
 	switch fun := convertedFun.(type) {
 	case *vast.Ident:
 		// Simple function name
-		if v.currentModule.Symbols.HasClass(fun.Name) {
+		if v.currentModule.LookupClassSymbol(fun.Name) != nil {
 			return &vast.CmdExpr{
 				Cmd: &vast.Ident{Name: "New"},
 				Recv: []vast.Expr{
@@ -1095,12 +705,11 @@ func (v *VBScriptTranspiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
 	case *vast.SelectorExpr:
 		// Handle module access like utils.Calculate() or $p.greet()
 		// Check if this is a module access (e.g., utils.Calculate)
-		if moduleIdent, ok := fun.X.(*vast.Ident); ok {
+		if _, ok := fun.X.(*vast.Ident); ok {
 			if funcIdent, ok := fun.Sel.(*vast.Ident); ok {
 				// Check if this is a module access (e.g., utils.Calculate)
 				// vs object method call (e.g., $p2.greet())
-				visited := make(map[string]bool)
-				if v.findFunctionInModuleDependencies(v.currentModule, moduleIdent.Name, funcIdent.Name, visited) {
+				if v.currentModule.LookupFunctionSymbol(funcIdent.Name) != nil {
 					recv := []vast.Expr{}
 					for _, r := range node.Args {
 						recv = append(recv, v.Convert(r).(vast.Expr))
@@ -1136,10 +745,10 @@ func (v *VBScriptTranspiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertFuncDecl(node *hast.FuncDecl) vast.Node {
+func (v *Transpiler) ConvertFuncDecl(node *hast.FuncDecl) vast.Node {
 	var ret *vast.FuncDecl = &vast.FuncDecl{}
-	v.currentModule.Symbols.PushScope(FunctionScope, v.currentModule, node.Name.Name)
-	defer v.currentModule.Symbols.PopScope()
+	v.callers.Push(&FunctionFrame{Name: node.Name.Name})
+	defer v.callers.Pop()
 
 	// 处理修饰符
 	var mod vtok.Token
@@ -1166,19 +775,18 @@ func (v *VBScriptTranspiler) ConvertFuncDecl(node *hast.FuncDecl) vast.Node {
 	// if v.currentModule.Symbols.HasFunction(ret.Name.Name) {
 	// 	panic(fmt.Sprintf("function %s already declared", ret.Name.Name))
 	// }
-	v.currentModule.Symbols.AddFunction(ret.Name.Name, node)
 
 	return ret
 }
 
-func (v *VBScriptTranspiler) ConvertParameter(node *hast.Parameter) vast.Node {
+func (v *Transpiler) ConvertParameter(node *hast.Parameter) vast.Node {
 	return &vast.Field{
 		Name: v.Convert(node.Name).(*vast.Ident),
 		Tok:  vtok.BYVAL,
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertBlock(node *hast.BlockStmt) vast.Node {
+func (v *Transpiler) ConvertBlock(node *hast.BlockStmt) vast.Node {
 	stmts := []vast.Stmt{}
 	for _, s := range node.List {
 		stmt := v.Convert(s)
@@ -1197,7 +805,7 @@ func (v *VBScriptTranspiler) ConvertBlock(node *hast.BlockStmt) vast.Node {
 	return &vast.BlockStmt{List: stmts}
 }
 
-func (v *VBScriptTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) vast.Node {
+func (v *Transpiler) ConvertIncDecExpr(node *hast.IncDecExpr) vast.Node {
 	counter := v.Convert(node.X).(*vast.Ident)
 	var op vtok.Token
 	if node.Tok == htok.INC {
@@ -1219,18 +827,17 @@ func (v *VBScriptTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) vast.Node 
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertClassDecl(node *hast.ClassDecl) vast.Node {
+func (v *Transpiler) ConvertClassDecl(node *hast.ClassDecl) vast.Node {
 	// 转换类名
 	className := v.Convert(node.Name).(*vast.Ident)
 
 	// 转换修饰符
 	var mod vtok.Token
 	var modPos vtok.Pos
-	var isPublic bool
+
 	if node.Pub.IsValid() {
 		mod = vtok.PUBLIC
 		modPos = vtok.Pos(node.Pub)
-		isPublic = true
 	}
 
 	// 收集字段信息
@@ -1280,13 +887,6 @@ func (v *VBScriptTranspiler) ConvertClassDecl(node *hast.ClassDecl) vast.Node {
 		}
 	}
 
-	// 将类信息添加到符号表
-	v.currentModule.Symbols.AddClass(className.Name, &ClassSymbol{
-		Name:   className.Name,
-		Fields: fieldNames,
-		Public: isPublic,
-	})
-
 	// 处理方法
 	for _, method := range node.Methods {
 		funcDecl := v.Convert(method).(*vast.FuncDecl)
@@ -1334,7 +934,7 @@ func (v *VBScriptTranspiler) ConvertClassDecl(node *hast.ClassDecl) vast.Node {
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertFile(node *hast.File) vast.Node {
+func (v *Transpiler) ConvertFile(node *hast.File) vast.Node {
 	docs := make([]*vast.CommentGroup, len(node.Docs))
 	for i, d := range node.Docs {
 		docs[i] = v.Convert(d).(*vast.CommentGroup)
@@ -1350,19 +950,6 @@ func (v *VBScriptTranspiler) ConvertFile(node *hast.File) vast.Node {
 			continue
 		}
 		stmts = append(stmts, stmt.(vast.Stmt))
-	}
-
-	if v.currentModule.Path == v.opts.Main {
-		for _, sym := range v.undefinedSymbols.Items() {
-			stmts = append([]vast.Stmt{
-				&vast.ExprStmt{
-					X: &vast.BasicLit{
-						Value: v.moduleManager.externalVBS[sym],
-					},
-				},
-			}, stmts...)
-			v.undefinedSymbols.Remove(sym)
-		}
 	}
 
 	if v.enableShell {
@@ -1388,9 +975,9 @@ func (v *VBScriptTranspiler) ConvertFile(node *hast.File) vast.Node {
 	}
 }
 
-func (v *VBScriptTranspiler) ConvertForStmt(node *hast.ForStmt) vast.Node {
-	v.currentModule.Symbols.PushScope(ForScope, v.currentModule)
-	defer v.currentModule.Symbols.PopScope()
+func (v *Transpiler) ConvertForStmt(node *hast.ForStmt) vast.Node {
+	v.callers.Push(&LoopFrame{})
+	defer v.callers.Pop()
 
 	init := v.Convert(node.Init).(vast.Stmt)
 	cond := v.Convert(node.Cond).(vast.Expr)
@@ -1414,7 +1001,7 @@ func (v *VBScriptTranspiler) ConvertForStmt(node *hast.ForStmt) vast.Node {
 }
 
 // isObjectExpression 判断表达式是否是对象类型
-func (v *VBScriptTranspiler) isObjectExpression(expr vast.Expr) bool {
+func (v *Transpiler) isObjectExpression(expr vast.Expr) bool {
 	switch e := expr.(type) {
 	case *vast.CallExpr:
 		// CreateObject 调用返回对象
@@ -1437,7 +1024,7 @@ func (v *VBScriptTranspiler) isObjectExpression(expr vast.Expr) bool {
 	return false
 }
 
-func (v *VBScriptTranspiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node {
+func (v *Transpiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node {
 	lhs := v.Convert(node.Lhs).(vast.Expr)
 	rhs := v.Convert(node.Rhs).(vast.Expr)
 	if node.Scope == htok.CONST {
@@ -1450,7 +1037,7 @@ func (v *VBScriptTranspiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node 
 	// 检查是否是构造函数调用赋值
 	if callExpr, ok := node.Rhs.(*hast.CallExpr); ok {
 		if ident, ok := callExpr.Fun.(*hast.Ident); ok {
-			if v.currentModule.Symbols.HasClass(ident.Name) {
+			if v.currentModule.LookupClassSymbol(ident.Name) != nil {
 				// 这是构造函数调用赋值，需要特殊处理
 				return v.convertConstructorAssignment(lhs, ident.Name, callExpr.Recv)
 			}
@@ -1476,23 +1063,22 @@ func (v *VBScriptTranspiler) ConvertAssignStmt(node *hast.AssignStmt) vast.Node 
 	}
 }
 
-func (v *VBScriptTranspiler) Emit(n ...vast.Stmt) {
+func (v *Transpiler) Emit(n ...vast.Stmt) {
 	v.buffer = append(v.buffer, n...)
 }
 
-func (v *VBScriptTranspiler) Flush() []vast.Stmt {
+func (v *Transpiler) Flush() []vast.Stmt {
 	stmts := v.buffer
 	v.buffer = nil
 	return stmts
 }
 
-func (v *VBScriptTranspiler) needsDimDeclaration(expr vast.Expr) bool {
+func (v *Transpiler) needsDimDeclaration(expr vast.Expr) bool {
 	// 检查当前作用域
-	if scope := v.currentModule.Symbols.CurrentScope(); scope != nil {
+	caller, ok := v.callers.Peek()
+	if ok && caller.Kind() == CallerLoop {
 		// 在循环作用域中不需要Dim声明
-		if scope.Type == ForScope {
-			return false
-		}
+		return false
 	}
 
 	// 检查变量是否已经声明过
@@ -1514,7 +1100,7 @@ func (v *VBScriptTranspiler) needsDimDeclaration(expr vast.Expr) bool {
 // Set p2 = New Person
 // p2.name = "Jerry"
 // p2.age = 20
-func (v *VBScriptTranspiler) convertConstructorAssignment(lhs vast.Expr, className string, args []hast.Expr) vast.Node {
+func (v *Transpiler) convertConstructorAssignment(lhs vast.Expr, className string, args []hast.Expr) vast.Node {
 	// 检查是否需要 Dim 声明
 	if v.needsDimDeclaration(lhs) {
 		v.Emit(&vast.DimDecl{List: []vast.Expr{lhs}})
@@ -1560,17 +1146,25 @@ func (v *VBScriptTranspiler) convertConstructorAssignment(lhs vast.Expr, classNa
 }
 
 // getClassFieldNames 获取类的字段名列表
-func (v *VBScriptTranspiler) getClassFieldNames(className string) []string {
-	if class, exists := v.currentModule.Symbols.GetClass(className); exists {
-		return class.Fields
+func (v *Transpiler) getClassFieldNames(className string) []string {
+	sym := v.currentModule.LookupClassSymbol(className)
+	if sym == nil {
+		return []string{}
 	}
-	return []string{}
+	fields := sym.Fields()
+	fieldNames := make([]string, len(fields))
+	i := 0
+	for _, field := range fields {
+		fieldNames[i] = field.Name()
+		i++
+	}
+	return fieldNames
 }
 
 // ConvertMatchStmt 将 Hulo 的 match 语句转换为 VBScript 的 if-elseif-else 语句
-func (v *VBScriptTranspiler) ConvertMatchStmt(node *hast.MatchStmt) vast.Node {
-	v.currentModule.Symbols.PushScope(BlockScope, v.currentModule)
-	defer v.currentModule.Symbols.PopScope()
+func (v *Transpiler) ConvertMatchStmt(node *hast.MatchStmt) vast.Node {
+	v.callers.Push(&BlockFrame{})
+	defer v.callers.Pop()
 
 	// 转换匹配表达式
 	matchExpr := v.Convert(node.Expr).(vast.Expr)
@@ -1652,7 +1246,7 @@ func (v *VBScriptTranspiler) ConvertMatchStmt(node *hast.MatchStmt) vast.Node {
 	return firstIf
 }
 
-func (v *VBScriptTranspiler) convertMatchCondition(matchExpr vast.Expr, cond hast.Expr) vast.Expr {
+func (v *Transpiler) convertMatchCondition(matchExpr vast.Expr, cond hast.Expr) vast.Expr {
 	switch c := cond.(type) {
 	case *hast.StringLiteral:
 		// 字符串字面量匹配
@@ -1722,7 +1316,7 @@ func (v *VBScriptTranspiler) convertMatchCondition(matchExpr vast.Expr, cond has
 }
 
 // ConvertArrayLiteral 将Hulo数组字面量转换为VBScript的Array函数调用
-func (v *VBScriptTranspiler) ConvertArrayLiteral(node *hast.ArrayLiteralExpr) vast.Node {
+func (v *Transpiler) ConvertArrayLiteral(node *hast.ArrayLiteralExpr) vast.Node {
 	var args []vast.Expr
 
 	// 转换所有数组元素
@@ -1743,7 +1337,7 @@ func (v *VBScriptTranspiler) ConvertArrayLiteral(node *hast.ArrayLiteralExpr) va
 }
 
 // ConvertObjectLiteral 将Hulo对象字面量转换为VBScript的Dictionary对象
-func (v *VBScriptTranspiler) ConvertObjectLiteral(node *hast.ObjectLiteralExpr) vast.Node {
+func (v *Transpiler) ConvertObjectLiteral(node *hast.ObjectLiteralExpr) vast.Node {
 	// 生成唯一的变量名
 	dictVarName := fmt.Sprintf("dict_%d", len(v.buffer))
 
@@ -1792,7 +1386,7 @@ func (v *VBScriptTranspiler) ConvertObjectLiteral(node *hast.ObjectLiteralExpr) 
 const WILDCARD = "_"
 
 // ConvertForeachStmt 将Hulo的foreach语句转换为VBScript的For Each语句
-func (v *VBScriptTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) vast.Node {
+func (v *Transpiler) ConvertForeachStmt(node *hast.ForeachStmt) vast.Node {
 	// 转换集合表达式
 	collectionExpr := v.Convert(node.Var).(vast.Expr)
 

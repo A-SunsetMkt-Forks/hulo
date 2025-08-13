@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package container
 
 import (
@@ -293,5 +294,49 @@ func BenchmarkStack_AlternatingPushPop(b *testing.B) {
 		} else {
 			stack.Pop()
 		}
+	}
+}
+
+func BenchmarkArrayStack_Push(b *testing.B) {
+	stack := NewArrayStack[int]()
+
+	for i := 0; b.Loop(); i++ {
+		stack.Push(i)
+	}
+}
+
+func BenchmarkLinkedStack_Push(b *testing.B) {
+	stack := NewLinkedStack[int]()
+
+	for i := 0; b.Loop(); i++ {
+		stack.Push(i)
+	}
+}
+
+func BenchmarkArrayStack_Pop(b *testing.B) {
+	stack := NewArrayStack[int]()
+	for i := 0; b.Loop(); i++ {
+		stack.Push(i)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		stack.Pop()
+	}
+}
+
+func BenchmarkLinkedStack_Pop(b *testing.B) {
+	stack := NewLinkedStack[int]()
+	for i := 0; b.Loop(); i++ {
+		stack.Push(i)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		stack.Pop()
 	}
 }

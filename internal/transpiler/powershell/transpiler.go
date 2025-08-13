@@ -1,147 +1,126 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler
+
+package pwsh
 
 import (
 	"fmt"
-	"runtime"
+	"strings"
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
-	"github.com/hulo-lang/hulo/internal/interpreter"
-	"github.com/hulo-lang/hulo/internal/object"
+	"github.com/hulo-lang/hulo/internal/linker"
+	"github.com/hulo-lang/hulo/internal/module"
+	"github.com/hulo-lang/hulo/internal/transpiler"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
-	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 	past "github.com/hulo-lang/hulo/syntax/powershell/ast"
-	pstok "github.com/hulo-lang/hulo/syntax/powershell/token"
 )
 
-var psTokenMap = map[htok.Token]pstok.Token{
-	// 比较运算符
-	htok.EQ:  pstok.EQ,
-	htok.NEQ: pstok.NE,
-	htok.LT:  pstok.LT,
-	htok.LE:  pstok.LE,
-	htok.GT:  pstok.GT,
-	htok.GE:  pstok.GE,
-	// 逻辑运算符
-	htok.AND: pstok.AND,
-	htok.OR:  pstok.OR,
-	// 算术运算符
-	htok.PLUS:     pstok.ADD,
-	htok.MINUS:    pstok.SUB,
-	htok.ASTERISK: pstok.MUL,
-	htok.SLASH:    pstok.DIV,
-	// 赋值
-	htok.ASSIGN: pstok.ASSIGN,
-	htok.DEC:    pstok.DEC,
-	htok.INC:    pstok.INC,
-}
-
-func psToken(tok htok.Token) pstok.Token {
-	if t, ok := psTokenMap[tok]; ok {
-		return t
-	}
-	return 0 // 默认返回 0
-}
-
-type PowerShellTranspiler struct {
-	opts *config.Huloc
+type Transpiler struct {
+	opts *config.PowerShellOptions
 
 	buffer []past.Stmt
 
-	moduleManager *ModuleManager
+	moduleMgr *module.DependecyResolver
 
-	vfs vfs.VFS
+	results map[string]*past.File
 
-	modules        map[string]*Module
-	currentModule  *Module
-	builtinModules []*Module
+	callers container.Stack[CallFrame]
 
-	globalSymbols *SymbolTable
+	unresolvedSymbols map[string][]linker.UnkownSymbol
 
-	scopeStack container.Stack[ScopeType]
+	hcrDispatcher *transpiler.HCRDispatcher[past.Node]
 
-	currentScope *Scope
+	currentModule *module.Module
 
 	// 跟踪类实例变量名到类名的映射
 	classInstances map[string]string
 }
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]string, error) {
-	transpiler := NewPowerShellTranspiler(opts, vfs)
-	mainFile := opts.Main
-	results, err := transpiler.Transpile(mainFile)
-	return results, err
-}
-
-func NewPowerShellTranspiler(opts *config.Huloc, vfs vfs.VFS) *PowerShellTranspiler {
-	env := interpreter.NewEnvironment()
-	env.SetWithScope("TARGET", &object.StringValue{Value: "powershell"}, htok.CONST, true)
-	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
-	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
-	interp := interpreter.NewInterpreter(env)
-
-	return &PowerShellTranspiler{
-		opts: opts,
-		vfs:  vfs,
-		// 初始化模块管理
-		moduleManager: &ModuleManager{
-			options:  opts,
-			vfs:      vfs,
-			basePath: "",
-			modules:  make(map[string]*Module),
-			resolver: &DependencyResolver{
-				visited: container.NewMapSet[string](),
-				stack:   container.NewMapSet[string](),
-				order:   make([]string, 0),
-			},
-			interp: interp,
-		},
-		modules: make(map[string]*Module),
-		// 初始化符号管理
-		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
-
-		// 初始化作用域管理
-		scopeStack: container.NewArrayStack[ScopeType](),
-
-		// 初始化类实例映射
-		classInstances: make(map[string]string),
+func Transpile(opts *config.Huloc, fs vfs.VFS, main string) (map[string]string, error) {
+	moduleMgr := module.NewDependecyResolver(opts, fs)
+	err := module.ResolveAllDependencies(moduleMgr, opts.Main)
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (p *PowerShellTranspiler) Transpile(mainFile string) (map[string]string, error) {
-	// 1. 解析所有依赖
-	modules, err := p.moduleManager.ResolveAllDependencies(mainFile)
+	transpiler := NewTranspiler(opts.CompilerOptions.Pwsh, moduleMgr).RegisterDefaultRules()
+	err = transpiler.BindRules()
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. 按依赖顺序翻译模块
-	results := make(map[string]string)
-	for _, module := range modules {
-		psAst := p.Convert(module.AST)
-		if psAst == nil {
-			return nil, err
-		}
-		// 3. 生成 PowerShell 脚本内容
-		var script string
-
-		script = past.String(psAst)
-		path := module.Path
-		if len(path) > 3 && path[len(path)-3:] == ".hl" {
-			path = path[:len(path)-3] + ".ps1"
-		}
-		results[path] = script
+	results := make(map[string]past.Node)
+	err = moduleMgr.VisitModules(func(mod *module.Module) error {
+		transpiler.currentModule = mod
+		batAST := transpiler.Convert(mod.AST)
+		results[strings.Replace(mod.Path, ".hl", transpiler.GetTargetExt(), 1)] = batAST
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return results, nil
+	ld := linker.NewLinker(fs)
+	ld.Listen(".bat", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"})
+	ld.Listen(".cmd", linker.BeginEnd{Begin: "REM HULO_LINK_BEGIN", End: "REM HULO_LINK_END"})
+	for _, nodes := range transpiler.unresolvedSymbols {
+		for _, node := range nodes {
+			// 先Load没有在Read, 并且没符号的时候全部导入所有符号，并且还要处理好外部文件和内部文件
+			err := ld.Read(node.Source())
+			if err != nil {
+				return nil, err
+			}
+			linkable := ld.Load(node.Source())
+			symbol := linkable.Lookup(node.Name())
+			if symbol == nil {
+				return nil, fmt.Errorf("symbol %s not found in %s", node.Name(), node.Source())
+			}
+			err = node.Link(symbol)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	ret := make(map[string]string)
+	for path, node := range results {
+		ret[path] = past.String(node)
+	}
+	return ret, nil
 }
 
-// Hulo AST (hast.Node) -> PowerShell AST (past.Node) 分发器和典型节点转换
+func NewTranspiler(opts *config.PowerShellOptions, moduleMgr *module.DependecyResolver) *Transpiler {
+	return &Transpiler{
+		opts:              opts,
+		moduleMgr:         moduleMgr,
+		unresolvedSymbols: make(map[string][]linker.UnkownSymbol),
+		hcrDispatcher:     transpiler.NewHCRDispatcher[past.Node](),
+		callers:           container.NewArrayStack[CallFrame](),
+		classInstances:    make(map[string]string),
+	}
+}
 
-func (p *PowerShellTranspiler) Convert(node hast.Node) past.Node {
+func (p *Transpiler) RegisterDefaultRules() *Transpiler {
+	return p
+}
+
+func (p *Transpiler) BindRules() error {
+	return nil
+}
+
+func (p *Transpiler) UnresolvedSymbols() map[string][]linker.UnkownSymbol {
+	return p.unresolvedSymbols
+}
+
+func (p *Transpiler) GetTargetExt() string {
+	return ".ps1"
+}
+
+func (p *Transpiler) GetTargetName() string {
+	return "powershell"
+}
+
+func (p *Transpiler) Convert(node hast.Node) past.Node {
 	if node == nil {
 		return nil
 	}
@@ -230,15 +209,15 @@ func (p *PowerShellTranspiler) Convert(node hast.Node) past.Node {
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertExternDecl(node *hast.ExternDecl) past.Node {
+func (p *Transpiler) ConvertExternDecl(node *hast.ExternDecl) past.Node {
 	return nil
 }
 
-func (p *PowerShellTranspiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) past.Node {
+func (p *Transpiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) past.Node {
 	return &past.Ident{Name: node.Text}
 }
 
-func (p *PowerShellTranspiler) ConvertImport(node *hast.Import) past.Node {
+func (p *Transpiler) ConvertImport(node *hast.Import) past.Node {
 	// 简单实现：将 import 转为 PowerShell 注释或 source 语句
 	// 这里只处理单一 import 路径
 	var path string
@@ -261,7 +240,7 @@ func (p *PowerShellTranspiler) ConvertImport(node *hast.Import) past.Node {
 	}}
 }
 
-func (p *PowerShellTranspiler) ConvertFile(node *hast.File) past.Node {
+func (p *Transpiler) ConvertFile(node *hast.File) past.Node {
 	docs := make([]*past.CommentGroup, len(node.Docs))
 	for i, d := range node.Docs {
 		docs[i] = p.Convert(d).(*past.CommentGroup)
@@ -281,7 +260,7 @@ func (p *PowerShellTranspiler) ConvertFile(node *hast.File) past.Node {
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertFuncDecl(node *hast.FuncDecl) past.Node {
+func (p *Transpiler) ConvertFuncDecl(node *hast.FuncDecl) past.Node {
 	body := p.Convert(node.Body)
 	if body == nil {
 		return nil
@@ -296,7 +275,7 @@ func (p *PowerShellTranspiler) ConvertFuncDecl(node *hast.FuncDecl) past.Node {
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertAssignStmt(node *hast.AssignStmt) past.Node {
+func (p *Transpiler) ConvertAssignStmt(node *hast.AssignStmt) past.Node {
 	lhs := p.Convert(node.Lhs)
 	rhs := p.Convert(node.Rhs)
 
@@ -316,7 +295,7 @@ func (p *PowerShellTranspiler) ConvertAssignStmt(node *hast.AssignStmt) past.Nod
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertIfStmt(node *hast.IfStmt) past.Node {
+func (p *Transpiler) ConvertIfStmt(node *hast.IfStmt) past.Node {
 	condNode := p.Convert(node.Cond)
 	if condNode == nil {
 		return nil
@@ -347,7 +326,7 @@ func (p *PowerShellTranspiler) ConvertIfStmt(node *hast.IfStmt) past.Node {
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertBlockStmt(node *hast.BlockStmt) past.Node {
+func (p *Transpiler) ConvertBlockStmt(node *hast.BlockStmt) past.Node {
 	var stmts []past.Stmt
 	for _, stmt := range node.List {
 		converted := p.Convert(stmt)
@@ -361,7 +340,7 @@ func (p *PowerShellTranspiler) ConvertBlockStmt(node *hast.BlockStmt) past.Node 
 	return &past.BlockStmt{List: stmts}
 }
 
-func (p *PowerShellTranspiler) ConvertExprStmt(node *hast.ExprStmt) past.Node {
+func (p *Transpiler) ConvertExprStmt(node *hast.ExprStmt) past.Node {
 	x := p.Convert(node.X)
 	if x == nil {
 		return nil // 这里可以保留，表达式语句为 nil 就不输出
@@ -373,19 +352,19 @@ func (p *PowerShellTranspiler) ConvertExprStmt(node *hast.ExprStmt) past.Node {
 	return &past.ExprStmt{X: expr}
 }
 
-func (p *PowerShellTranspiler) ConvertIdent(node *hast.Ident) past.Node {
+func (p *Transpiler) ConvertIdent(node *hast.Ident) past.Node {
 	return &past.Ident{Name: node.Name}
 }
 
-func (p *PowerShellTranspiler) ConvertStringLiteral(node *hast.StringLiteral) past.Node {
+func (p *Transpiler) ConvertStringLiteral(node *hast.StringLiteral) past.Node {
 	return &past.StringLit{Val: node.Value}
 }
 
-func (p *PowerShellTranspiler) ConvertNumericLiteral(node *hast.NumericLiteral) past.Node {
+func (p *Transpiler) ConvertNumericLiteral(node *hast.NumericLiteral) past.Node {
 	return &past.NumericLit{Val: node.Value}
 }
 
-func (p *PowerShellTranspiler) ConvertCallExpr(node *hast.CallExpr) past.Node {
+func (p *Transpiler) ConvertCallExpr(node *hast.CallExpr) past.Node {
 	fun := p.Convert(node.Fun)
 	if fun == nil {
 		return nil
@@ -409,7 +388,7 @@ func (p *PowerShellTranspiler) ConvertCallExpr(node *hast.CallExpr) past.Node {
 	return &past.CallExpr{Func: funExpr, Recv: recv}
 }
 
-func (p *PowerShellTranspiler) ConvertCmdExpr(node *hast.CmdExpr) past.Node {
+func (p *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) past.Node {
 	fun := p.Convert(node.Cmd)
 	if fun == nil {
 		return nil
@@ -433,7 +412,7 @@ func (p *PowerShellTranspiler) ConvertCmdExpr(node *hast.CmdExpr) past.Node {
 	return &past.CallExpr{Func: funExpr, Recv: recv}
 }
 
-func (p *PowerShellTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) past.Node {
+func (p *Transpiler) ConvertBinaryExpr(node *hast.BinaryExpr) past.Node {
 	x := p.Convert(node.X)
 	y := p.Convert(node.Y)
 	if x == nil || y == nil {
@@ -447,7 +426,7 @@ func (p *PowerShellTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) past.Nod
 	return &past.BinaryExpr{X: xExpr, Op: psToken(node.Op), Y: yExpr}
 }
 
-func (p *PowerShellTranspiler) ConvertWhileStmt(node *hast.WhileStmt) past.Node {
+func (p *Transpiler) ConvertWhileStmt(node *hast.WhileStmt) past.Node {
 	cond := p.Convert(node.Cond)
 	body := p.Convert(node.Body)
 	if cond == nil || body == nil {
@@ -464,7 +443,7 @@ func (p *PowerShellTranspiler) ConvertWhileStmt(node *hast.WhileStmt) past.Node 
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertForStmt(node *hast.ForStmt) past.Node {
+func (p *Transpiler) ConvertForStmt(node *hast.ForStmt) past.Node {
 	init := p.Convert(node.Init)
 	cond := p.Convert(node.Cond)
 	post := p.Convert(node.Post)
@@ -487,7 +466,7 @@ func (p *PowerShellTranspiler) ConvertForStmt(node *hast.ForStmt) past.Node {
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) past.Node {
+func (p *Transpiler) ConvertForeachStmt(node *hast.ForeachStmt) past.Node {
 	index := p.Convert(node.Index)
 	varExpr := p.Convert(node.Var)
 	body := p.Convert(node.Body)
@@ -507,7 +486,7 @@ func (p *PowerShellTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) past.N
 	}
 }
 
-func (p *PowerShellTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) past.Node {
+func (p *Transpiler) ConvertReturnStmt(node *hast.ReturnStmt) past.Node {
 	if node.X == nil {
 		return &past.ReturnStmt{}
 	}
@@ -522,14 +501,14 @@ func (p *PowerShellTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) past.Nod
 	return &past.ReturnStmt{X: xExpr}
 }
 
-func (p *PowerShellTranspiler) ConvertBoolLiteral(node *hast.TrueLiteral) past.Node {
+func (p *Transpiler) ConvertBoolLiteral(node *hast.TrueLiteral) past.Node {
 	return &past.BoolLit{Val: true}
 }
-func (p *PowerShellTranspiler) ConvertFalseLiteral(node *hast.FalseLiteral) past.Node {
+func (p *Transpiler) ConvertFalseLiteral(node *hast.FalseLiteral) past.Node {
 	return &past.BoolLit{Val: false}
 }
 
-func (p *PowerShellTranspiler) ConvertParameter(node *hast.Parameter) past.Node {
+func (p *Transpiler) ConvertParameter(node *hast.Parameter) past.Node {
 	name := p.Convert(node.Name)
 	if name == nil {
 		return nil
@@ -541,7 +520,7 @@ func (p *PowerShellTranspiler) ConvertParameter(node *hast.Parameter) past.Node 
 	return &past.Parameter{X: nameExpr}
 }
 
-func (p *PowerShellTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) past.Node {
+func (p *Transpiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) past.Node {
 	var elems []past.Expr
 	for _, e := range node.Elems {
 		converted := p.Convert(e)
@@ -557,7 +536,7 @@ func (p *PowerShellTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralEx
 	return &past.ArrayExpr{Elems: elems}
 }
 
-func (p *PowerShellTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) past.Node {
+func (p *Transpiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) past.Node {
 	var entries []*past.HashEntry
 	for _, prop := range node.Props {
 		if kv, ok := prop.(*hast.KeyValueExpr); ok {
@@ -588,7 +567,7 @@ func (p *PowerShellTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteral
 	return &past.HashTable{Entries: entries}
 }
 
-func (p *PowerShellTranspiler) ConvertSelectExpr(node *hast.SelectExpr) past.Node {
+func (p *Transpiler) ConvertSelectExpr(node *hast.SelectExpr) past.Node {
 	x := p.Convert(node.X)
 	y := p.Convert(node.Y)
 	if x == nil || y == nil {
@@ -602,7 +581,7 @@ func (p *PowerShellTranspiler) ConvertSelectExpr(node *hast.SelectExpr) past.Nod
 	return &past.SelectExpr{X: xExpr, Sel: yExpr}
 }
 
-func (p *PowerShellTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) past.Node {
+func (p *Transpiler) ConvertIncDecExpr(node *hast.IncDecExpr) past.Node {
 	x := p.Convert(node.X)
 	if x == nil {
 		return nil
@@ -614,7 +593,7 @@ func (p *PowerShellTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) past.Nod
 	return &past.IncDecExpr{X: xExpr}
 }
 
-func (p *PowerShellTranspiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) past.Node {
+func (p *Transpiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) past.Node {
 	body := p.Convert(node.Body)
 	cond := p.Convert(node.Cond)
 	if body == nil || cond == nil {
@@ -630,7 +609,7 @@ func (p *PowerShellTranspiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) past.N
 
 // 暂不实现 DoUntilStmt
 
-func (p *PowerShellTranspiler) ConvertSwitchStmt(node *hast.MatchStmt) past.Node {
+func (p *Transpiler) ConvertSwitchStmt(node *hast.MatchStmt) past.Node {
 	value := p.Convert(node.Expr)
 	if value == nil {
 		return nil
@@ -671,7 +650,7 @@ func (p *PowerShellTranspiler) ConvertSwitchStmt(node *hast.MatchStmt) past.Node
 	return &past.SwitchStmt{Value: valueExpr, Cases: cases, Default: defaultBody}
 }
 
-func (p *PowerShellTranspiler) ConvertCaseClause(node *hast.CaseClause) past.Node {
+func (p *Transpiler) ConvertCaseClause(node *hast.CaseClause) past.Node {
 	cond := p.Convert(node.Cond)
 	body := p.Convert(node.Body)
 	if cond == nil || body == nil {
@@ -685,19 +664,19 @@ func (p *PowerShellTranspiler) ConvertCaseClause(node *hast.CaseClause) past.Nod
 	return &past.CaseClause{Cond: condExpr, Body: bodyBlock}
 }
 
-func (p *PowerShellTranspiler) ConvertBreakStmt(node *hast.BreakStmt) past.Node {
+func (p *Transpiler) ConvertBreakStmt(node *hast.BreakStmt) past.Node {
 	return nil // 或自定义 past.ExprStmt{X: ...}
 }
 
-func (p *PowerShellTranspiler) ConvertContinueStmt(node *hast.ContinueStmt) past.Node {
+func (p *Transpiler) ConvertContinueStmt(node *hast.ContinueStmt) past.Node {
 	return nil // 或自定义 past.ExprStmt{X: ...}
 }
 
-func (p *PowerShellTranspiler) ConvertThrowStmt(node *hast.ThrowStmt) past.Node {
+func (p *Transpiler) ConvertThrowStmt(node *hast.ThrowStmt) past.Node {
 	return nil // 或自定义 past.ExprStmt{X: ...}
 }
 
-func (p *PowerShellTranspiler) ConvertTryStmt(node *hast.TryStmt) past.Node {
+func (p *Transpiler) ConvertTryStmt(node *hast.TryStmt) past.Node {
 	body := p.Convert(node.Body)
 	var catches []*past.CatchClause
 	for _, c := range node.Catches {
@@ -706,14 +685,14 @@ func (p *PowerShellTranspiler) ConvertTryStmt(node *hast.TryStmt) past.Node {
 	return &past.TryStmt{Body: body.(*past.BlockStmt), Catches: catches}
 }
 
-func (p *PowerShellTranspiler) ConvertCatchClause(node *hast.CatchClause) past.Node {
+func (p *Transpiler) ConvertCatchClause(node *hast.CatchClause) past.Node {
 	body := p.Convert(node.Body)
 	return &past.CatchClause{Body: body.(*past.BlockStmt)}
 }
 
 // TrapStmt 暂不实现
 
-func (p *PowerShellTranspiler) ConvertClassDecl(node *hast.ClassDecl) past.Node {
+func (p *Transpiler) ConvertClassDecl(node *hast.ClassDecl) past.Node {
 	// // 假设 node.Block 是类体
 	// var body past.Node
 	// if node.Block != nil {
@@ -725,7 +704,7 @@ func (p *PowerShellTranspiler) ConvertClassDecl(node *hast.ClassDecl) past.Node 
 	return nil
 }
 
-func (p *PowerShellTranspiler) ConvertEnumDecl(node *hast.EnumDecl) past.Node {
+func (p *Transpiler) ConvertEnumDecl(node *hast.EnumDecl) past.Node {
 	// // 假设 node.Block 是枚举体
 	// var body past.Node
 	// if node.Block != nil {
@@ -737,7 +716,7 @@ func (p *PowerShellTranspiler) ConvertEnumDecl(node *hast.EnumDecl) past.Node {
 	return nil
 }
 
-func (p *PowerShellTranspiler) ConvertCommentGroup(node *hast.CommentGroup) past.Node {
+func (p *Transpiler) ConvertCommentGroup(node *hast.CommentGroup) past.Node {
 	var comments []past.Comment
 	for _, c := range node.List {
 		converted := p.Convert(c)
@@ -750,12 +729,12 @@ func (p *PowerShellTranspiler) ConvertCommentGroup(node *hast.CommentGroup) past
 	return &past.CommentGroup{List: comments}
 }
 
-func (p *PowerShellTranspiler) ConvertComment(node *hast.Comment) past.Node {
+func (p *Transpiler) ConvertComment(node *hast.Comment) past.Node {
 	// 假设 hast.Comment 有 Text 字段
 	return &past.SingleLineComment{Text: node.Text}
 }
 
-func (p *PowerShellTranspiler) ConvertRefExpr(node *hast.RefExpr) past.Node {
+func (p *Transpiler) ConvertRefExpr(node *hast.RefExpr) past.Node {
 	x := p.Convert(node.X)
 	if x == nil {
 		return nil

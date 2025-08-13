@@ -211,11 +211,9 @@ func FuncDecl(name string, body []ast.Stmt) *ast.FuncDecl {
 	}
 }
 
-// BlockStmt 创建代码块
-func BlockStmt(stmts ...ast.Stmt) *ast.BlockStmt {
-	return &ast.BlockStmt{
-		List: stmts,
-	}
+// Block 创建代码块
+func Block(stmts ...ast.Stmt) *ast.BlockStmt {
+	return &ast.BlockStmt{List: stmts}
 }
 
 // ===== 测试表达式创建函数 =====
@@ -395,4 +393,28 @@ func Not(x ast.Expr) *ast.UnaryExpr {
 
 func Option(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
+}
+
+// $(command)
+func CmdSubstDollarParent(x ast.Expr) *ast.CmdSubst {
+	return &ast.CmdSubst{
+		Tok: token.DollParen,
+		X:   x,
+	}
+}
+
+// `command`
+func CmdSubstBckQuote(x ast.Expr) *ast.CmdSubst {
+	return &ast.CmdSubst{
+		Tok: token.BckQuote,
+		X:   x,
+	}
+}
+
+// ${command}
+func CmdSubstDollBrace(x ast.Expr) *ast.CmdSubst {
+	return &ast.CmdSubst{
+		Tok: token.DollBrace,
+		X:   x,
+	}
 }

@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	"github.com/caarlos0/log"
-	"github.com/hulo-lang/hulo/internal/core"
 	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/syntax/hulo/ast"
@@ -23,11 +22,6 @@ type Interpreter struct {
 
 	// 模块映射
 	modules map[string]*Environment
-
-	currentModule core.Module
-
-	importedModules map[string]core.Module
-	defaultModule   core.Module
 
 	fs vfs.VFS
 

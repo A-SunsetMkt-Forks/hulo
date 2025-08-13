@@ -1,3 +1,7 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package module
 
 import (
@@ -79,35 +83,35 @@ class InternalClass {
 
 	assert.Equal(t, "User", userClass.GetName())
 	assert.True(t, userClass.IsExported())
-	assert.Len(t, userClass.Fields, 3)
-	assert.Len(t, userClass.Methods, 2)
+	assert.Len(t, userClass.Fields(), 3)
+	assert.Len(t, userClass.Methods(), 2)
 
 	// 检查字段
-	nameField := userClass.Fields["name"]
-	assert.Equal(t, "name", nameField.Name)
-	assert.Equal(t, "str", nameField.Type)
-	assert.True(t, nameField.IsPublic)
+	nameField := userClass.GetField("name")
+	assert.Equal(t, "name", nameField.Name())
+	assert.Equal(t, "str", nameField.Type())
+	assert.True(t, nameField.IsPublic())
 
-	ageField := userClass.Fields["age"]
-	assert.Equal(t, "age", ageField.Name)
-	assert.Equal(t, "num", ageField.Type)
-	assert.False(t, ageField.IsPublic)
+	ageField := userClass.GetField("age")
+	assert.Equal(t, "age", ageField.Name())
+	assert.Equal(t, "num", ageField.Type())
+	assert.False(t, ageField.IsPublic())
 
-	emailField := userClass.Fields["email"]
-	assert.Equal(t, "email", emailField.Name)
-	assert.Equal(t, "str", emailField.Type)
-	assert.False(t, emailField.IsPublic)
-	assert.NotNil(t, emailField.Default)
+	emailField := userClass.GetField("email")
+	assert.Equal(t, "email", emailField.Name())
+	assert.Equal(t, "str", emailField.Type())
+	assert.False(t, emailField.IsPublic())
+	assert.NotNil(t, emailField.Value())
 
 	// 检查方法
-	getNameMethod := userClass.Methods["get_name"]
+	getNameMethod := userClass.GetMethod("get_name")
 	assert.Equal(t, "get_name", getNameMethod.GetName())
 	assert.Equal(t, "str", getNameMethod.ReturnType)
 	assert.True(t, getNameMethod.IsExported())
 	assert.True(t, getNameMethod.IsMethod)
 	assert.Equal(t, "User", getNameMethod.Receiver)
 
-	getAgeMethod := userClass.Methods["get_age"]
+	getAgeMethod := userClass.GetMethod("get_age")
 	assert.Equal(t, "get_age", getAgeMethod.GetName())
 	assert.Equal(t, "num", getAgeMethod.ReturnType)
 	assert.False(t, getAgeMethod.IsExported())
@@ -117,8 +121,8 @@ class InternalClass {
 	assert.NotNil(t, internalClass)
 	assert.Equal(t, "InternalClass", internalClass.GetName())
 	assert.False(t, internalClass.IsExported())
-	assert.Len(t, internalClass.Fields, 1)
-	assert.Len(t, internalClass.Methods, 0)
+	assert.Len(t, internalClass.Fields(), 1)
+	assert.Len(t, internalClass.Methods(), 0)
 }
 
 func TestExtractVariableSymbol(t *testing.T) {

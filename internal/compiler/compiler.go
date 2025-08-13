@@ -87,17 +87,23 @@ func Compile(cfg *config.Huloc, fs vfs.VFS) error {
 
 		for _, nodes := range transpiler.UnresolvedSymbols() {
 			for _, node := range nodes {
-				ld.Read(node.AST.Path)
-				linkable := ld.Load(node.AST.Path)
-				symbol := linkable.Lookup(node.AST.Symbol)
-				if symbol == nil {
-					return fmt.Errorf("symbol %s not found in %s", node.AST.Symbol, node.AST.Path)
+				err := ld.Read(node.Source())
+				if err != nil {
+					return err
 				}
-				// node.Node.Val = symbol.Text()
+				linkable := ld.Load(node.Source())
+				symbol := linkable.Lookup(node.Name())
+				if symbol == nil {
+					return fmt.Errorf("symbol %s not found in %s", node.Name(), node.Source())
+				}
+				err = node.Link(symbol)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
-		// 写文件
+		// 写文件，打包到 ouput_dir 里面，然后include exclude也要处理
 	}
 
 	return nil

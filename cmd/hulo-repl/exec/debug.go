@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hulo-lang/hulo/internal/config"
-	"github.com/hulo-lang/hulo/internal/transpiler/bash"
+	transpiler "github.com/hulo-lang/hulo/internal/transpiler/vbs"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
 )

@@ -1,235 +1,137 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
-package transpiler
+
+package bash
 
 import (
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"strings"
 
 	"slices"
 
 	"github.com/hulo-lang/hulo/internal/config"
 	"github.com/hulo-lang/hulo/internal/container"
-	"github.com/hulo-lang/hulo/internal/interpreter"
-	"github.com/hulo-lang/hulo/internal/object"
+	"github.com/hulo-lang/hulo/internal/linker"
+	"github.com/hulo-lang/hulo/internal/module"
+	"github.com/hulo-lang/hulo/internal/transpiler"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/bash/ast"
+	"github.com/hulo-lang/hulo/syntax/bash/astutil"
 	btok "github.com/hulo-lang/hulo/syntax/bash/token"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
-type BashTranspiler struct {
-	opts *config.Huloc
+type Transpiler struct {
+	opts *config.BashOptions
 
 	buffer []bast.Stmt
 
-	moduleManager *ModuleManager
+	moduleMgr *module.DependecyResolver
 
-	vfs vfs.VFS
+	currentModule *module.Module
 
-	modules        map[string]*Module
-	currentModule  *Module
-	builtinModules []*Module
+	results map[string]*bast.File
 
-	globalSymbols *SymbolTable
+	callers container.Stack[CallFrame]
 
-	scopeStack container.Stack[ScopeType]
+	unresolvedSymbols map[string][]linker.UnkownSymbol
 
-	currentScope *Scope
+	hcrDispatcher *transpiler.HCRDispatcher[bast.Node]
 
 	// 跟踪类实例变量名到类名的映射
 	classInstances map[string]string
 }
 
-func NewBashTranspiler(opts *config.Huloc, vfs vfs.VFS) *BashTranspiler {
-	env := interpreter.NewEnvironment()
-	env.SetWithScope("TARGET", &object.StringValue{Value: "bash"}, htok.CONST, true)
-	env.SetWithScope("OS", &object.StringValue{Value: runtime.GOOS}, htok.CONST, true)
-	env.SetWithScope("ARCH", &object.StringValue{Value: runtime.GOARCH}, htok.CONST, true)
-	interp := interpreter.NewInterpreter(env)
-
-	return &BashTranspiler{
-		opts: opts,
-		vfs:  vfs,
-		// 初始化模块管理
-		moduleManager: &ModuleManager{
-			options:  opts,
-			vfs:      vfs,
-			basePath: "",
-			modules:  make(map[string]*Module),
-			resolver: &DependencyResolver{
-				visited: container.NewMapSet[string](),
-				stack:   container.NewMapSet[string](),
-				order:   make([]string, 0),
-			},
-			interp: interp,
-		},
-		modules: make(map[string]*Module),
-		// 初始化符号管理
-		globalSymbols: NewSymbolTable("global", opts.EnableMangle),
-
-		// 初始化作用域管理
-		scopeStack: container.NewArrayStack[ScopeType](),
-
-		// 初始化类实例映射
-		classInstances: make(map[string]string),
+func NewTranspiler(opts *config.BashOptions, moduleMgr *module.DependecyResolver) *Transpiler {
+	return &Transpiler{
+		opts:              opts,
+		moduleMgr:         moduleMgr,
+		results:           make(map[string]*bast.File),
+		unresolvedSymbols: make(map[string][]linker.UnkownSymbol),
+		hcrDispatcher:     transpiler.NewHCRDispatcher[bast.Node](),
+		callers:           container.NewArrayStack[CallFrame](),
+		classInstances:    make(map[string]string),
 	}
 }
 
-func (b *BashTranspiler) Transpile(mainFile string) (map[string]string, error) {
-	builtinModules, err := b.moduleManager.ResolveAllDependencies(filepath.Join(b.opts.HuloPath, "core/unsafe/bash/index.hl"))
+func Transpile(opts *config.Huloc, fs vfs.VFS, basePath string) (map[string]string, error) {
+	moduleMgr := module.NewDependecyResolver(opts, fs)
+	err := module.ResolveAllDependencies(moduleMgr, opts.Main)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve builtin dependencies: %w", err)
+		return nil, err
 	}
-
-	b.builtinModules = builtinModules
-
-	for _, module := range builtinModules {
-		if module.Symbols == nil {
-			module.Symbols = NewSymbolTable(module.Name, false)
-		}
-		b.analyzeModuleExports(module)
-	}
-
-	// 1. 解析所有依赖
-	modules, err := b.moduleManager.ResolveAllDependencies(mainFile)
+	transpiler := NewTranspiler(opts.CompilerOptions.Bash, moduleMgr).RegisterDefaultRules()
+	err = transpiler.BindRules()
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve dependencies: %w", err)
+		return nil, err
 	}
 
-	// 2. 按依赖顺序翻译模块
-	results := make(map[string]string)
-	for _, module := range modules {
-		if err := b.translateModule(module); err != nil {
-			return nil, fmt.Errorf("failed to translate module %s: %w", module.Path, err)
+	results := make(map[string]bast.Node)
+	err = moduleMgr.VisitModules(func(mod *module.Module) error {
+		transpiler.currentModule = mod
+		batAST := transpiler.Convert(mod.AST)
+		results[strings.Replace(mod.Path, ".hl", transpiler.GetTargetExt(), 1)] = batAST
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	ld := linker.NewLinker(fs)
+	ld.Listen(".sh", linker.BeginEnd{Begin: "# HULO_LINK_BEGIN", End: "# HULO_LINK_END"})
+
+	for _, nodes := range transpiler.unresolvedSymbols {
+		for _, node := range nodes {
+			// 先Load没有在Read, 并且没符号的时候全部导入所有符号，并且还要处理好外部文件和内部文件
+			err := ld.Read(node.Source())
+			if err != nil {
+				return nil, err
+			}
+			linkable := ld.Load(node.Source())
+			symbol := linkable.Lookup(node.Name())
+			if symbol == nil {
+				return nil, fmt.Errorf("symbol %s not found in %s", node.Name(), node.Source())
+			}
+			err = node.Link(symbol)
+			if err != nil {
+				return nil, err
+			}
 		}
-		path := strings.Replace(module.Path, ".hl", ".sh", 1)
-		results[path] = bast.String(module.Transpiled)
 	}
-
-	return results, nil
+	ret := make(map[string]string)
+	for path, node := range results {
+		ret[path] = bast.String(node)
+	}
+	return ret, nil
 }
 
-func (b *BashTranspiler) translateModule(module *Module) error {
-	// 设置当前模块
-	b.currentModule = module
+func (t *Transpiler) RegisterDefaultRules() *Transpiler {
+	t.hcrDispatcher.Register(RuleBoolFormat, &BoolNumberCodegen{}, &BoolStringCodegen{}, &BoolCommandCodegen{})
+	return t
+}
 
-	// 确保模块有符号表
-	if module.Symbols == nil {
-		module.Symbols = &SymbolTable{}
+func (t *Transpiler) BindRules() error {
+	err := t.hcrDispatcher.Bind(RuleBoolFormat, t.opts.BoolFormat)
+	if err != nil {
+		return err
 	}
-
-	// 分析模块的导出符号
-	b.analyzeModuleExports(module)
-
-	// 翻译模块内容
-	module.Transpiled = b.Convert(module.AST).(*bast.File)
-
-	// 缓存翻译结果
-	// b.translatedModules[module.Path] = module.Transpiled
-
 	return nil
 }
 
-func (b *BashTranspiler) analyzeModuleExports(module *Module) {
-	for _, stmt := range module.AST.Stmts {
-		switch s := stmt.(type) {
-		case *hast.FuncDecl:
-			// 检查是否有 pub 修饰符
-			for _, modifier := range s.Modifiers {
-				if _, ok := modifier.(*hast.PubModifier); ok {
-					module.Exports[s.Name.Name] = &ExportInfo{
-						Name:   s.Name.Name,
-						Value:  s,
-						Kind:   ExportFunction,
-						Public: true,
-					}
-					module.Symbols.AddFunction(s.Name.Name, s)
-					break
-				}
-			}
-
-			if len(s.Modifiers) == 0 {
-				module.Exports[s.Name.Name] = &ExportInfo{
-					Name:   s.Name.Name,
-					Value:  s,
-					Kind:   ExportFunction,
-					Public: false,
-				}
-				module.Symbols.AddFunction(s.Name.Name, s)
-			}
-
-		case *hast.ClassDecl:
-			// 检查是否有 pub 修饰符
-			if s.Pub.IsValid() {
-				module.Exports[s.Name.Name] = &ExportInfo{
-					Name:   s.Name.Name,
-					Value:  s,
-					Kind:   ExportClass,
-					Public: true,
-				}
-				module.Symbols.AddClass(s.Name.Name, s)
-			}
-
-		case *hast.AssignStmt:
-			// 处理所有类型的赋值语句
-			var varName string
-			if refExpr, ok := s.Lhs.(*hast.RefExpr); ok {
-				// 从 $p 中提取变量名 p
-				if ident, ok := refExpr.X.(*hast.Ident); ok {
-					varName = ident.Name
-				}
-			} else if ident, ok := s.Lhs.(*hast.Ident); ok {
-				varName = ident.Name
-			}
-
-			if varName != "" {
-				switch s.Scope {
-				case htok.CONST:
-					module.Exports[varName] = &ExportInfo{
-						Name:   varName,
-						Value:  s,
-						Kind:   ExportConstant,
-						Public: false,
-					}
-					module.Symbols.AddConstant(varName, s)
-				case htok.VAR:
-					module.Exports[varName] = &ExportInfo{
-						Name:   varName,
-						Value:  s,
-						Kind:   ExportVariable,
-						Public: false,
-					}
-					module.Symbols.AddVariable(varName, s)
-				default:
-					// 普通赋值语句（如 let arr = [1, 2, 3]）
-					module.Symbols.AddVariable(varName, s)
-				}
-			}
-
-		case *hast.EnumDecl:
-			module.Exports[s.Name.Name] = &ExportInfo{
-				Name:   s.Name.Name,
-				Value:  s,
-				Kind:   ExportConstant,
-				Public: false,
-			}
-			module.Symbols.AddConstant(s.Name.Name, s)
-		}
-	}
+func (t *Transpiler) UnresolvedSymbols() map[string][]linker.UnkownSymbol {
+	return t.unresolvedSymbols
 }
 
-func Transpile(opts *config.Huloc, vfs vfs.VFS, basePath string) (map[string]string, error) {
-	tr := NewBashTranspiler(opts, vfs)
-	tr.moduleManager.basePath = basePath
-	return tr.Transpile(opts.Main)
+func (t *Transpiler) GetTargetExt() string {
+	return ".sh"
 }
 
-func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
+func (t *Transpiler) GetTargetName() string {
+	return "bash"
+}
+
+func (b *Transpiler) Convert(node hast.Node) bast.Node {
 	switch node := node.(type) {
 	case *hast.File:
 		return b.ConvertFile(node)
@@ -255,10 +157,8 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 		return b.ConvertStringLiteral(node)
 	case *hast.NumericLiteral:
 		return b.ConvertNumericLiteral(node)
-	case *hast.TrueLiteral:
-		return b.ConvertTrueLiteral(node)
-	case *hast.FalseLiteral:
-		return b.ConvertFalseLiteral(node)
+	case *hast.TrueLiteral, *hast.FalseLiteral:
+		return b.invokeHCR(RuleBoolFormat, node)
 	case *hast.FuncDecl:
 		return b.ConvertFuncDecl(node)
 	case *hast.ClassDecl:
@@ -301,11 +201,11 @@ func (b *BashTranspiler) Convert(node hast.Node) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertDeclareDecl(node *hast.DeclareDecl) bast.Node {
+func (b *Transpiler) ConvertDeclareDecl(node *hast.DeclareDecl) bast.Node {
 	return nil
 }
 
-func (b *BashTranspiler) ConvertFile(node *hast.File) bast.Node {
+func (b *Transpiler) ConvertFile(node *hast.File) bast.Node {
 	var stmts []bast.Stmt
 
 	// 添加 shebang
@@ -340,7 +240,7 @@ func (b *BashTranspiler) ConvertFile(node *hast.File) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertCommentGroup(node *hast.CommentGroup) bast.Node {
+func (b *Transpiler) ConvertCommentGroup(node *hast.CommentGroup) bast.Node {
 	var comments []*bast.Comment
 	for _, comment := range node.List {
 		comments = append(comments, &bast.Comment{
@@ -352,13 +252,13 @@ func (b *BashTranspiler) ConvertCommentGroup(node *hast.CommentGroup) bast.Node 
 	}
 }
 
-func (b *BashTranspiler) ConvertComment(node *hast.Comment) bast.Node {
+func (b *Transpiler) ConvertComment(node *hast.Comment) bast.Node {
 	return &bast.Comment{
 		Text: node.Text,
 	}
 }
 
-func (b *BashTranspiler) ConvertExprStmt(node *hast.ExprStmt) bast.Node {
+func (b *Transpiler) ConvertExprStmt(node *hast.ExprStmt) bast.Node {
 	expr := b.Convert(node.X)
 	if expr == nil {
 		return nil
@@ -373,7 +273,7 @@ func (b *BashTranspiler) ConvertExprStmt(node *hast.ExprStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
+func (b *Transpiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
 	// 先转换 RHS
 	convertedRhs := b.Convert(node.Rhs)
 	if convertedRhs == nil {
@@ -408,41 +308,16 @@ func (b *BashTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
 	}
 
 	// 如果有变量名，进行符号管理
-	if varName != "" && b.currentModule != nil {
-		currentScope := b.currentModule.Symbols.CurrentScope()
-		if currentScope == nil {
-			// 如果没有当前作用域，创建一个全局作用域
-			currentScope = b.currentModule.Symbols.PushScope(GlobalScope, b.currentModule)
-		}
-
-		// 创建符号
-		symbol := &Symbol{
-			Name:   varName,
-			Type:   SymbolVariable,
-			Value:  node,
-			Scope:  currentScope,
-			Module: b.currentModule,
-		}
-
-		// 添加到当前作用域
-		b.currentModule.Symbols.AddSymbol(symbol)
-
-		// 分配生成名称
-		generatedName := b.currentModule.Symbols.AllocVariableName(varName, currentScope)
-		symbol.MangledName = generatedName
+	if varName != "" {
 
 		// 如果RHS是对象字面量，建立绑定
 		if objLit, ok := node.Rhs.(*hast.ObjectLiteralExpr); ok {
-			b.bindObjectLiteral(symbol, objLit)
-			// 返回赋值语句，使用混淆后的变量名
-			return &bast.AssignStmt{
-				Lhs: &bast.Ident{Name: generatedName},
-				Rhs: &bast.Ident{Name: symbol.MangledName},
-			}
+			b.bindObjectLiteral(varName, objLit)
+			return nil
 		}
 
 		return &bast.AssignStmt{
-			Lhs: &bast.Ident{Name: generatedName},
+			Lhs: &bast.Ident{Name: varName},
 			Rhs: rhs,
 		}
 	}
@@ -455,7 +330,7 @@ func (b *BashTranspiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
+func (b *Transpiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
 	cond := b.Convert(node.Cond).(bast.Expr)
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 
@@ -481,13 +356,7 @@ func (b *BashTranspiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
-	// 进入新作用域
-	if b.currentModule != nil {
-		b.currentModule.Symbols.PushScope(BlockScope, b.currentModule)
-		defer b.currentModule.Symbols.PopScope()
-	}
-
+func (b *Transpiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
 	var stmts []bast.Stmt
 	for _, stmt := range node.List {
 		converted := b.Convert(stmt)
@@ -502,7 +371,7 @@ func (b *BashTranspiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
+func (b *Transpiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 	x := b.Convert(node.X).(bast.Expr)
 	y := b.Convert(node.Y).(bast.Expr)
 
@@ -592,7 +461,7 @@ func (b *BashTranspiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
+func (b *Transpiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	// 检查是否是类的方法调用：$u.to_str()
 	if refExpr, ok := node.Fun.(*hast.RefExpr); ok {
 		if selectExpr, ok := refExpr.X.(*hast.SelectExpr); ok {
@@ -631,8 +500,9 @@ func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	// 检查是否是构造函数调用：User("John", 20)
 	if ident, ok := node.Fun.(*hast.Ident); ok {
 		className := ident.Name
+		symbol := b.currentModule.Symbols.LookupSymbol(className)
 		// 检查是否是已知的类
-		if b.currentModule != nil && b.currentModule.Symbols.HasClass(className) {
+		if symbol != nil && symbol.GetKind() == module.SymbolClass {
 			// 这是构造函数调用
 			constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
 
@@ -668,7 +538,7 @@ func (b *BashTranspiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
+func (b *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 	// 检查是否是类的方法调用：$u.to_str()
 	if refExpr, ok := node.Cmd.(*hast.RefExpr); ok {
 		if selectExpr, ok := refExpr.X.(*hast.SelectExpr); ok {
@@ -690,7 +560,7 @@ func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 
 				var args []bast.Expr
 				// 第一个参数是对象本身
-				args = append(args, &bast.VarExpExpr{X: &bast.Ident{Name: objectVar}})
+				args = append(args, astutil.VarExp(astutil.Ident(objectVar)))
 				// 添加其他参数
 				for _, arg := range node.Args {
 					args = append(args, b.Convert(arg).(bast.Expr))
@@ -707,8 +577,9 @@ func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 	// 检查是否是构造函数调用：User("John", 20)
 	if ident, ok := node.Cmd.(*hast.Ident); ok {
 		className := ident.Name
+		symbol := b.currentModule.Symbols.LookupSymbol(className)
 		// 检查是否是已知的类
-		if b.currentModule != nil && b.currentModule.Symbols.HasClass(className) {
+		if symbol != nil && symbol.GetKind() == module.SymbolClass {
 			// 这是构造函数调用
 			constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
 
@@ -743,49 +614,34 @@ func (b *BashTranspiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 		}
 	}
 
-	return &bast.CmdExpr{
-		Name: &bast.Ident{Name: fnName},
-		Recv: recv,
-	}
+	return astutil.CmdExpr(fnName, recv...)
 }
 
-func (b *BashTranspiler) ConvertIdent(node *hast.Ident) bast.Node {
-	// 查符号表，返回混淆名
-	if b.currentModule != nil && b.currentModule.Symbols != nil {
-		if symbol := b.currentModule.Symbols.LookupSymbol(node.Name); symbol != nil && symbol.MangledName != "" {
-			return &bast.Ident{Name: symbol.MangledName}
-		}
-	}
-	return &bast.Ident{
-		Name: node.Name,
-	}
+func (b *Transpiler) ConvertIdent(node *hast.Ident) bast.Node {
+	return astutil.Ident(node.Name)
 }
 
-func (b *BashTranspiler) ConvertStringLiteral(node *hast.StringLiteral) bast.Node {
-	return &bast.Word{
-		Val: fmt.Sprintf(`"%s"`, node.Value),
-	}
+func (b *Transpiler) ConvertStringLiteral(node *hast.StringLiteral) bast.Node {
+	return astutil.Word(fmt.Sprintf(`"%s"`, node.Value))
 }
 
-func (b *BashTranspiler) ConvertNumericLiteral(node *hast.NumericLiteral) bast.Node {
-	return &bast.Word{
-		Val: node.Value,
-	}
+func (b *Transpiler) ConvertNumericLiteral(node *hast.NumericLiteral) bast.Node {
+	return astutil.Word(node.Value)
 }
 
-func (b *BashTranspiler) ConvertTrueLiteral(node *hast.TrueLiteral) bast.Node {
-	return &bast.Word{
-		Val: "true",
+func (bt *Transpiler) invokeHCR(name transpiler.RuleID, node hast.Node) bast.Node {
+	rule, err := bt.hcrDispatcher.Get(name)
+	if err != nil {
+		return nil
 	}
+	converted, err := rule.Apply(bt, node)
+	if err != nil {
+		return nil
+	}
+	return converted
 }
 
-func (b *BashTranspiler) ConvertFalseLiteral(node *hast.FalseLiteral) bast.Node {
-	return &bast.Word{
-		Val: "false",
-	}
-}
-
-func (b *BashTranspiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
+func (b *Transpiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
 	name := b.Convert(node.Name).(*bast.Ident)
 
 	// 处理参数，生成 local 声明
@@ -800,8 +656,8 @@ func (b *BashTranspiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
 			// 生成 local x=$1 语句
 			paramStmts = append(paramStmts, &bast.AssignStmt{
 				Local: btok.Pos(1), // 标记为 local
-				Lhs:   &bast.Ident{Name: paramName},
-				Rhs:   &bast.VarExpExpr{X: &bast.Ident{Name: fmt.Sprintf("%d", i+1)}},
+				Lhs:   astutil.Ident(paramName),
+				Rhs:   astutil.VarExp(astutil.Ident(fmt.Sprintf("%d", i+1))),
 			})
 		}
 	}
@@ -814,71 +670,54 @@ func (b *BashTranspiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
 	newBodyStmts = append(newBodyStmts, paramStmts...)
 	newBodyStmts = append(newBodyStmts, originalBody.List...)
 
-	newBody := &bast.BlockStmt{
-		List: newBodyStmts,
-	}
+	newBody := astutil.Block(newBodyStmts...)
 
-	// 添加到当前模块的符号表
-	if b.currentModule != nil {
-		b.currentModule.Symbols.AddFunction(name.Name, node)
-	}
-
-	return &bast.FuncDecl{
-		Name: name,
-		Body: newBody,
-	}
+	return astutil.FuncDecl(name.Name, newBody.List)
 }
 
-func (b *BashTranspiler) ConvertClassDecl(node *hast.ClassDecl) bast.Node {
+func (b *Transpiler) ConvertClassDecl(node *hast.ClassDecl) bast.Node {
 	className := node.Name.Name
-
-	// 添加到当前模块的符号表
-	if b.currentModule != nil {
-		b.currentModule.Symbols.AddClass(className, node)
-	}
 
 	// 生成构造函数
 	constructorName := fmt.Sprintf("create_%s", strings.ToLower(className))
 
 	// 收集字段名
-	var fieldNames []string
-	for _, field := range node.Fields.List {
-		fieldNames = append(fieldNames, field.Name.Name)
+	classSymbol := b.currentModule.LookupClassSymbol(className)
+	if classSymbol == nil {
+		panic(fmt.Sprintf("class %s not found", className))
 	}
 
 	// 生成构造函数体
 	var constructorBody []bast.Stmt
 
 	// 添加 local 参数声明
-	for i, fieldName := range fieldNames {
+	i := 0
+	for _, field := range classSymbol.Fields() {
 		constructorBody = append(constructorBody, &bast.AssignStmt{
 			Local: btok.Pos(1),
-			Lhs:   &bast.Ident{Name: fieldName},
-			Rhs:   &bast.VarExpExpr{X: &bast.Ident{Name: fmt.Sprintf("%d", i+1)}},
+			Lhs:   astutil.Ident(field.Name()),
+			Rhs:   astutil.VarExp(astutil.Ident(fmt.Sprintf("%d", i+1))),
 		})
+		i++
 	}
 
 	// 创建关联数组声明
-	constructorBody = append(constructorBody, &bast.ExprStmt{
-		X: &bast.CmdExpr{
-			Name: &bast.Ident{Name: "declare"},
-			Recv: []bast.Expr{
-				&bast.Word{Val: "-A"},
-				&bast.Ident{Name: strings.ToLower(className)},
-			},
-		},
-	})
+	constructorBody = append(constructorBody,
+		astutil.ExprStmt(
+			astutil.CmdExpr("declare",
+				astutil.Word("-A"),
+				astutil.Ident(strings.ToLower(className)))))
 
 	// 添加字段赋值
-	for _, fieldName := range fieldNames {
+	for _, field := range classSymbol.Fields() {
 		constructorBody = append(constructorBody, &bast.AssignStmt{
 			Lhs: &bast.IndexExpr{
-				X:      &bast.Ident{Name: strings.ToLower(className)},
+				X:      astutil.Ident(strings.ToLower(className)),
 				Lbrack: btok.Pos(1),
-				Y:      &bast.Word{Val: fmt.Sprintf(`"%s"`, fieldName)},
+				Y:      astutil.Word(fmt.Sprintf(`"%s"`, field.Name())),
 				Rbrack: btok.Pos(1),
 			},
-			Rhs: &bast.VarExpExpr{X: &bast.Ident{Name: fieldName}},
+			Rhs: astutil.VarExp(astutil.Ident(field.Name())),
 		})
 	}
 
@@ -893,10 +732,7 @@ func (b *BashTranspiler) ConvertClassDecl(node *hast.ClassDecl) bast.Node {
 	})
 
 	// 生成构造函数
-	constructor := &bast.FuncDecl{
-		Name: &bast.Ident{Name: constructorName},
-		Body: &bast.BlockStmt{List: constructorBody},
-	}
+	constructor := astutil.FuncDecl(constructorName, constructorBody)
 
 	// 将构造函数添加到缓冲区
 	b.Emit(constructor)
@@ -912,7 +748,7 @@ func (b *BashTranspiler) ConvertClassDecl(node *hast.ClassDecl) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) generateClassMethod(className string, method *hast.FuncDecl) {
+func (b *Transpiler) generateClassMethod(className string, method *hast.FuncDecl) {
 	methodName := method.Name.Name
 	classNameLower := strings.ToLower(className)
 
@@ -965,14 +801,14 @@ func (b *BashTranspiler) generateClassMethod(className string, method *hast.Func
 	b.Emit(methodFunc)
 }
 
-func (b *BashTranspiler) replaceFieldAccesses(block *bast.BlockStmt, classNameLower string) *bast.BlockStmt {
+func (b *Transpiler) replaceFieldAccesses(block *bast.BlockStmt, classNameLower string) *bast.BlockStmt {
 	// 这里需要递归替换所有字段访问
 	// 例如：$name 应该替换为 ${user["name"]}
 	// 这是一个简化的实现，实际需要更复杂的AST遍历
 	return block
 }
 
-func (b *BashTranspiler) ConvertImport(node *hast.Import) bast.Node {
+func (b *Transpiler) ConvertImport(node *hast.Import) bast.Node {
 	// 对于Bash，导入通常转换为source命令
 	var path string
 
@@ -1006,7 +842,7 @@ func (b *BashTranspiler) ConvertImport(node *hast.Import) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
+func (b *Transpiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
 	cond := b.Convert(node.Cond).(bast.Expr)
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 
@@ -1024,7 +860,7 @@ func (b *BashTranspiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
+func (b *Transpiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
 	// C-style for 循环: loop (init; cond; post) { body }
 	// 转换循环体
 	body := b.Convert(node.Body).(*bast.BlockStmt)
@@ -1113,7 +949,7 @@ func (b *BashTranspiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
+func (b *Transpiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
 	var x bast.Expr
 	if node.X != nil {
 		x = b.Convert(node.X).(bast.Expr)
@@ -1135,7 +971,7 @@ func (b *BashTranspiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) convertOperator(op htok.Token) btok.Token {
+func (b *Transpiler) convertOperator(op htok.Token) btok.Token {
 	switch op {
 	case htok.PLUS:
 		return btok.Plus
@@ -1162,29 +998,18 @@ func (b *BashTranspiler) convertOperator(op htok.Token) btok.Token {
 	}
 }
 
-func (b *BashTranspiler) needsDeclaration(expr bast.Expr) bool {
-	if ident, ok := expr.(*bast.Ident); ok {
-		// 检查当前模块的符号表中是否已声明
-		if b.currentModule != nil && b.currentModule.Symbols != nil {
-			return !b.currentModule.Symbols.HasVariable(ident.Name)
-		}
-		return true // 如果没有当前模块，默认需要声明
-	}
-	return false
-}
-
-func (b *BashTranspiler) Emit(stmt bast.Stmt) {
+func (b *Transpiler) Emit(stmt bast.Stmt) {
 	b.buffer = append(b.buffer, stmt)
 }
 
-func (v *BashTranspiler) Flush() []bast.Stmt {
+func (v *Transpiler) Flush() []bast.Stmt {
 	stmts := v.buffer
 	v.buffer = nil
 	return stmts
 }
 
 // ConvertSelectExpr 处理选择表达式，区分模块访问和对象方法调用
-func (b *BashTranspiler) ConvertSelectExpr(node *hast.SelectExpr) bast.Node {
+func (b *Transpiler) ConvertSelectExpr(node *hast.SelectExpr) bast.Node {
 	x := b.Convert(node.X).(bast.Expr)
 	y := b.Convert(node.Y).(bast.Expr)
 
@@ -1216,7 +1041,7 @@ func (b *BashTranspiler) ConvertSelectExpr(node *hast.SelectExpr) bast.Node {
 }
 
 // convertBuiltinMethod 转换内置方法调用
-func (b *BashTranspiler) convertBuiltinMethod(obj *hast.RefExpr, methodName string, _ []hast.Expr) bast.Node {
+func (b *Transpiler) convertBuiltinMethod(obj *hast.RefExpr, methodName string, _ []hast.Expr) bast.Node {
 	varName := obj.X.(*hast.Ident).Name
 
 	switch methodName {
@@ -1253,7 +1078,7 @@ func (b *BashTranspiler) convertBuiltinMethod(obj *hast.RefExpr, methodName stri
 }
 
 // ConvertRefExpr 处理引用表达式 $x
-func (b *BashTranspiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
+func (b *Transpiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
 	x := b.Convert(node.X).(bast.Expr)
 	// 对于 Bash，$x 转换为变量引用
 	return &bast.VarExpExpr{
@@ -1262,7 +1087,7 @@ func (b *BashTranspiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
 }
 
 // isModuleAccess 判断是否是模块访问
-func (b *BashTranspiler) isModuleAccess(expr hast.Expr) bool {
+func (b *Transpiler) isModuleAccess(expr hast.Expr) bool {
 	// 检查是否是标识符（模块名）
 	if ident, ok := expr.(*hast.Ident); ok {
 		// 检查是否是导入的模块
@@ -1270,7 +1095,7 @@ func (b *BashTranspiler) isModuleAccess(expr hast.Expr) bool {
 			for _, importInfo := range b.currentModule.Imports {
 				// 检查是否是导入的模块
 				if importInfo.Alias == ident.Name ||
-					(importInfo.Kind == ImportSingle && b.getModuleName(importInfo.ModulePath) == ident.Name) {
+					(importInfo.Kind == module.ImportSingle && b.getModuleName(importInfo.ModulePath) == ident.Name) {
 					return true
 				}
 			}
@@ -1286,19 +1111,19 @@ func (b *BashTranspiler) isModuleAccess(expr hast.Expr) bool {
 }
 
 // isGlobalModule 判断是否是全局模块
-func (b *BashTranspiler) isGlobalModule(name string) bool {
+func (b *Transpiler) isGlobalModule(name string) bool {
 	// 常见的全局模块
 	globalModules := []string{"std", "math", "io", "net", "time", "fs"}
 	return slices.Contains(globalModules, name)
 }
 
 // ConvertParameter 处理函数参数
-func (b *BashTranspiler) ConvertParameter(node *hast.Parameter) bast.Node {
+func (b *Transpiler) ConvertParameter(node *hast.Parameter) bast.Node {
 	// 对于 Bash，我们只需要参数名
 	return b.Convert(node.Name).(bast.Expr)
 }
 
-func (b *BashTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
+func (b *Transpiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
 	// 将 i++ 转换为 a=$((a + 1))，将 i-- 转换为 a=$((a - 1))
 	var op btok.Token
 	if node.Tok == htok.INC {
@@ -1336,7 +1161,7 @@ func (b *BashTranspiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
 
 // convertToBashTest 将 Hulo 的条件表达式转换为 Bash 的 test 表达式
 // 例如: $a < 2 转换为 [ "$a" -lt 2 ]
-func (b *BashTranspiler) convertToBashTest(expr bast.Expr) bast.Expr {
+func (b *Transpiler) convertToBashTest(expr bast.Expr) bast.Expr {
 	if bexpr, ok := expr.(*bast.BinaryExpr); ok {
 		// 获取左右操作数
 		left := bexpr.X
@@ -1386,7 +1211,7 @@ func (b *BashTranspiler) convertToBashTest(expr bast.Expr) bast.Expr {
 
 // convertToArithExpr 将 Hulo 的条件表达式转换为 Bash 的算术表达式
 // 例如: $a < 2 转换为 (( a < 2 ))
-func (b *BashTranspiler) convertToArithExpr(expr bast.Expr) bast.Expr {
+func (b *Transpiler) convertToArithExpr(expr bast.Expr) bast.Expr {
 	if bexpr, ok := expr.(*bast.BinaryExpr); ok {
 		// 获取左右操作数
 		left := bexpr.X
@@ -1436,7 +1261,7 @@ func (b *BashTranspiler) convertToArithExpr(expr bast.Expr) bast.Expr {
 }
 
 // convertReadCommand 将 read("prompt") 转换为 read -p "prompt" variable
-func (b *BashTranspiler) convertReadCommand(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
+func (b *Transpiler) convertReadCommand(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
 	// 获取变量名
 	var varName string
 	if refExpr, ok := lhs.(*hast.RefExpr); ok {
@@ -1469,7 +1294,7 @@ func (b *BashTranspiler) convertReadCommand(lhs hast.Expr, callExpr *bast.CmdExp
 }
 
 // convertConstructorCall 将构造函数调用转换为变量赋值
-func (b *BashTranspiler) convertConstructorCall(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
+func (b *Transpiler) convertConstructorCall(lhs hast.Expr, callExpr *bast.CmdExpr) bast.Node {
 	// 获取变量名
 	var varName string
 	if refExpr, ok := lhs.(*hast.RefExpr); ok {
@@ -1493,16 +1318,13 @@ func (b *BashTranspiler) convertConstructorCall(lhs hast.Expr, callExpr *bast.Cm
 
 	// 创建变量赋值：u=$(create_user "John" 20)
 	return &bast.AssignStmt{
-		Lhs: &bast.Ident{Name: varName},
-		Rhs: &bast.CmdSubst{
-			Tok: btok.DollParen,
-			X:   callExpr,
-		},
+		Lhs: astutil.Ident(varName),
+		Rhs: astutil.CmdSubstDollarParent(callExpr),
 	}
 }
 
 // ConvertArrayLiteralExpr 转换数组字面量表达式
-func (b *BashTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
+func (b *Transpiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
 	var elements []bast.Expr
 	for _, elem := range node.Elems {
 		converted := b.Convert(elem)
@@ -1522,18 +1344,17 @@ func (b *BashTranspiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) ba
 }
 
 // ConvertObjectLiteralExpr 转换对象字面量表达式
-func (b *BashTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) bast.Node {
-	return &bast.Ident{Name: ""}
+func (b *Transpiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) bast.Node {
 	// 生成唯一的变量名
 	arrayVarName := fmt.Sprintf("obj_%d", len(b.buffer))
 
 	// 添加 declare -A 声明
 	b.Emit(&bast.ExprStmt{
 		X: &bast.CmdExpr{
-			Name: &bast.Ident{Name: "declare"},
+			Name: astutil.Ident("declare"),
 			Recv: []bast.Expr{
-				&bast.Word{Val: "-A"},
-				&bast.Ident{Name: arrayVarName},
+				astutil.Word("-A"),
+				astutil.Ident(arrayVarName),
 			},
 		},
 	})
@@ -1546,7 +1367,7 @@ func (b *BashTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) 
 
 			b.Emit(&bast.AssignStmt{
 				Lhs: &bast.IndexExpr{
-					X:      &bast.Ident{Name: arrayVarName},
+					X:      astutil.Ident(arrayVarName),
 					Lbrack: btok.Pos(1),
 					Y:      key,
 					Rbrack: btok.Pos(1),
@@ -1557,11 +1378,11 @@ func (b *BashTranspiler) ConvertObjectLiteralExpr(node *hast.ObjectLiteralExpr) 
 	}
 
 	// 返回变量引用
-	return &bast.Ident{Name: arrayVarName}
+	return astutil.Ident(arrayVarName)
 }
 
 // ConvertForInStmt 转换 for-in 循环
-func (b *BashTranspiler) ConvertForInStmt(node *hast.ForInStmt) bast.Node {
+func (b *Transpiler) ConvertForInStmt(node *hast.ForInStmt) bast.Node {
 	// 转换循环变量 - Index 是 *Ident 类型
 	loopVarName := node.Index.Name
 
@@ -1574,7 +1395,7 @@ func (b *BashTranspiler) ConvertForInStmt(node *hast.ForInStmt) bast.Node {
 	// 在 Bash 中，for-in 循环格式：for var in list; do ... done
 	return &bast.ForInStmt{
 		For:  btok.Pos(1),
-		Var:  &bast.Ident{Name: loopVarName}, // 使用变量名，不是 $var
+		Var:  astutil.Ident(loopVarName), // 使用变量名，不是 $var
 		In:   btok.Pos(1),
 		List: rangeExpr,
 		Semi: btok.Pos(1),
@@ -1585,7 +1406,7 @@ func (b *BashTranspiler) ConvertForInStmt(node *hast.ForInStmt) bast.Node {
 }
 
 // ConvertForeachStmt 转换 foreach 循环
-func (b *BashTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
+func (b *Transpiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
 	if node.Tok == htok.OF {
 		return b.ConvertForOfStmt(node)
 	}
@@ -1638,25 +1459,17 @@ func (b *BashTranspiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
 	}
 }
 
-func (b *BashTranspiler) ConvertForOfStmt(node *hast.ForeachStmt) bast.Node {
+func (b *Transpiler) ConvertForOfStmt(node *hast.ForeachStmt) bast.Node {
 	// 获取要遍历的关联数组变量名
 	var arrayVarName string
 	if refExpr, ok := node.Var.(*hast.RefExpr); ok {
 		if ident, ok := refExpr.X.(*hast.Ident); ok {
 			// 查找符号表中的混淆名称
-			if b.currentModule != nil {
-				if symbol := b.currentModule.Symbols.LookupSymbol(ident.Name); symbol != nil {
-					arrayVarName = symbol.MangledName
-				} else {
-					arrayVarName = ident.Name
-				}
-			} else {
-				arrayVarName = ident.Name
-			}
+			arrayVarName = ident.Name
 		}
 	}
 	if arrayVarName == "" {
-		arrayVarName = "config"
+		return nil
 	}
 
 	// 如果变量是对象字面量，直接转换它
@@ -1744,10 +1557,7 @@ func (b *BashTranspiler) ConvertForOfStmt(node *hast.ForeachStmt) bast.Node {
 }
 
 // bindObjectLiteral 绑定对象字面量到符号
-func (b *BashTranspiler) bindObjectLiteral(symbol *Symbol, objLit *hast.ObjectLiteralExpr) {
-	// 使用符号的生成名称
-	arrayVarName := symbol.MangledName
-
+func (b *Transpiler) bindObjectLiteral(arrayVarName string, objLit *hast.ObjectLiteralExpr) {
 	// 生成关联数组声明
 	b.Emit(&bast.ExprStmt{
 		X: &bast.CmdExpr{
@@ -1779,7 +1589,7 @@ func (b *BashTranspiler) bindObjectLiteral(symbol *Symbol, objLit *hast.ObjectLi
 }
 
 // getModuleName 从路径获取模块名
-func (b *BashTranspiler) getModuleName(path string) string {
+func (b *Transpiler) getModuleName(path string) string {
 	// 简单的实现，从路径中提取文件名（不含扩展名）
 	// 这里可以复用 module.go 中的逻辑
 	baseName := path
@@ -1796,7 +1606,7 @@ func (b *BashTranspiler) getModuleName(path string) string {
 }
 
 // ConvertMatchStmt 将 match 语句转换为 case 语句
-func (b *BashTranspiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
+func (b *Transpiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
 	// 转换匹配表达式
 	matchExpr := b.Convert(node.Expr).(bast.Expr)
 
@@ -1862,7 +1672,7 @@ func (b *BashTranspiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
 }
 
 // ConvertDoWhileStmt 将 do-while 语句转换为 while 循环
-func (b *BashTranspiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) bast.Node {
+func (b *Transpiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) bast.Node {
 	// 转换循环体
 	body := b.Convert(node.Body).(*bast.BlockStmt)
 

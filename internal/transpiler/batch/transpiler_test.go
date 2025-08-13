@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package batch_test
 
 import (
@@ -82,7 +83,7 @@ REM HULO_LINK_END`,
 	}
 
 	// hast.Print(node)
-	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.CompilerOptions{Batch: &config.BatchOptions{CommentSyntax: "::"}}}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -139,17 +140,23 @@ func TestLoop(t *testing.T) {
 	}
 
 	do {
+		if $a == 5 {
+			continue
+		}
 		echo "Hello, World!"
 	} loop ($a > 10)
 
 	loop $i := 0; $i < 10; $i++ {
 		echo "Hello, World!"
+		if $i > 5 {
+			break
+		}
 	}`
 	fs := memvfs.New()
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl", EnableMangle: true}, fs, "")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {
@@ -173,7 +180,41 @@ loop $i in [0, 1, 2] {
 	err := fs.WriteFile("main.hl", []byte(script), 0644)
 	assert.NoError(t, err)
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileUnsafe(t *testing.T) {
+	script := `unsafe """echo Hello, World!"""`
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
+	assert.NoError(t, err)
+
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
+	assert.NoError(t, err)
+
+	for file, code := range results {
+		fmt.Printf("=== %s ===\n", file)
+		fmt.Println(code)
+		fmt.Println()
+	}
+}
+
+func TestTranspileUnsafeWithVariable(t *testing.T) {
+	script := `comptime let a = 10
+	unsafe """{% loop i in [1, 2, 3] %} echo $i {{ a }} {% endloop %}"""
+	`
+	fs := memvfs.New()
+	err := fs.WriteFile("main.hl", []byte(script), 0644)
+	assert.NoError(t, err)
+
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.DefaultCompilerOptions()}, fs, "")
 	assert.NoError(t, err)
 
 	for file, code := range results {

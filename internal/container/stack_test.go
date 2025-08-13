@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package container
 
 import (
@@ -352,5 +353,355 @@ func TestStack_ConcurrentOperations(t *testing.T) {
 	item, ok = stack.Peek()
 	if !ok || item != 2 {
 		t.Errorf("Peek should return 2, got %v", item)
+	}
+}
+
+// LinkedStack Tests
+
+func TestNewLinkedStack(t *testing.T) {
+	stack := NewLinkedStack[int]()
+	if stack == nil {
+		t.Error("NewLinkedStack() should not return nil")
+	}
+	if !stack.IsEmpty() {
+		t.Error("New linked stack should be empty")
+	}
+	if stack.Size() != 0 {
+		t.Error("New linked stack should have size 0")
+	}
+}
+
+func TestLinkedStack_Push(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test pushing single item
+	stack.Push(1)
+	if stack.Size() != 1 {
+		t.Errorf("LinkedStack size should be 1, got %d", stack.Size())
+	}
+
+	// Test pushing multiple items
+	stack.Push(2)
+	stack.Push(3)
+	if stack.Size() != 3 {
+		t.Errorf("LinkedStack size should be 3, got %d", stack.Size())
+	}
+}
+
+func TestLinkedStack_Pop(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test pop on empty stack
+	item, ok := stack.Pop()
+	if ok {
+		t.Error("Pop on empty linked stack should return false")
+	}
+	if item != 0 {
+		t.Errorf("Pop on empty linked stack should return zero value, got %v", item)
+	}
+
+	// Test pop on non-empty stack
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+
+	item, ok = stack.Pop()
+	if !ok {
+		t.Error("Pop on non-empty linked stack should return true")
+	}
+	if item != 3 {
+		t.Errorf("LinkedStack pop should return last pushed item, got %v, want %v", item, 3)
+	}
+	if stack.Size() != 2 {
+		t.Errorf("LinkedStack size should be 2 after pop, got %d", stack.Size())
+	}
+
+	// Test pop order (LIFO)
+	item, ok = stack.Pop()
+	if !ok || item != 2 {
+		t.Errorf("Second linked stack pop should return 2, got %v", item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || item != 1 {
+		t.Errorf("Third linked stack pop should return 1, got %v", item)
+	}
+
+	// Stack should be empty now
+	if !stack.IsEmpty() {
+		t.Error("LinkedStack should be empty after popping all items")
+	}
+}
+
+func TestLinkedStack_Peek(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test peek on empty stack
+	item, ok := stack.Peek()
+	if ok {
+		t.Error("Peek on empty linked stack should return false")
+	}
+	if item != 0 {
+		t.Errorf("Peek on empty linked stack should return zero value, got %v", item)
+	}
+
+	// Test peek on non-empty stack
+	stack.Push(1)
+	stack.Push(2)
+
+	item, ok = stack.Peek()
+	if !ok {
+		t.Error("Peek on non-empty linked stack should return true")
+	}
+	if item != 2 {
+		t.Errorf("LinkedStack peek should return top item, got %v, want %v", item, 2)
+	}
+
+	// Stack size should remain unchanged
+	if stack.Size() != 2 {
+		t.Errorf("LinkedStack size should remain 2 after peek, got %d", stack.Size())
+	}
+}
+
+func TestLinkedStack_IsEmpty(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test empty stack
+	if !stack.IsEmpty() {
+		t.Error("New linked stack should be empty")
+	}
+
+	// Test non-empty stack
+	stack.Push(1)
+	if stack.IsEmpty() {
+		t.Error("LinkedStack with items should not be empty")
+	}
+
+	// Test after popping all items
+	stack.Pop()
+	if !stack.IsEmpty() {
+		t.Error("LinkedStack should be empty after popping all items")
+	}
+}
+
+func TestLinkedStack_Size(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test initial size
+	if stack.Size() != 0 {
+		t.Errorf("Initial linked stack size should be 0, got %d", stack.Size())
+	}
+
+	// Test size after pushing
+	stack.Push(1)
+	if stack.Size() != 1 {
+		t.Errorf("LinkedStack size should be 1, got %d", stack.Size())
+	}
+
+	stack.Push(2)
+	stack.Push(3)
+	if stack.Size() != 3 {
+		t.Errorf("LinkedStack size should be 3, got %d", stack.Size())
+	}
+
+	// Test size after popping
+	stack.Pop()
+	if stack.Size() != 2 {
+		t.Errorf("LinkedStack size should be 2 after pop, got %d", stack.Size())
+	}
+}
+
+func TestLinkedStack_Clear(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test clear on empty stack
+	stack.Clear()
+	if !stack.IsEmpty() {
+		t.Error("Cleared empty linked stack should be empty")
+	}
+
+	// Test clear on non-empty stack
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+
+	stack.Clear()
+	if !stack.IsEmpty() {
+		t.Error("Cleared linked stack should be empty")
+	}
+	if stack.Size() != 0 {
+		t.Errorf("Cleared linked stack size should be 0, got %d", stack.Size())
+	}
+
+	// Test that we can still push after clearing
+	stack.Push(4)
+	if stack.Size() != 1 {
+		t.Errorf("LinkedStack size should be 1 after pushing to cleared stack, got %d", stack.Size())
+	}
+}
+
+func TestLinkedStack_Clone(t *testing.T) {
+	stack := NewLinkedStack[int]()
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+
+	clone := stack.Clone()
+
+	// Test that clone has same size
+	if clone.Size() != stack.Size() {
+		t.Errorf("LinkedStack clone size should match original, got %d, want %d", clone.Size(), stack.Size())
+	}
+
+	// Test that clone has same items in same order
+	for !stack.IsEmpty() {
+		origItem, _ := stack.Pop()
+		cloneItem, _ := clone.Pop()
+		if origItem != cloneItem {
+			t.Errorf("LinkedStack clone item should match original, got %v, want %v", cloneItem, origItem)
+		}
+	}
+
+	// Test that original is not affected by clone operations
+	if stack.Size() != 0 {
+		t.Error("Original linked stack should be empty after popping clone")
+	}
+}
+
+func TestLinkedStack_StringType(t *testing.T) {
+	stack := NewLinkedStack[string]()
+
+	// Test with string type
+	stack.Push("hello")
+	stack.Push("world")
+
+	item, ok := stack.Pop()
+	if !ok || item != "world" {
+		t.Errorf("LinkedStack string pop should return 'world', got %v", item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || item != "hello" {
+		t.Errorf("LinkedStack string pop should return 'hello', got %v", item)
+	}
+}
+
+func TestLinkedStack_StructType(t *testing.T) {
+	type Person struct {
+		Name string
+		Age  int
+	}
+
+	stack := NewLinkedStack[Person]()
+
+	person1 := Person{Name: "Alice", Age: 30}
+	person2 := Person{Name: "Bob", Age: 25}
+
+	stack.Push(person1)
+	stack.Push(person2)
+
+	item, ok := stack.Pop()
+	if !ok || item.Name != "Bob" || item.Age != 25 {
+		t.Errorf("LinkedStack struct pop should return Bob, got %v", item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || item.Name != "Alice" || item.Age != 30 {
+		t.Errorf("LinkedStack struct pop should return Alice, got %v", item)
+	}
+}
+
+func TestLinkedStack_PointerType(t *testing.T) {
+	stack := NewLinkedStack[*int]()
+
+	val1 := 1
+	val2 := 2
+
+	stack.Push(&val1)
+	stack.Push(&val2)
+
+	item, ok := stack.Pop()
+	if !ok || *item != 2 {
+		t.Errorf("LinkedStack pointer pop should return 2, got %v", *item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || *item != 1 {
+		t.Errorf("LinkedStack pointer pop should return 1, got %v", *item)
+	}
+}
+
+func TestLinkedStack_InterfaceType(t *testing.T) {
+	stack := NewLinkedStack[interface{}]()
+
+	stack.Push(1)
+	stack.Push("hello")
+	stack.Push(3.14)
+
+	item, ok := stack.Pop()
+	if !ok || item != 3.14 {
+		t.Errorf("LinkedStack interface pop should return 3.14, got %v", item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || item != "hello" {
+		t.Errorf("LinkedStack interface pop should return 'hello', got %v", item)
+	}
+
+	item, ok = stack.Pop()
+	if !ok || item != 1 {
+		t.Errorf("LinkedStack interface pop should return 1, got %v", item)
+	}
+}
+
+func TestLinkedStack_LargeNumberOfItems(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Push many items
+	for i := range 1000 {
+		stack.Push(i)
+	}
+
+	if stack.Size() != 1000 {
+		t.Errorf("LinkedStack should have 1000 items, got %d", stack.Size())
+	}
+
+	// Pop all items in reverse order
+	for i := 999; i >= 0; i-- {
+		item, ok := stack.Pop()
+		if !ok || item != i {
+			t.Errorf("LinkedStack pop should return %d, got %v", i, item)
+		}
+	}
+
+	if !stack.IsEmpty() {
+		t.Error("LinkedStack should be empty after popping all items")
+	}
+}
+
+func TestLinkedStack_ConcurrentOperations(t *testing.T) {
+	stack := NewLinkedStack[int]()
+
+	// Test that operations work correctly in sequence
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+
+	// Peek should not change the stack
+	item, ok := stack.Peek()
+	if !ok || item != 3 {
+		t.Errorf("LinkedStack peek should return 3, got %v", item)
+	}
+
+	// Pop should remove the top item
+	item, ok = stack.Pop()
+	if !ok || item != 3 {
+		t.Errorf("LinkedStack pop should return 3, got %v", item)
+	}
+
+	// Peek should now return the new top item
+	item, ok = stack.Peek()
+	if !ok || item != 2 {
+		t.Errorf("LinkedStack peek should return 2, got %v", item)
 	}
 }

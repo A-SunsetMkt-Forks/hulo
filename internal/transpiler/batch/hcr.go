@@ -1,8 +1,13 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package batch
 
 import (
 	"github.com/hulo-lang/hulo/internal/transpiler"
 	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
+	"github.com/hulo-lang/hulo/syntax/batch/astutil"
 	btok "github.com/hulo-lang/hulo/syntax/batch/token"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 )
@@ -24,9 +29,9 @@ func (c *BoolAsNumberHandler) Strategy() string {
 
 func (c *BoolAsNumberHandler) Apply(transpiler transpiler.Transpiler[bast.Node], node hast.Node) (bast.Node, error) {
 	if _, ok := node.(*hast.TrueLiteral); ok {
-		return &bast.Lit{Val: "1"}, nil
+		return astutil.Lit("1"), nil
 	}
-	return &bast.Lit{Val: "0"}, nil
+	return astutil.Lit("0"), nil
 }
 
 type BoolAsStringHandler struct{}
@@ -37,9 +42,9 @@ func (c *BoolAsStringHandler) Strategy() string {
 
 func (c *BoolAsStringHandler) Apply(transpiler transpiler.Transpiler[bast.Node], node hast.Node) (bast.Node, error) {
 	if _, ok := node.(*hast.TrueLiteral); ok {
-		return &bast.Lit{Val: `"true"`}, nil
+		return astutil.Lit(`"true"`), nil
 	}
-	return &bast.Lit{Val: `"false"`}, nil
+	return astutil.Lit(`"false"`), nil
 }
 
 type BoolAsCmdHandler struct{}

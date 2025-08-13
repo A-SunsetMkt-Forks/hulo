@@ -190,10 +190,10 @@ func ExampleBlockStmt() {
 			// 条件语句
 			IfStmt(
 				Eq(Ident("message"), Word("Hello")),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Message is Hello")),
 				),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Message is not Hello")),
 				),
 			),

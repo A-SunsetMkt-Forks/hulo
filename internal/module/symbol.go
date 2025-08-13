@@ -1,3 +1,7 @@
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package module
 
 import "fmt"
@@ -24,6 +28,7 @@ const (
 	SymbolFunc
 	SymbolConst
 	SymbolClass
+	SymbolEnum
 	SymbolNamespace
 )
 
@@ -124,17 +129,79 @@ func NewConstantSymbol(name string, value any, dataType string, moduleID int) *C
 // ClassSymbol 类符号
 type ClassSymbol struct {
 	BaseSymbol
-	Fields     map[string]*Field
-	Methods    map[string]*FunctionSymbol
-	SuperClass string
-	Traits     []string
+	fields     map[string]*Field
+	methods    map[string]*FunctionSymbol
+	superClass string
+	traits     []string
+}
+
+func (c *ClassSymbol) GetField(name string) *Field {
+	return c.fields[name]
+}
+
+func (c *ClassSymbol) GetMethod(name string) *FunctionSymbol {
+	return c.methods[name]
+}
+
+func (c *ClassSymbol) Fields() map[string]*Field {
+	return c.fields
+}
+
+func (c *ClassSymbol) Methods() map[string]*FunctionSymbol {
+	return c.methods
+}
+
+func (c *ClassSymbol) Traits() []string {
+	return c.traits
+}
+
+func (c *ClassSymbol) SuperClass() string {
+	return c.superClass
 }
 
 type Field struct {
-	Name     string
-	Type     string
-	IsPublic bool
-	Default  any
+	name  string
+	typ   string
+	isPub bool
+	val   any
+}
+
+func (f *Field) Name() string {
+	return f.name
+}
+
+func (f *Field) Type() string {
+	return f.typ
+}
+
+func (f *Field) IsPublic() bool {
+	return f.isPub
+}
+
+func (f *Field) Value() any {
+	return f.val
+}
+
+type EnumValue struct {
+	Name  string
+	Value string
+	Type  string
+}
+
+type EnumSymbol struct {
+	BaseSymbol
+	Values []*EnumValue
+}
+
+func NewEnumSymbol(name string, moduleID int) *EnumSymbol {
+	return &EnumSymbol{
+		BaseSymbol: BaseSymbol{
+			Name:     name,
+			Kind:     SymbolEnum,
+			ModuleID: moduleID,
+			Mangled:  false,
+		},
+	}
 }
 
 func NewClassSymbol(name string, moduleID int) *ClassSymbol {
@@ -145,9 +212,9 @@ func NewClassSymbol(name string, moduleID int) *ClassSymbol {
 			ModuleID: moduleID,
 			Mangled:  false,
 		},
-		Fields:  make(map[string]*Field),
-		Methods: make(map[string]*FunctionSymbol),
-		Traits:  make([]string, 0),
+		fields:  make(map[string]*Field),
+		methods: make(map[string]*FunctionSymbol),
+		traits:  make([]string, 0),
 	}
 }
 
@@ -279,6 +346,7 @@ type SymbolMangler struct {
 }
 
 func (sm *SymbolMangler) MangleSymbol(moduleID int, symbolType SymbolKind, originalName string) string {
+	return originalName
 	// 检查是否已经混淆过
 	if mangled, exists := sm.mangledMap[originalName]; exists {
 		return mangled
@@ -300,6 +368,7 @@ func (sm *SymbolMangler) MangleSymbol(moduleID int, symbolType SymbolKind, origi
 
 // MangleSymbolWithScope 带作用域级别的混淆
 func (sm *SymbolMangler) MangleSymbolWithScope(moduleID int, symbolType SymbolKind, originalName string, scopeLevel int) string {
+	return originalName
 	// 检查是否已经混淆过
 	if mangled, exists := sm.mangledMap[originalName]; exists {
 		return mangled
@@ -410,6 +479,13 @@ func AsFunctionSymbol(symbol Symbol) (*FunctionSymbol, bool) {
 func AsConstantSymbol(symbol Symbol) (*ConstantSymbol, bool) {
 	if cs, ok := symbol.(*ConstantSymbol); ok {
 		return cs, true
+	}
+	return nil, false
+}
+
+func AsEnumSymbol(symbol Symbol) (*EnumSymbol, bool) {
+	if es, ok := symbol.(*EnumSymbol); ok {
+		return es, true
 	}
 	return nil, false
 }

@@ -1,4 +1,8 @@
-package transpiler_test
+// Copyright 2025 The Hulo Authors. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+package pwsh_test
 
 import (
 	"fmt"
@@ -21,7 +25,7 @@ declare fn echo(message: str);`,
 			}
 		`,
 		"main.hl": `
-			import "my_script"
+			import "./my_script"
 
 			my_script.greet()
 		`,
@@ -31,7 +35,7 @@ declare fn echo(message: str);`,
 		fs.WriteFile(path, []byte(content), 0644)
 	}
 
-	results, err := build.Transpile(&config.Huloc{Main: "main.hl", HuloPath: "."}, fs, ".")
+	results, err := build.Transpile(&config.Huloc{Main: "./main.hl", CompilerOptions: config.CompilerOptions{Pwsh: config.DefaultPowerShellOptions()}}, fs, ".")
 	assert.NoError(t, err)
 
 	for file, code := range results {

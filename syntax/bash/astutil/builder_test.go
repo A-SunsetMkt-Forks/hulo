@@ -343,10 +343,10 @@ func TestComplexNestedStructure(t *testing.T) {
 			// if 语句
 			IfStmt(
 				Eq(Ident("current"), Word("5")),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Halfway point!")),
 				),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Continuing...")),
 				),
 			),
@@ -415,10 +415,10 @@ func TestNestedIfChaining(t *testing.T) {
 			CmdStmt("echo", Word("Outer condition is true")),
 			IfStmt(
 				Eq(Ident("inner"), Word("true")),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Inner condition is also true")),
 				),
-				BlockStmt(
+				Block(
 					CmdStmt("echo", Word("Inner condition is false")),
 				),
 			),

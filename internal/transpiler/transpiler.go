@@ -16,5 +16,5 @@ type Transpiler[T any] interface {
 	// 获取目标语言名称
 	GetTargetName() string
 
-	UnresolvedSymbols() map[string][]linker.UnknownSymbolNode[T]
+	UnresolvedSymbols() map[string][]linker.UnkownSymbol
 }

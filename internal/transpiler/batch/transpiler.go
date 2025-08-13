@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package batch
 
 import (
@@ -8,11 +9,14 @@ import (
 	"strings"
 
 	"github.com/hulo-lang/hulo/internal/config"
+	"github.com/hulo-lang/hulo/internal/container"
 	"github.com/hulo-lang/hulo/internal/linker"
 	"github.com/hulo-lang/hulo/internal/module"
 	"github.com/hulo-lang/hulo/internal/transpiler"
+	"github.com/hulo-lang/hulo/internal/unsafe"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	bast "github.com/hulo-lang/hulo/syntax/batch/ast"
+	"github.com/hulo-lang/hulo/syntax/batch/astutil"
 	btok "github.com/hulo-lang/hulo/syntax/batch/token"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	htok "github.com/hulo-lang/hulo/syntax/hulo/token"
@@ -24,17 +28,16 @@ func Transpile(opts *config.Huloc, fs vfs.VFS, main string) (map[string]string, 
 	if err != nil {
 		return nil, err
 	}
-	transpiler := NewTranspiler(opts, moduleMgr)
-	transpiler.hcrDispatcher.Register(RuleCommentSyntax, &REMCommentHandler{}, &DoubleColonCommentHandler{})
-	transpiler.hcrDispatcher.Register(RuleBoolFormat, &BoolAsNumberHandler{}, &BoolAsStringHandler{}, &BoolAsCmdHandler{})
-
-	transpiler.hcrDispatcher.Bind(RuleCommentSyntax, opts.CompilerOptions.Batch.CommentSyntax)
-	transpiler.hcrDispatcher.Bind(RuleBoolFormat, opts.CompilerOptions.Batch.BoolFormat)
+	transpiler := NewTranspiler(opts.CompilerOptions.Batch, moduleMgr).RegisterDefaultRules()
+	err = transpiler.BindRules()
+	if err != nil {
+		return nil, err
+	}
 
 	results := make(map[string]bast.Node)
 	err = moduleMgr.VisitModules(func(mod *module.Module) error {
 		batAST := transpiler.Convert(mod.AST)
-		results[strings.Replace(mod.Path, ".hl", ".bat", 1)] = batAST
+		results[strings.Replace(mod.Path, ".hl", transpiler.GetTargetExt(), 1)] = batAST
 		return nil
 	})
 	if err != nil {
@@ -46,17 +49,19 @@ func Transpile(opts *config.Huloc, fs vfs.VFS, main string) (map[string]string, 
 	for _, nodes := range transpiler.unresolvedSymbols {
 		for _, node := range nodes {
 			// 先Load没有在Read, 并且没符号的时候全部导入所有符号，并且还要处理好外部文件和内部文件
-			err := ld.Read(node.AST.Path)
+			err := ld.Read(node.Source())
 			if err != nil {
 				return nil, err
 			}
-			linkable := ld.Load(node.AST.Path)
-			symbol := linkable.Lookup(node.AST.Symbol)
+			linkable := ld.Load(node.Source())
+			symbol := linkable.Lookup(node.Name())
 			if symbol == nil {
-				return nil, fmt.Errorf("symbol %s not found in %s", node.AST.Symbol, node.AST.Path)
+				return nil, fmt.Errorf("symbol %s not found in %s", node.Name(), node.Source())
 			}
-			node.Node.(*bast.Lit).Val = symbol.Text()
-			results[node.AST.Path] = node.Node
+			err = node.Link(symbol)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	ret := make(map[string]string)
@@ -67,12 +72,29 @@ func Transpile(opts *config.Huloc, fs vfs.VFS, main string) (map[string]string, 
 }
 
 type UnresolvedSymbol struct {
-	File     string
 	RefCount int // 引用次数，如果为0，则可以删除
+	AST      *hast.UnresolvedSymbol
+	node     *bast.Lit
+}
+
+func (sym *UnresolvedSymbol) Name() string {
+	return sym.AST.Symbol
+}
+
+func (sym *UnresolvedSymbol) Source() string {
+	return sym.AST.Path
+}
+
+func (sym *UnresolvedSymbol) Link(symbol *linker.LinkableSymbol) error {
+	if symbol == nil {
+		return fmt.Errorf("symbol is nil")
+	}
+	sym.node.Val = symbol.Text()
+	return nil
 }
 
 type Transpiler struct {
-	opts *config.Huloc
+	opts *config.BatchOptions
 
 	buffer []bast.Stmt
 
@@ -80,35 +102,58 @@ type Transpiler struct {
 
 	results map[string]*bast.File
 
-	// ! 一定要重建作用域，在元编程的时候会破坏作用域，如果被元编程破坏的话 还要重新修复语法树
-	// 如果假设语法树修复了，能不能从 Node -> Scope 的映射获取呢？
-	// 这里为了简便设计 先手动管理作用域
-	scopes *ScopeStack
+	callers container.Stack[CallFrame]
 
-	unresolvedSymbols map[string][]linker.UnknownSymbolNode[bast.Node]
+	unresolvedSymbols map[string][]linker.UnkownSymbol
 
 	hcrDispatcher *transpiler.HCRDispatcher[bast.Node]
 
 	counter uint64
+
+	unsafeEngine *unsafe.TemplateEngine
 }
 
-func NewTranspiler(opts *config.Huloc, moduleMgr *module.DependecyResolver) *Transpiler {
+func NewTranspiler(opts *config.BatchOptions, moduleMgr *module.DependecyResolver) *Transpiler {
 	return &Transpiler{
-		scopes:            &ScopeStack{scopes: []*Scope{{Type: GlobalScope}}},
 		counter:           0,
 		opts:              opts,
 		moduleMgr:         moduleMgr,
-		unresolvedSymbols: make(map[string][]linker.UnknownSymbolNode[bast.Node]),
+		unresolvedSymbols: make(map[string][]linker.UnkownSymbol),
 		hcrDispatcher:     transpiler.NewHCRDispatcher[bast.Node](),
+		callers:           container.NewArrayStack[CallFrame](),
+		unsafeEngine:      unsafe.NewTemplateEngine(),
 	}
 }
 
-func (t *Transpiler) UnresolvedSymbols() map[string][]linker.UnknownSymbolNode[bast.Node] {
+func (t *Transpiler) HCRDispatcher() *transpiler.HCRDispatcher[bast.Node] {
+	return t.hcrDispatcher
+}
+
+func (t *Transpiler) RegisterDefaultRules() *Transpiler {
+	t.hcrDispatcher.Register(RuleCommentSyntax, &REMCommentHandler{}, &DoubleColonCommentHandler{})
+	t.hcrDispatcher.Register(RuleBoolFormat, &BoolAsNumberHandler{}, &BoolAsStringHandler{}, &BoolAsCmdHandler{})
+	return t
+}
+
+func (t *Transpiler) BindRules() error {
+	opts := t.opts
+	err := t.hcrDispatcher.Bind(RuleCommentSyntax, opts.CommentSyntax)
+	if err != nil {
+		return err
+	}
+	err = t.hcrDispatcher.Bind(RuleBoolFormat, opts.BoolFormat)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Transpiler) UnresolvedSymbols() map[string][]linker.UnkownSymbol {
 	return t.unresolvedSymbols
 }
 
 func (t *Transpiler) GetTargetExt() string {
-	return ".bat"
+	return t.opts.ExtFileName
 }
 
 func (t *Transpiler) GetTargetName() string {
@@ -134,9 +179,9 @@ func (t *Transpiler) Convert(node hast.Node) bast.Node {
 	case *hast.TrueLiteral, *hast.FalseLiteral:
 		return t.invokeHCR(RuleBoolFormat, node)
 	case *hast.BreakStmt:
-		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":break"}}}}
+		return t.ConvertBreakStmt(node)
 	case *hast.ContinueStmt:
-		return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":continue"}}}}
+		return t.ConvertContinueStmt(node)
 	case *hast.ObjectLiteralExpr:
 		return &bast.Lit{Val: "[object]"}
 	case *hast.UnaryExpr:
@@ -186,20 +231,56 @@ func (t *Transpiler) Convert(node hast.Node) bast.Node {
 	case *hast.ForeachStmt:
 		return t.ConvertForeachStmt(node)
 	case *hast.UnresolvedSymbol:
-		sym := &bast.Lit{Val: "[PLACEHOLDER]"}
-		t.unresolvedSymbols[node.Path] = append(t.unresolvedSymbols[node.Path], linker.UnknownSymbolNode[bast.Node]{AST: node, Node: sym})
-		return &bast.ExprStmt{X: sym}
+		return t.ConvertUnresolvedSymbol(node)
+	case *hast.UnsafeExpr:
+		return t.ConvertUnsafeExpr(node)
 	default:
 		panic(fmt.Sprintf("unsupported node type: %T", node))
 	}
 }
 
-func (t *Transpiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
-	t.scopes.Push(&Scope{Type: LoopScope})
-	defer t.scopes.Pop()
+func (t *Transpiler) ConvertUnsafeExpr(node *hast.UnsafeExpr) bast.Node {
+	// TODO 这里需要模板引擎执行，但是模板引擎缺少编译期变量，没法正确解析，需要解释器导出他的环境表
+	output, err := t.unsafeEngine.Execute(node.Text)
+	if err != nil {
+		return nil
+	}
+	return astutil.Lit(output)
+}
 
+func (t *Transpiler) ConvertContinueStmt(node *hast.ContinueStmt) bast.Node {
+	caller, ok := t.callers.Peek()
+	if ok && caller.Kind() == CallerLoop {
+		return astutil.Goto(caller.(*LoopFrame).StartLabel)
+	}
+	return nil
+}
+
+func (t *Transpiler) ConvertBreakStmt(node *hast.BreakStmt) bast.Node {
+	caller, ok := t.callers.Peek()
+	if ok && caller.Kind() == CallerLoop {
+		return astutil.Goto(caller.(*LoopFrame).EndLabel)
+	}
+	return nil
+}
+
+func (t *Transpiler) ConvertUnresolvedSymbol(node *hast.UnresolvedSymbol) bast.Node {
+	sym := astutil.Lit("[PLACEHOLDER]")
+	t.unresolvedSymbols[node.Path] = append(t.unresolvedSymbols[node.Path],
+		&UnresolvedSymbol{AST: node, node: sym})
+	return astutil.ExprStmt(sym)
+}
+
+func (t *Transpiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
 	loopName := fmt.Sprintf("loop_%d", t.counter)
+	endLabel := fmt.Sprintf("end_%d", t.counter)
 	t.counter++
+
+	t.callers.Push(&LoopFrame{
+		StartLabel: loopName,
+		EndLabel:   endLabel,
+	})
+	defer t.callers.Pop()
 
 	// Convert for loop components
 	init := t.Convert(node.Init).(bast.Stmt)
@@ -216,40 +297,29 @@ func (t *Transpiler) ConvertForStmt(node *hast.ForStmt) bast.Node {
 	// goto :loop_label
 	// :end
 
-	endLabel := fmt.Sprintf("end_%d", t.counter-1)
-
 	// Create the loop structure
 	loopStmts := []bast.Stmt{
-		init,                            // initialization
-		&bast.LabelStmt{Name: loopName}, // loop start label
-		&bast.IfStmt{ // condition check
-			Cond: &bast.UnaryExpr{Op: btok.NOT, X: cond},
-			Body: &bast.BlockStmt{List: []bast.Stmt{
-				&bast.GotoStmt{Label: endLabel},
-			}},
-		},
-		body,                            // loop body
-		post,                            // post iteration
-		&bast.GotoStmt{Label: loopName}, // jump back to loop start
-		&bast.LabelStmt{Name: endLabel}, // loop end label
+		init,                    // initialization
+		astutil.Label(loopName), // loop start label
+		astutil.If(astutil.Unary(btok.NOT, cond), astutil.Block(astutil.Goto(endLabel)), nil),
+		body,                    // loop body
+		post,                    // post iteration
+		astutil.Goto(loopName),  // jump back to loop start
+		astutil.Label(endLabel), // loop end label
 	}
 
-	return &bast.BlockStmt{List: loopStmts}
+	return astutil.Block(loopStmts...)
 }
 
 func (bt *Transpiler) ConvertForeachStmt(node *hast.ForeachStmt) bast.Node {
-	bt.scopes.Push(&Scope{Type: LoopScope})
-	defer bt.scopes.Pop()
+	bt.callers.Push(&LoopFrame{})
+	defer bt.callers.Pop()
 
 	x := bt.Convert(node.Index).(bast.Expr)
 	elems := bt.Convert(node.Var).(bast.Expr)
 
 	body := bt.Convert(node.Body).(*bast.BlockStmt)
-	return &bast.ForStmt{
-		X:    x,
-		List: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "("}, elems, &bast.Lit{Val: ")"}}},
-		Body: body,
-	}
+	return astutil.For(x, astutil.Word(astutil.Lit("("), elems, astutil.Lit(")")), body)
 }
 
 func (bt *Transpiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.Node {
@@ -257,7 +327,7 @@ func (bt *Transpiler) ConvertArrayLiteralExpr(node *hast.ArrayLiteralExpr) bast.
 	for i, r := range node.Elems {
 		parts[i] = bt.Convert(r).(bast.Expr)
 	}
-	return &bast.Word{Parts: parts}
+	return astutil.Word(parts...)
 }
 
 func (bt *Transpiler) ConvertImport(node *hast.Import) bast.Node {
@@ -277,11 +347,11 @@ func (bt *Transpiler) ConvertImport(node *hast.Import) bast.Node {
 }
 
 func (bt *Transpiler) ConvertRefExpr(node *hast.RefExpr) bast.Node {
-	scope := bt.scopes.Current()
-	if scope != nil && scope.Type == AssignScope {
-		return &bast.Lit{Val: node.X.(*hast.Ident).Name}
+	scope, ok := bt.callers.Peek()
+	if ok && scope.Kind() == CallerAssign {
+		return astutil.Lit(node.X.(*hast.Ident).Name)
 	}
-	return &bast.DblQuote{Val: &bast.Lit{Val: node.X.(*hast.Ident).Name}}
+	return astutil.DblQuote(astutil.Lit(node.X.(*hast.Ident).Name))
 }
 
 func (bt *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
@@ -295,9 +365,9 @@ func (bt *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) bast.Node {
 func (bt *Transpiler) ConvertReturnStmt(node *hast.ReturnStmt) bast.Node {
 	expr, ok := bt.Convert(node.X).(bast.Expr)
 	if ok {
-		bt.Emit(&bast.ExprStmt{X: expr})
+		bt.Emit(astutil.ExprStmt(expr))
 	}
-	return &bast.ExprStmt{X: &bast.Word{Parts: []bast.Expr{&bast.Lit{Val: "goto"}, &bast.Lit{Val: ":eof"}}}}
+	return astutil.ExprStmt(astutil.Word(astutil.Lit("goto"), astutil.Lit(":eof")))
 }
 
 func (bt *Transpiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
@@ -313,7 +383,7 @@ func (bt *Transpiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
 	for _, cc := range node.Cases {
 		cond := bt.Convert(cc.Cond).(bast.Expr)
 		body := bt.Convert(cc.Body).(bast.Stmt)
-		ifStmt := &bast.IfStmt{Cond: &bast.BinaryExpr{X: &bast.DblQuote{Val: &bast.Lit{Val: name}}, Op: btok.EQU, Y: cond}, Body: body}
+		ifStmt := astutil.If(astutil.Binary(astutil.DblQuote(astutil.Lit(name)), btok.EQU, cond), body, nil)
 		if firstIf == nil {
 			firstIf = ifStmt
 			currentIf = ifStmt
@@ -333,56 +403,59 @@ func (bt *Transpiler) ConvertMatchStmt(node *hast.MatchStmt) bast.Node {
 }
 
 func (bt *Transpiler) ConvertIncDecExpr(node *hast.IncDecExpr) bast.Node {
-	bt.scopes.Push(&Scope{Type: AssignScope})
+	bt.callers.Push(&AssignFrame{})
 	x := bt.Convert(node.X).(bast.Expr)
-	bt.scopes.Pop()
+	bt.callers.Pop()
 	if node.Tok == htok.INC {
-		return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{&bast.DblQuote{Val: x}, &bast.Lit{Val: "+1"}}}}
-	} else {
-		return &bast.AssignStmt{Lhs: x, Rhs: &bast.Word{Parts: []bast.Expr{&bast.DblQuote{Val: x}, &bast.Lit{Val: "-1"}}}}
+		return astutil.Assign(x, astutil.Word(astutil.DblQuote(x), astutil.Lit("+1")))
 	}
+	return astutil.Assign(x, astutil.Word(astutil.DblQuote(x), astutil.Lit("-1")))
 }
 
 func (bt *Transpiler) ConvertAssignStmt(node *hast.AssignStmt) bast.Node {
 	lhs := bt.Convert(node.Lhs).(bast.Expr)
 	rhs := bt.Convert(node.Rhs).(bast.Expr)
-	return &bast.AssignStmt{Lhs: lhs, Rhs: rhs}
+	return astutil.Assign(lhs, rhs)
 }
 
 func (bt *Transpiler) ConvertDoWhileStmt(node *hast.DoWhileStmt) bast.Node {
-	// emulate do-while: body; for ;; cond; do (body)
-	bt.scopes.Push(&Scope{Type: LoopScope})
-	defer bt.scopes.Pop()
-
 	loopName := fmt.Sprintf("loop_%d", bt.counter)
 	bt.counter++
+	// emulate do-while: body; for ;; cond; do (body)
+	bt.callers.Push(&LoopFrame{
+		StartLabel: loopName,
+	})
+	defer bt.callers.Pop()
 
 	body := bt.Convert(node.Body).(bast.Stmt)
 	cond := bt.Convert(node.Cond).(bast.Expr)
 
-	ifStmt := &bast.IfStmt{Cond: cond, Body: &bast.BlockStmt{List: []bast.Stmt{&bast.GotoStmt{Label: loopName}}}}
-	return &bast.BlockStmt{List: []bast.Stmt{&bast.LabelStmt{Name: loopName}, body, ifStmt}}
+	ifStmt := astutil.If(astutil.Unary(btok.NOT, cond), astutil.Block(astutil.Goto(loopName)), nil)
+	return astutil.Block(astutil.Label(loopName), body, ifStmt)
 }
 
 func (bt *Transpiler) ConvertWhileStmt(node *hast.WhileStmt) bast.Node {
-	bt.scopes.Push(&Scope{Type: LoopScope})
-	defer bt.scopes.Pop()
-
 	loopName := fmt.Sprintf("loop_%d", bt.counter)
 	endName := fmt.Sprintf("end_%d", bt.counter)
 	bt.counter++
 
-	stmts := []bast.Stmt{&bast.GotoStmt{Label: loopName}}
+	bt.callers.Push(&LoopFrame{
+		StartLabel: loopName,
+		EndLabel:   endName,
+	})
+	defer bt.callers.Pop()
+
+	stmts := []bast.Stmt{astutil.Goto(loopName)}
 	if node.Cond != nil {
 		cond := bt.Convert(node.Cond).(bast.Expr)
-		ifStmt := &bast.IfStmt{Cond: &bast.UnaryExpr{Op: btok.NOT, X: cond}, Body: &bast.BlockStmt{List: []bast.Stmt{&bast.GotoStmt{Label: endName}}}}
+		ifStmt := astutil.If(astutil.Unary(btok.NOT, cond), astutil.Block(astutil.Goto(endName)), nil)
 		stmts = append(stmts, ifStmt)
 	}
 
 	body := bt.Convert(node.Body).(bast.Stmt)
-	stmts = append(stmts, body, &bast.GotoStmt{Label: endName})
+	stmts = append(stmts, body, astutil.Goto(endName))
 
-	return &bast.BlockStmt{List: stmts}
+	return astutil.Block(stmts...)
 }
 
 func (bt *Transpiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
@@ -409,11 +482,7 @@ func (bt *Transpiler) ConvertIfStmt(node *hast.IfStmt) bast.Node {
 			elseStmt = s
 		}
 	}
-	return &bast.IfStmt{
-		Cond: cond,
-		Body: body,
-		Else: elseStmt,
-	}
+	return astutil.If(cond, body, elseStmt)
 }
 
 func (bt *Transpiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
@@ -432,28 +501,28 @@ func (bt *Transpiler) ConvertBlockStmt(node *hast.BlockStmt) bast.Node {
 			continue
 		}
 	}
-	return &bast.BlockStmt{List: stmts}
+	return astutil.Block(stmts...)
 }
 
 func (bt *Transpiler) ConvertFuncDecl(node *hast.FuncDecl) bast.Node {
-	bt.scopes.Push(&Scope{Type: FunctionScope})
-	defer bt.scopes.Pop()
+	bt.callers.Push(&FunctionFrame{})
+	defer bt.callers.Pop()
 	// batch function: :label ...
 	body := bt.Convert(node.Body).(*bast.BlockStmt)
-	return &bast.FuncDecl{Name: node.Name.Name, Body: body}
+	return astutil.FuncDecl(node.Name.Name, body)
 }
 
 func (bt *Transpiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 	switch node.Op {
 	case htok.PLUS, htok.MINUS, htok.ASTERISK, htok.SLASH, htok.MOD:
 		var lhs, rhs bast.Expr
-		top := bt.scopes.Current()
+		top, _ := bt.callers.Peek()
 
-		switch top.Type {
-		case FunctionScope:
-			lhs = &bast.SglQuote{Val: &bast.Lit{Val: "1"}}
-			rhs = &bast.SglQuote{Val: &bast.Lit{Val: "2"}}
-		case LoopScope:
+		switch top.Kind() {
+		case CallerFunction:
+			lhs = astutil.SglQuote(astutil.Lit("1"))
+			rhs = astutil.SglQuote(astutil.Lit("2"))
+		case CallerLoop:
 			bt.Emit(&bast.ExprStmt{})
 			return nil
 		default:
@@ -462,13 +531,13 @@ func (bt *Transpiler) ConvertBinaryExpr(node *hast.BinaryExpr) bast.Node {
 		}
 
 		bt.Emit(&bast.AssignStmt{
-			Opt: &bast.Lit{Val: "/a"},
-			Lhs: &bast.Lit{Val: "result"},
-			Rhs: &bast.BinaryExpr{X: lhs, Op: Token(node.Op), Y: rhs},
+			Opt: astutil.Lit("/a"),
+			Lhs: astutil.Lit("result"),
+			Rhs: astutil.Binary(lhs, Token(node.Op), rhs),
 		})
 		return nil
 	default:
-		return &bast.BinaryExpr{X: bt.Convert(node.X).(bast.Expr), Op: Token(node.Op), Y: bt.Convert(node.Y).(bast.Expr)}
+		return astutil.Binary(bt.Convert(node.X).(bast.Expr), Token(node.Op), bt.Convert(node.Y).(bast.Expr))
 	}
 }
 
@@ -486,8 +555,8 @@ func (bt *Transpiler) ConvertCallExpr(node *hast.CallExpr) bast.Node {
 				// &bast.Lit{Val: modLit.Val + ".bat"},
 				&bast.Lit{Val: funLit.Val},
 			}
-			bt.Emit(&bast.ExprStmt{X: &bast.Word{Parts: append(parts, args...)}})
-			return &bast.DblQuote{Val: &bast.Lit{Val: "result"}}
+			bt.Emit(astutil.ExprStmt(astutil.Word(append(parts, args...)...)))
+			return astutil.DblQuote(astutil.Lit("result"))
 		}
 	}
 	// 其它情况按原有逻辑
@@ -519,14 +588,7 @@ func (bt *Transpiler) ConvertFile(node *hast.File) bast.Node {
 	for i, d := range node.Docs {
 		docs[i] = bt.Convert(d).(*bast.CommentGroup)
 	}
-	stmts := []bast.Stmt{&bast.ExprStmt{
-		X: &bast.Word{
-			Parts: []bast.Expr{
-				&bast.Lit{Val: "@echo"},
-				&bast.Lit{Val: "off"},
-			},
-		},
-	}}
+	stmts := []bast.Stmt{astutil.ExprStmt(astutil.Word(astutil.Lit("@echo"), astutil.Lit("off")))}
 	for _, s := range node.Stmts {
 		stmt := bt.Convert(s)
 
@@ -536,7 +598,7 @@ func (bt *Transpiler) ConvertFile(node *hast.File) bast.Node {
 		}
 		stmts = append(stmts, stmt.(bast.Stmt))
 	}
-	return &bast.File{Docs: docs, Stmts: stmts}
+	return astutil.File(docs, stmts...)
 }
 
 func (bt *Transpiler) Emit(n ...bast.Stmt) {

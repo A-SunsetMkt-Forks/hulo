@@ -114,7 +114,7 @@ func TestReturnStmt(t *testing.T) {
 func TestBlockStmt(t *testing.T) {
 	stmt1 := CmdStmt("echo", Word("hello"))
 	stmt2 := CmdStmt("echo", Word("world"))
-	block := BlockStmt(stmt1, stmt2)
+	block := Block(stmt1, stmt2)
 
 	assert.NotNil(t, block)
 	assert.Len(t, block.List, 2)
@@ -415,8 +415,8 @@ func TestNot(t *testing.T) {
 
 func TestIfStmt(t *testing.T) {
 	cond := Eq(Ident("x"), Word("1"))
-	body := BlockStmt(CmdStmt("echo", Word("true")))
-	elseBody := BlockStmt(CmdStmt("echo", Word("false")))
+	body := Block(CmdStmt("echo", Word("true")))
+	elseBody := Block(CmdStmt("echo", Word("false")))
 
 	ifStmt := IfStmt(cond, body, elseBody)
 

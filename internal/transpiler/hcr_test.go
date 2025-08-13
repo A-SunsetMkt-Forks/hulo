@@ -41,8 +41,8 @@ func (m *MockTranspiler) GetTargetName() string {
 	return "mock"
 }
 
-func (m *MockTranspiler) UnresolvedSymbols() map[string][]linker.UnknownSymbolNode[string] {
-	return make(map[string][]linker.UnknownSymbolNode[string])
+func (m *MockTranspiler) UnresolvedSymbols() map[string][]linker.UnkownSymbol {
+	return make(map[string][]linker.UnkownSymbol)
 }
 
 // MockRuleID 是一个用于测试的规则ID

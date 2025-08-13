@@ -1,10 +1,12 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package module
 
 import (
 	"fmt"
+	"strconv"
 
 	"maps"
 
@@ -125,6 +127,15 @@ func (m *Module) GetClassSymbols() []*ClassSymbol {
 	return classes
 }
 
+func (m *Module) LookupEnumSymbol(name string) *EnumSymbol {
+	for _, symbol := range m.Symbols.GlobalSymbols {
+		if enumSymbol, ok := AsEnumSymbol(symbol); ok && enumSymbol.GetName() == name {
+			return enumSymbol
+		}
+	}
+	return nil
+}
+
 func (m *Module) LookupClassSymbol(name string) *ClassSymbol {
 	for _, symbol := range m.Symbols.GlobalSymbols {
 		if classSymbol, ok := AsClassSymbol(symbol); ok && classSymbol.GetName() == name {
@@ -199,7 +210,7 @@ func (m *Module) PrintSymbolTable() {
 		case *FunctionSymbol:
 			fmt.Printf("    Return: %s, Params: %d\n", s.ReturnType, len(s.Parameters))
 		case *ClassSymbol:
-			fmt.Printf("    Fields: %d, Methods: %d\n", len(s.Fields), len(s.Methods))
+			fmt.Printf("    Fields: %d, Methods: %d\n", len(s.fields), len(s.methods))
 		case *VariableSymbol:
 			fmt.Printf("    Type: %s\n", s.DataType)
 		}
@@ -504,33 +515,33 @@ func (m *Module) extractClassSymbol(cls *hast.ClassDecl, st *SymbolTable) error 
 
 	// 设置父类
 	if cls.Parent != nil {
-		classSymbol.SuperClass = cls.Parent.Name
+		classSymbol.superClass = cls.Parent.Name
 	}
 
 	// 提取字段
 	if cls.Fields != nil {
 		for _, field := range cls.Fields.List {
 			classField := &Field{
-				Name:     field.Name.Name,
-				Type:     m.typeToString(field.Type),
-				IsPublic: false,
-				Default:  nil,
+				name:  field.Name.Name,
+				typ:   m.typeToString(field.Type),
+				isPub: false,
+				val:   nil,
 			}
 
 			// 检查字段修饰符
 			for _, modifier := range field.Modifiers {
 				switch modifier.Kind() {
 				case hast.ModKindPub:
-					classField.IsPublic = true
+					classField.isPub = true
 				}
 			}
 
 			// 设置默认值
 			if field.Value != nil {
-				classField.Default = field.Value
+				classField.val = field.Value
 			}
 
-			classSymbol.Fields[field.Name.Name] = classField
+			classSymbol.fields[field.Name.Name] = classField
 		}
 	}
 
@@ -579,7 +590,7 @@ func (m *Module) extractMethodSymbol(method *hast.FuncDecl, classSymbol *ClassSy
 	methodSymbol.Body = method.Body
 
 	// 添加到类的方法表
-	classSymbol.Methods[method.Name.Name] = methodSymbol
+	classSymbol.methods[method.Name.Name] = methodSymbol
 	return nil
 }
 
@@ -648,13 +659,106 @@ func (m *Module) extractVariableSymbol(assign *hast.AssignStmt, st *SymbolTable)
 // extractEnumSymbol 提取枚举符号
 func (m *Module) extractEnumSymbol(enum *hast.EnumDecl, st *SymbolTable) error {
 	// 枚举可以看作是一种特殊的类
-	enumSymbol := NewClassSymbol(enum.Name.Name, m.ModuleID)
-
+	enumSymbol := NewEnumSymbol(enum.Name.Name, m.ModuleID)
+	var enumValues []*EnumValue
 	// 设置修饰符
 	for _, modifier := range enum.Modifiers {
 		switch modifier.Kind() {
 		case hast.ModKindPub:
 			enumSymbol.Exported = true
+		}
+	}
+
+	switch body := enum.Body.(type) {
+	case *hast.BasicEnumBody:
+		// 简单枚举：enum Status { Pending, Approved, Rejected }
+		// 检查是否有显式值，如果有，按递增逻辑；如果没有，按索引逻辑
+		hasExplicitValues := false
+		for _, value := range body.Values {
+			if value.Value != nil {
+				hasExplicitValues = true
+				break
+			}
+		}
+
+		if hasExplicitValues {
+			// 有关联值的枚举，使用递增逻辑
+			lastValue := 0
+			for _, value := range body.Values {
+				var enumValue *EnumValue
+
+				if value.Value != nil {
+					// 如果有显式值，使用它
+
+					var valueType string
+					var rawValue string
+
+					// 确定值的类型
+					switch value := value.Value.(type) {
+					case *hast.StringLiteral:
+						valueType = "str"
+						rawValue = value.Value
+					case *hast.NumericLiteral:
+						valueType = "num"
+						rawValue = value.Value
+						// 更新 lastValue
+						if val, err := strconv.Atoi(value.Value); err == nil {
+							lastValue = val
+						}
+					case *hast.TrueLiteral:
+						valueType = "bool"
+						rawValue = "true"
+					case *hast.FalseLiteral:
+						valueType = "bool"
+						rawValue = "false"
+					default:
+						valueType = "num"
+						rawValue = strconv.Itoa(lastValue + 1)
+					}
+
+					enumValue = &EnumValue{
+						Name:  value.Name.Name,
+						Value: rawValue,
+						Type:  valueType,
+					}
+				} else {
+					// 没有显式值，使用上一个值 + 1
+					lastValue++
+
+					// 创建枚举值对象
+					enumValue = &EnumValue{
+						Name:  value.Name.Name,
+						Value: fmt.Sprintf("%d", lastValue),
+						Type:  "number",
+					}
+				}
+
+				enumValues = append(enumValues, enumValue) // 收集枚举值
+			}
+		} else {
+			// 简单枚举，使用索引逻辑
+			for i, value := range body.Values {
+				// 创建枚举值对象
+				enumValue := &EnumValue{
+					Name:  value.Name.Name,
+					Value: fmt.Sprintf("%d", i),
+					Type:  "number",
+				}
+				enumValues = append(enumValues, enumValue) // 收集枚举值
+			}
+		}
+	case *hast.AssociatedEnumBody:
+
+	case *hast.ADTEnumBody:
+		// ADT 枚举：enum Result { Success(num), Error(str) }
+		for i, variant := range body.Variants {
+			// 创建枚举值对象
+			enumValue := &EnumValue{
+				Name:  variant.Name.Name,
+				Value: fmt.Sprintf("%d", i),
+				Type:  "number",
+			}
+			enumValues = append(enumValues, enumValue) // 收集枚举值
 		}
 	}
 
