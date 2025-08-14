@@ -30,8 +30,41 @@ func OptionStmt() *ast.OptionStmt {
 }
 
 func AssignStmt(lhs ast.Expr, rhs ast.Expr) *ast.AssignStmt {
-	return &ast.AssignStmt{
-		Lhs: lhs,
-		Rhs: rhs,
-	}
+	return &ast.AssignStmt{Lhs: lhs, Rhs: rhs}
+}
+
+func BasicLit(s string) *ast.BasicLit {
+	return &ast.BasicLit{Value: s}
+}
+
+func Ident(name string) *ast.Ident {
+	return &ast.Ident{Name: name}
+}
+
+func IndexExpr(x ast.Expr, index ast.Expr) *ast.IndexExpr {
+	return &ast.IndexExpr{X: x, Index: index}
+}
+
+func IndexListExpr(x ast.Expr, indices ...ast.Expr) *ast.IndexListExpr {
+	return &ast.IndexListExpr{X: x, Indices: indices}
+}
+
+func NewExpr(x ast.Expr) *ast.NewExpr {
+	return &ast.NewExpr{X: x}
+}
+
+func CallExpr(fun ast.Expr, recv ...ast.Expr) *ast.CallExpr {
+	return &ast.CallExpr{Func: fun, Recv: recv}
+}
+
+func CmdExpr(cmd ast.Expr, recv ...ast.Expr) *ast.CmdExpr {
+	return &ast.CmdExpr{Cmd: cmd, Recv: recv}
+}
+
+func SelectorExpr(x ast.Expr, sel ast.Expr) *ast.SelectorExpr {
+	return &ast.SelectorExpr{X: x, Sel: sel}
+}
+
+func BinaryExpr(x ast.Expr, op token.Token, y ast.Expr) *ast.BinaryExpr {
+	return &ast.BinaryExpr{X: x, Op: op, Y: y}
 }

@@ -1489,7 +1489,7 @@ func (p *prettyPrinter) visitTypeDecl(n *TypeDecl) Visitor {
 	return nil
 }
 
-func (p *prettyPrinter) visitTraitDecl(n *TraitDecl) Visitor {
+func (p *prettyPrinter) visitTraitDecl(_ *TraitDecl) Visitor {
 	p.indentWrite("trait ")
 	return nil
 }

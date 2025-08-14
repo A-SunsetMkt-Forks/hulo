@@ -7,7 +7,6 @@ package ast
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/hulo-lang/hulo/syntax/vbs/token"
 )
@@ -28,8 +27,6 @@ type Stmt interface {
 type Expr interface {
 	Node
 	exprNode()
-
-	String() string // string representation of the expression
 }
 
 // A CommentGroup represents a sequence of comments
@@ -626,7 +623,7 @@ type (
 
 func (x *Ident) Pos() token.Pos         { return x.NamePos }
 func (x *CallExpr) Pos() token.Pos      { return x.Func.Pos() }
-func (x *CmdExpr) Pos() token.Pos      { return x.Cmd.Pos() }
+func (x *CmdExpr) Pos() token.Pos       { return x.Cmd.Pos() }
 func (x *IndexExpr) Pos() token.Pos     { return x.X.Pos() }
 func (x *IndexListExpr) Pos() token.Pos { return x.X.Pos() }
 func (x *NewExpr) Pos() token.Pos       { return x.New }
@@ -666,46 +663,6 @@ func (*NewExpr) exprNode()       {}
 func (*SelectorExpr) exprNode()  {}
 func (*BinaryExpr) exprNode()    {}
 func (*BasicLit) exprNode()      {}
-
-func (e *Ident) String() string { return e.Name }
-func (e *BasicLit) String() string {
-	switch e.Kind {
-	case token.TRUE:
-		return "True"
-	case token.FALSE:
-		return "False"
-	case token.STRING:
-		return fmt.Sprintf(`"%s"`, e.Value)
-	}
-	return e.Value
-}
-func (e *SelectorExpr) String() string { return fmt.Sprintf("%s.%s", e.X, e.Sel) }
-func (e *BinaryExpr) String() string   { return fmt.Sprintf("%s %s %s", e.X, e.Op, e.Y) }
-func (e *CallExpr) String() string {
-	recv := []string{}
-	for _, r := range e.Recv {
-		recv = append(recv, r.String())
-	}
-	return fmt.Sprintf("%s(%s)", e.Func, strings.Join(recv, ", "))
-}
-func (e *CmdExpr) String() string {
-	recv := []string{}
-	for _, r := range e.Recv {
-		recv = append(recv, r.String())
-	}
-	return fmt.Sprintf("%s %s", e.Cmd, strings.Join(recv, ", "))
-}
-func (e *IndexExpr) String() string { return fmt.Sprintf("%s(%s)", e.X, e.Index) }
-func (e *IndexListExpr) String() string {
-	recv := []string{}
-	for _, r := range e.Indices {
-		recv = append(recv, r.String())
-	}
-	return fmt.Sprintf("%s(%s)", e.X, strings.Join(recv, ", "))
-}
-func (e *NewExpr) String() string {
-	return fmt.Sprintf("%s %s", token.NEW, e.X)
-}
 
 // A File node represents a VBScript source file.
 type File struct {

@@ -16,6 +16,7 @@ import (
 	"github.com/hulo-lang/hulo/internal/vfs"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	past "github.com/hulo-lang/hulo/syntax/powershell/ast"
+	"github.com/hulo-lang/hulo/syntax/powershell/astutil"
 )
 
 type Transpiler struct {
@@ -235,8 +236,8 @@ func (p *Transpiler) ConvertImport(node *hast.Import) past.Node {
 
 	// PowerShell 的 source 语法：. ./module.ps1
 	return &past.ExprStmt{X: &past.CmdExpr{
-		Cmd:  &past.Ident{Name: "."},
-		Args: []past.Expr{&past.StringLit{Val: path}},
+		Cmd:  astutil.Ident("."),
+		Args: []past.Expr{astutil.StringLit(path)},
 	}}
 }
 
@@ -270,7 +271,7 @@ func (p *Transpiler) ConvertFuncDecl(node *hast.FuncDecl) past.Node {
 		return nil
 	}
 	return &past.FuncDecl{
-		Name: &past.Ident{Name: node.Name.Name},
+		Name: astutil.Ident(node.Name.Name),
 		Body: bodyBlock,
 	}
 }
@@ -290,7 +291,7 @@ func (p *Transpiler) ConvertAssignStmt(node *hast.AssignStmt) past.Node {
 	}
 
 	return &past.AssignStmt{
-		Lhs: &past.VarExpr{X: lhsExpr},
+		Lhs: astutil.VarExpr(lhsExpr),
 		Rhs: rhsExpr,
 	}
 }
