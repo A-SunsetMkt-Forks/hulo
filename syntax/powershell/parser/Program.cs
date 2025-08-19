@@ -1,4 +1,3 @@
-using System.Management.Automation;
 using System.Management.Automation.Language;
 
 namespace PowerShellToHulo
@@ -112,7 +111,7 @@ namespace PowerShellToHulo
             sb.AppendLine($"  {left} = {right}");
         }
 
-                private void ConvertIfStatement(IfStatementAst ifStmt, System.Text.StringBuilder sb)
+        private void ConvertIfStatement(IfStatementAst ifStmt, System.Text.StringBuilder sb)
         {
             // PowerShell IfStatementAst 的结构不同
             if (ifStmt.Clauses != null && ifStmt.Clauses.Count > 0)
@@ -143,6 +142,7 @@ namespace PowerShellToHulo
 
         private void ConvertForStatement(ForStatementAst forStmt, System.Text.StringBuilder sb)
         {
+            Console.WriteLine(forStmt.Body);
             sb.AppendLine("  for {");
             // 转换 for 循环
             sb.AppendLine("  }");

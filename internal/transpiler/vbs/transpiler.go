@@ -102,6 +102,27 @@ func NewTranspiler(opts *config.VBScriptOptions, moduleMgr *module.DependecyReso
 	}
 }
 
+type VBScriptSymbol struct {
+	AST  *hast.UnresolvedSymbol
+	node *vast.BasicLit
+}
+
+func (s *VBScriptSymbol) Source() string {
+	return s.AST.Path
+}
+
+func (s *VBScriptSymbol) Name() string {
+	return s.AST.Symbol
+}
+
+func (s *VBScriptSymbol) Link(symbol *linker.LinkableSymbol) error {
+	if symbol == nil {
+		return fmt.Errorf("symbol is nil")
+	}
+	s.node.Value = symbol.Text()
+	return nil
+}
+
 func (t *Transpiler) RegisterDefaultRules() *Transpiler {
 	return t
 }
@@ -245,14 +266,10 @@ func (v *Transpiler) Convert(node hast.Node) vast.Node {
 		return v.ConvertClassDecl(node)
 	case *hast.MatchStmt:
 		return v.ConvertMatchStmt(node)
-	case *hast.DeclareDecl:
-		return v.ConvertDeclareDecl(node)
 	case *hast.Import:
 		return v.ConvertImport(node)
 	case *hast.EnumDecl:
 		return v.ConvertEnumDecl(node)
-	case *hast.ModAccessExpr:
-		return v.ConvertModAccessExpr(node)
 	default:
 		fmt.Printf("%T\n", node)
 	}
@@ -278,54 +295,6 @@ func (v *Transpiler) ConvertExternDecl(node *hast.ExternDecl) vast.Node {
 }
 
 func (v *Transpiler) ConvertSelectExpr(node *hast.SelectExpr) vast.Node {
-	return &vast.SelectorExpr{
-		X:   v.Convert(node.X).(vast.Expr),
-		Sel: v.Convert(node.Y).(vast.Expr),
-	}
-}
-
-// ConvertModAccessExpr 将模块访问表达式转换为相应的常量引用
-// 例如：Status::Pending 转换为 0（数字枚举）或生成常量声明（字符串枚举）
-func (v *Transpiler) ConvertModAccessExpr(node *hast.ModAccessExpr) vast.Node {
-	// 获取模块名（枚举名）
-	moduleName := v.Convert(node.X).(*vast.Ident).Name
-
-	// 获取成员名（枚举值）
-	memberName := v.Convert(node.Y).(*vast.Ident).Name
-
-	// 检查是否是枚举访问
-	if v.currentModule.LookupEnumSymbol(moduleName) != nil {
-		// 检查是否是纯数字枚举，如果是则直接返回数值
-		if v.isNumericEnum(moduleName) {
-			// 对于数字枚举，直接返回数值
-			return v.getEnumNumericValue(moduleName, memberName)
-		} else {
-			// 对于字符串/混合枚举，生成常量声明并返回常量名
-			constName := fmt.Sprintf("%s_%s", moduleName, memberName)
-
-			// 这个问题很恶心 又要符号表看是否在vbs中声明了这个变量，那需要抽象一个变量表了？或者直接在module中用引用计数解决
-
-			// 检查是否已经声明过这个常量
-			if !v.currentModule.Symbols.HasConstant(constName) {
-				constValue := v.getEnumStringValue(moduleName, memberName)
-
-				// 生成常量声明
-				constStmt := &vast.ConstStmt{
-					Lhs: &vast.Ident{Name: constName},
-					Rhs: constValue,
-				}
-				v.Emit(constStmt)
-
-				// 标记为已声明
-				v.currentModule.Symbols.AddConstant(constName, node)
-			}
-
-			// 返回常量名
-			return &vast.Ident{Name: constName}
-		}
-	}
-
-	// 不是枚举访问，保持原样（可能需要其他处理）
 	return &vast.SelectorExpr{
 		X:   v.Convert(node.X).(vast.Expr),
 		Sel: v.Convert(node.Y).(vast.Expr),
@@ -398,11 +367,27 @@ func (v *Transpiler) getEnumStringValue(enumName, valueName string) vast.Expr {
 }
 
 func (v *Transpiler) ConvertImport(node *hast.Import) vast.Node {
+	if v.unresolvedSymbols["Import"] == nil {
+		node := &vast.BasicLit{
+			Kind:  vtok.INTEGER,
+			Value: "[PLACEHOLDER]",
+		}
+		v.Emit(&vast.ExprStmt{X: node})
+		// Import 作为 Builtin 直接在未知符号声明一个即可，不然没法做这个需求
+		v.unresolvedSymbols["Import"] = []linker.UnkownSymbol{
+			&VBScriptSymbol{
+				AST: &hast.UnresolvedSymbol{
+					Symbol: "Import",
+					Path:   "$HULO_PATH/core/unsafe/vbs/import.vbs",
+				},
+				node: node,
+			},
+		}
+	}
+
 	if node.ImportSingle != nil {
 		importPath := node.ImportSingle.Path
 
-		// Import 作为 Builtin 直接在未知符号声明一个即可，不然没法做这个需求
-		v.undefinedSymbols.Add("Import")
 		// 生成运行时导入代码
 		// 使用Import函数在运行时加载模块
 		return &vast.ExprStmt{
@@ -415,28 +400,6 @@ func (v *Transpiler) ConvertImport(node *hast.Import) vast.Node {
 		}
 	}
 	return nil
-}
-
-func (v *Transpiler) ConvertDeclareDecl(node *hast.DeclareDecl) vast.Node {
-	switch n := node.X.(type) {
-	case *hast.FuncDecl:
-		fnName := v.Convert(n.Name).(*vast.Ident)
-		// 先假定void
-		v.currentModule.Symbols.DeclareFunctionSymbol(fnName.Name, "void")
-		return nil
-	case *hast.BlockStmt:
-		for _, stmt := range n.List {
-			switch stmt := stmt.(type) {
-			case *hast.AssignStmt:
-				lhs := v.Convert(stmt.Lhs).(vast.Expr)
-				v.currentModule.Symbols.DeclareVariableSymbol(lhs.String(), stmt, "void")
-			default:
-			}
-		}
-		return nil
-	default:
-		panic(fmt.Sprintf("unsupported declare decl: %T", n))
-	}
 }
 
 func (v *Transpiler) ConvertIfStmt(node *hast.IfStmt) vast.Node {
@@ -550,15 +513,6 @@ func (v *Transpiler) canResolveFunction(fun *vast.Ident) bool {
 	return v.currentModule.LookupFunctionSymbol(fun.Name) != nil
 }
 
-// 辅助函数：打印 map 的所有 key
-func getMapKeys(m map[string]hast.Node) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 func (v *Transpiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 	convertedFun := v.Convert(node.Fun)
 
@@ -581,7 +535,7 @@ func (v *Transpiler) ConvertCallExpr(node *hast.CallExpr) vast.Node {
 
 			recv := []string{}
 			for _, r := range node.Recv {
-				recv = append(recv, v.Convert(r).(vast.Expr).String())
+				recv = append(recv, vast.String(v.Convert(r).(vast.Expr)))
 			}
 
 			return &vast.SelectorExpr{
@@ -672,7 +626,7 @@ func (v *Transpiler) ConvertCmdExpr(node *hast.CmdExpr) vast.Node {
 
 			recv := []string{}
 			for _, r := range node.Args {
-				arg := v.Convert(r).(vast.Expr).String()
+				arg := vast.String(v.Convert(r).(vast.Expr))
 				if len(arg) >= 2 && arg[0] == '"' && arg[len(arg)-1] == '"' {
 					arg = fmt.Sprintf("\"\"%s\"\"", arg[1:len(arg)-1])
 				}
@@ -1083,12 +1037,7 @@ func (v *Transpiler) needsDimDeclaration(expr vast.Expr) bool {
 
 	// 检查变量是否已经声明过
 	if ident, ok := expr.(*vast.Ident); ok {
-		if v.currentModule.Symbols.HasVariable(ident.Name) {
-			return false
-		}
-		// 标记为已声明
-		v.currentModule.Symbols.AddVariable(ident.Name, nil)
-		return true
+		return v.currentModule.Symbols.HasSymbol(ident.Name)
 	}
 
 	return false

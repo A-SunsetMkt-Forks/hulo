@@ -25,6 +25,8 @@ func (t Token) IsValid() bool {
 
 const (
 	ILLEGAL Token = iota // ILLEGAL
+	IDENT                // IDENT
+	LITERAL              // LITERAL
 
 	/// Operators
 
@@ -69,7 +71,7 @@ const (
 	ANDAND // &&
 	OROR   // ||
 
-	ASSIGN // =
+	ASSIGN        // =
 	DOUBLE_ASSIGN // ==
 
 	COMMA // ,
@@ -99,6 +101,7 @@ const (
 
 	REM  // Rem
 	IF   // if
+	ELSE // else
 	GOTO // goto
 	FOR  // for
 	DO   // do
@@ -107,3 +110,9 @@ const (
 
 	EOF // EOF
 )
+
+type TokenInfo struct {
+	Type    Token
+	Pos     Pos
+	Literal string
+}

@@ -282,6 +282,10 @@ func (st *SymbolTable) LookupSymbol(name string) Symbol {
 	return nil
 }
 
+func (st *SymbolTable) HasSymbol(name string) bool {
+	return st.LookupSymbol(name) != nil
+}
+
 // EnterScope 进入新作用域
 func (st *SymbolTable) EnterScope(name string) {
 	newScope := &Scope{
