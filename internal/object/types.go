@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package object
 
 import (
@@ -1009,7 +1010,13 @@ func (ft *FunctionType) calculateMatchScore(args []Value, namedArgs map[string]V
 			continue
 		}
 
+		if args[i] == nil {
+			return -1, fmt.Errorf("argument %d is nil", i)
+		}
 		argType := args[i].Type()
+		if argType == nil {
+			return -1, fmt.Errorf("argument %d has nil type", i)
+		}
 		paramScore := ft.calculateTypeMatchScore(argType, param.typ)
 		if paramScore < 0 {
 			return -1, fmt.Errorf("argument %d cannot be assigned to parameter %s", i, param.name)
@@ -1020,7 +1027,13 @@ func (ft *FunctionType) calculateMatchScore(args []Value, namedArgs map[string]V
 	// 2. 检查可变参数
 	if sig.variadicParam != nil {
 		for i := posParamCount; i < len(args); i++ {
+			if args[i] == nil {
+				return -1, fmt.Errorf("argument %d is nil", i)
+			}
 			argType := args[i].Type()
+			if argType == nil {
+				return -1, fmt.Errorf("argument %d has nil type", i)
+			}
 			if !argType.AssignableTo(sig.variadicParam.typ) {
 				return -1, fmt.Errorf("variadic argument %d cannot be assigned to parameter %s", i, sig.variadicParam.name)
 			}

@@ -30,7 +30,7 @@ statement:
     | typeDeclaration
     | extendDeclaration
     | externDeclaration
-    | macroStatement
+    | decoratorStatement
     | assignStatement
     | lambdaAssignStatement
     | tryStatement
@@ -146,7 +146,9 @@ pair          : (NumberLiteral | BoolLiteral | StringLiteral | Identifier) COLON
 
 variableExpression: DOLLAR memberAccess;
 
-methodExpression: DOLLAR memberAccess LPAREN receiverArgumentList? RPAREN;
+methodExpression:
+    DOLLAR memberAccess LPAREN receiverArgumentList? RPAREN callExpressionLinkedList?
+;
 
 expression:
     lambdaExpression
@@ -367,7 +369,7 @@ functionSignature:
 
 functionModifier: PUB | COMPTIME;
 
-macroStatement: AT memberAccess (LPAREN receiverArgumentList? RPAREN)?;
+decoratorStatement: AT memberAccess (LPAREN receiverArgumentList? RPAREN)?;
 
 // -----------------------
 //
@@ -375,7 +377,7 @@ macroStatement: AT memberAccess (LPAREN receiverArgumentList? RPAREN)?;
 
 // ? class -------------
 classDeclaration:
-    macroStatement* classModifier* CLASS Identifier genericParameters? (COLON classSuper)? classBody
+    decoratorStatement* classModifier* CLASS Identifier genericParameters? (COLON classSuper)? classBody
 ;
 
 classModifier: PUB;
@@ -384,12 +386,12 @@ classSuper: memberAccess (COMMA memberAccess)*;
 
 classBody: LBRACE ((comment | classMember | classMethod | classBuiltinMethod) SEMI*)* RBRACE;
 
-classMember: macroStatement* classMemberModifier* Identifier COLON type (ASSIGN expression)?;
+classMember: decoratorStatement* classMemberModifier* Identifier COLON type (ASSIGN expression)?;
 
 classMemberModifier: PUB | STATIC | FINAL | CONST;
 
 classMethod:
-    macroStatement* classMethodModifier* (standardFunctionDeclaration | lambdaFunctionDeclaration)
+    decoratorStatement* classMethodModifier* (standardFunctionDeclaration | lambdaFunctionDeclaration)
 ;
 
 classMethodModifier: PUB | STATIC;
@@ -400,7 +402,7 @@ classMethodModifier: PUB | STATIC;
  * const user(name: str, age: num) => {}
  */
 classBuiltinMethod:
-    macroStatement* classBuiltinMethodModifier? Identifier classBuiltinParameters (
+    decoratorStatement* classBuiltinMethodModifier? Identifier classBuiltinParameters (
         THROWS? block
         | DOUBLE_ARROW block
     )?
@@ -446,7 +448,7 @@ classInitializeExpression: Identifier LBRACE namedArgumentList RBRACE;
 
 // ? enum -------------
 enumDeclaration:
-    macroStatement* enumModifier? ENUM Identifier genericParameters? (
+    decoratorStatement* enumModifier? ENUM Identifier genericParameters? (
         enumBodySimple
         | enumBodyAssociated
         | enumBodyADT
@@ -494,7 +496,7 @@ enumAssociatedConstructor: enumConstructor+;
 // const Protocol.Port(v: num): $this.port = v {}
 // const Protocol(zero: bool, ...v: num) { ... }
 enumConstructor:
-    macroStatement* enumBuiltinMethodModifier? enumConstructorName enumConstructorParameters (
+    decoratorStatement* enumBuiltinMethodModifier? enumConstructorName enumConstructorParameters (
         enumConstructorInit? THROWS? block
         | enumConstructorInit? DOUBLE_ARROW block
         | enumConstructorInit? SEMI
@@ -529,13 +531,13 @@ enumVariant: Identifier LBRACE enumField (COMMA enumField)* RBRACE;
 enumMethods: enumMethod+;
 
 enumMethod:
-    macroStatement* enumMethodModifier* (standardFunctionDeclaration | lambdaFunctionDeclaration)
+    decoratorStatement* enumMethodModifier* (standardFunctionDeclaration | lambdaFunctionDeclaration)
 ;
 
 enumMethodModifier: PUB | STATIC;
 
 // Legacy support
-enumMember: macroStatement* enumMemberModifier* Identifier COLON type;
+enumMember: decoratorStatement* enumMemberModifier* Identifier COLON type;
 
 enumMemberModifier: PUB | FINAL;
 
@@ -547,7 +549,7 @@ enumInitializeMember: Identifier LPAREN expressionList? RPAREN;
 
 // ? trait -------------
 
-traitDeclaration: macroStatement* traitModifier? TRAIT Identifier genericParameters? traitBody;
+traitDeclaration: decoratorStatement* traitModifier? TRAIT Identifier genericParameters? traitBody;
 
 traitModifier: PUB;
 
@@ -652,8 +654,35 @@ genericParameters: LT genericParameterList GT;
 // T: type, ...
 genericParameterList: genericParameter (COMMA genericParameter)*;
 
-// T: type
-genericParameter: Identifier (COLON type)?;
+// T: type | T extends type | T extends type & type | T extends type | type
+genericParameter: Identifier (COLON type | EXTENDS genericConstraint)?;
+
+// Generic constraints: Addable, Addable & Comparable, str | num, conditionalType
+genericConstraint: conditionalType | intersectionConstraint | unionConstraint | type;
+
+// Intersection constraints: A & B & C
+intersectionConstraint: type (BITAND type)+;
+
+// Union constraints: A | B | C
+unionConstraint: type (BITOR type)+;
+
+// Base types that can be used in conditional types (to avoid left recursion)
+baseType: (STR | NUM | BOOL | ANY | VOID | NEVER | NULL | BoolLiteral | Identifier) typeAccessPoint?
+    | memberAccess
+    | StringLiteral
+    | functionType
+    | objectType
+    | tupleType
+    | mappedType
+    | keyofType
+    | inferType
+;
+
+// Conditional types: T extends U ? X : Y
+conditionalType: baseType EXTENDS baseType QUEST baseType COLON baseType;
+
+// Infer types: infer T
+inferType: INFER type;
 
 compositeType: (BITOR type | BITAND type) compositeType?;
 
@@ -668,12 +697,16 @@ compositeType: (BITOR type | BITAND type) compositeType?;
  * [str, num, bool]
  */
 type: (
-        (STR | NUM | BOOL | ANY | VOID | Identifier) typeAccessPoint?
+        (STR | NUM | BOOL | ANY | VOID | NEVER | NULL | BoolLiteral | Identifier) typeAccessPoint?
         | memberAccess
         | StringLiteral
         | functionType
         | objectType
         | tupleType
+        | mappedType
+        | keyofType
+        | inferType
+        | conditionalType
     ) QUEST? comment? compositeType?
 ;
 
@@ -683,12 +716,6 @@ typeLiteral: (STR | NUM | BOOL | ANY | Identifier);
 
 // str?
 nullableType: type QUEST;
-
-// str | num
-unionType: type (BITOR type)*;
-
-// str & num
-intersectionType: type (BITAND type)*;
 
 // str[5]
 arrayType: type LBRACK (NumberLiteral)? RBRACK;
@@ -707,7 +734,8 @@ asExpression: variableExpression AS type;
 objectType: LBRACE objectTypeMember (COMMA objectTypeMember)* RBRACE;
 
 // name: str
-objectTypeMember: Identifier COLON type;
+// readonly [P in keyof T]: T[P]
+objectTypeMember: (READONLY)? (Identifier | mappedType) (COLON type)?;
 
 // [str, num, bool]
 tupleType: LBRACK typeList RBRACK;
@@ -818,7 +846,7 @@ whileStatement: LOOP expression? block;
 //
 // spec
 
-deferStatement: DEFER callExpression;
+deferStatement: DEFER (callExpression | block);
 
 /* declareStatement:
  declare {
@@ -871,3 +899,23 @@ externDeclaration: EXTERN externList;
 externList: externItem (COMMA externItem)*;
 
 externItem: Identifier (COLON type)?;
+
+// -----------------------
+//
+// Advanced generic constraint types
+
+// Mapped types: { [K in keyof T]: T[K] }
+// Support for readonly, ?, and -? modifiers
+// Support for flexible constraints like K extends keyof T or just K
+mappedType:
+    LBRACE LBRACK Identifier IN (keyofType | type) COLON type (
+        READONLY
+        | QUEST
+        | TRIPLE_MINUS QUEST
+    )? RBRACK RBRACE
+;
+
+// Indexed types: T[K] - handled in typeAccessPoint
+
+// Keyof types: keyof T
+keyofType: KEYOF type;

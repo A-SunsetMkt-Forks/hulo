@@ -271,7 +271,7 @@ func (v *BasehuloParserVisitor) VisitFunctionModifier(ctx *FunctionModifierConte
 	return v.VisitChildren(ctx)
 }
 
-func (v *BasehuloParserVisitor) VisitMacroStatement(ctx *MacroStatementContext) interface{} {
+func (v *BasehuloParserVisitor) VisitDecoratorStatement(ctx *DecoratorStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -575,6 +575,30 @@ func (v *BasehuloParserVisitor) VisitGenericParameter(ctx *GenericParameterConte
 	return v.VisitChildren(ctx)
 }
 
+func (v *BasehuloParserVisitor) VisitGenericConstraint(ctx *GenericConstraintContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitIntersectionConstraint(ctx *IntersectionConstraintContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitUnionConstraint(ctx *UnionConstraintContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitBaseType(ctx *BaseTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitConditionalType(ctx *ConditionalTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitInferType(ctx *InferTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BasehuloParserVisitor) VisitCompositeType(ctx *CompositeTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -588,14 +612,6 @@ func (v *BasehuloParserVisitor) VisitTypeLiteral(ctx *TypeLiteralContext) interf
 }
 
 func (v *BasehuloParserVisitor) VisitNullableType(ctx *NullableTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasehuloParserVisitor) VisitUnionType(ctx *UnionTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BasehuloParserVisitor) VisitIntersectionType(ctx *IntersectionTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -784,5 +800,13 @@ func (v *BasehuloParserVisitor) VisitExternList(ctx *ExternListContext) interfac
 }
 
 func (v *BasehuloParserVisitor) VisitExternItem(ctx *ExternItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitMappedType(ctx *MappedTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BasehuloParserVisitor) VisitKeyofType(ctx *KeyofTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }

@@ -205,8 +205,8 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#functionModifier.
 	VisitFunctionModifier(ctx *FunctionModifierContext) interface{}
 
-	// Visit a parse tree produced by huloParser#macroStatement.
-	VisitMacroStatement(ctx *MacroStatementContext) interface{}
+	// Visit a parse tree produced by huloParser#decoratorStatement.
+	VisitDecoratorStatement(ctx *DecoratorStatementContext) interface{}
 
 	// Visit a parse tree produced by huloParser#classDeclaration.
 	VisitClassDeclaration(ctx *ClassDeclarationContext) interface{}
@@ -433,6 +433,24 @@ type huloParserVisitor interface {
 	// Visit a parse tree produced by huloParser#genericParameter.
 	VisitGenericParameter(ctx *GenericParameterContext) interface{}
 
+	// Visit a parse tree produced by huloParser#genericConstraint.
+	VisitGenericConstraint(ctx *GenericConstraintContext) interface{}
+
+	// Visit a parse tree produced by huloParser#intersectionConstraint.
+	VisitIntersectionConstraint(ctx *IntersectionConstraintContext) interface{}
+
+	// Visit a parse tree produced by huloParser#unionConstraint.
+	VisitUnionConstraint(ctx *UnionConstraintContext) interface{}
+
+	// Visit a parse tree produced by huloParser#baseType.
+	VisitBaseType(ctx *BaseTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#conditionalType.
+	VisitConditionalType(ctx *ConditionalTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#inferType.
+	VisitInferType(ctx *InferTypeContext) interface{}
+
 	// Visit a parse tree produced by huloParser#compositeType.
 	VisitCompositeType(ctx *CompositeTypeContext) interface{}
 
@@ -444,12 +462,6 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#nullableType.
 	VisitNullableType(ctx *NullableTypeContext) interface{}
-
-	// Visit a parse tree produced by huloParser#unionType.
-	VisitUnionType(ctx *UnionTypeContext) interface{}
-
-	// Visit a parse tree produced by huloParser#intersectionType.
-	VisitIntersectionType(ctx *IntersectionTypeContext) interface{}
 
 	// Visit a parse tree produced by huloParser#arrayType.
 	VisitArrayType(ctx *ArrayTypeContext) interface{}
@@ -591,4 +603,10 @@ type huloParserVisitor interface {
 
 	// Visit a parse tree produced by huloParser#externItem.
 	VisitExternItem(ctx *ExternItemContext) interface{}
+
+	// Visit a parse tree produced by huloParser#mappedType.
+	VisitMappedType(ctx *MappedTypeContext) interface{}
+
+	// Visit a parse tree produced by huloParser#keyofType.
+	VisitKeyofType(ctx *KeyofTypeContext) interface{}
 }

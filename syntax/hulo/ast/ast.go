@@ -920,6 +920,28 @@ type (
 		FalseType   Expr
 	}
 
+	// A MappedType node represents a mapped type. e.g., { [K in keyof T]: T[K] }
+	MappedType struct {
+		Lbrace    token.Pos // position of "{"
+		Lbrack    token.Pos // position of "["
+		KeyName   *Ident    // key parameter name (K)
+		In        token.Pos // position of "in"
+		KeyofType Expr      // keyof T
+		Colon     token.Pos // position of ":"
+		ValueType Expr      // T[K]
+		Rbrack    token.Pos // position of "]"
+		Rbrace    token.Pos // position of "}"
+		Readonly  bool      // true if readonly modifier is present
+		Optional  bool      // true if ? modifier is present
+		Required  bool      // true if -? modifier is present
+	}
+
+	// A KeyofType node represents a keyof type. e.g., keyof T
+	KeyofType struct {
+		Keyof token.Pos // position of "keyof"
+		Type  Expr      // T
+	}
+
 	// An InferType node represents a type inference variable in a conditional type. e.g. infer T
 	InferType struct {
 		Infer token.Pos // position of "infer"
@@ -1141,6 +1163,8 @@ func (x *NamedObjectLiteralExpr) Pos() token.Pos {
 }
 func (x *LambdaExpr) Pos() token.Pos      { return x.Lparen }
 func (x *ConditionalType) Pos() token.Pos { return x.CheckType.Pos() }
+func (x *MappedType) Pos() token.Pos      { return x.Lbrace }
+func (x *KeyofType) Pos() token.Pos       { return x.Keyof }
 func (x *InferType) Pos() token.Pos       { return x.Infer }
 
 func (x *IndexExpr) End() token.Pos  { return x.Rbrack }
@@ -1223,6 +1247,8 @@ func (x *NullableType) End() token.Pos           { return x.X.End() }
 func (x *NamedObjectLiteralExpr) End() token.Pos { return x.Rbrace }
 func (x *LambdaExpr) End() token.Pos             { return x.Body.Rbrace }
 func (x *ConditionalType) End() token.Pos        { return x.FalseType.End() }
+func (x *MappedType) End() token.Pos             { return x.Rbrace }
+func (x *KeyofType) End() token.Pos              { return x.Type.End() }
 func (x *InferType) End() token.Pos              { return x.X.End() }
 
 // func (x *Ident) String() string {
@@ -1560,6 +1586,8 @@ func (*NullableType) exprNode()           {}
 func (*NamedObjectLiteralExpr) exprNode() {}
 func (*LambdaExpr) exprNode()             {}
 func (*ConditionalType) exprNode()        {}
+func (*MappedType) exprNode()             {}
+func (*KeyofType) exprNode()              {}
 func (*InferType) exprNode()              {}
 
 // TODO add position infromation
@@ -1810,7 +1838,7 @@ func (*AssociatedEnumBody) enumBodyNode() {}
 func (*ADTEnumBody) enumBodyNode()        {}
 
 type UnresolvedSymbol struct {
-	Plain string
+	Plain  string
 	Symbol string
 	Path   string
 }

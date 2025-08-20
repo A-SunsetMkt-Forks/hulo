@@ -20,9 +20,14 @@ FROM    : 'from';
 //
 // type system
 
-TYPE   : 'type';
-TYPEOF : 'typeof';
-AS     : 'as';
+TYPE     : 'type';
+TYPEOF   : 'typeof';
+AS       : 'as';
+EXTENDS  : 'extends';
+KEYOF    : 'keyof';
+INFER    : 'infer';
+READONLY : 'readonly';
+NEVER    : 'never';
 
 // -----------------------
 //

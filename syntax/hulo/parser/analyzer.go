@@ -534,6 +534,9 @@ func (a *Analyzer) VisitStatement(ctx *generated.StatementContext) any {
 		if ctx.ModuleDeclaration() != nil {
 			return a.VisitModuleDeclaration(ctx.ModuleDeclaration().(*generated.ModuleDeclarationContext))
 		}
+		if ctx.DeferStatement() != nil {
+			return a.VisitDeferStatement(ctx.DeferStatement().(*generated.DeferStatementContext))
+		}
 		// TODO: Add more statement types
 
 		return nil
@@ -1539,6 +1542,11 @@ func (a *Analyzer) VisitMethodExpression(ctx *generated.MethodExpressionContext)
 			}
 		}
 
+		// Handle chained calls
+		if ctx.CallExpressionLinkedList() != nil {
+			return a.processCallExpressionLinkedList(ctx.CallExpressionLinkedList().(*generated.CallExpressionLinkedListContext), callExpr)
+		}
+
 		return callExpr
 	})
 }
@@ -1819,6 +1827,12 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 			}
 		}
 
+		// Get generic parameters
+		var typeParams []ast.Expr
+		if ctx.GenericParameters() != nil {
+			typeParams, _ = accept[[]ast.Expr](ctx.GenericParameters(), a)
+		}
+
 		// Get parameters
 		params, _ := accept[[]ast.Expr](ctx.ReceiverParameters(), a)
 
@@ -1847,12 +1861,13 @@ func (a *Analyzer) VisitStandardFunctionDeclaration(ctx *generated.StandardFunct
 		}
 
 		decl := &ast.FuncDecl{
-			Modifiers: funcMod,
-			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
-			Name:      funcName,
-			Recv:      params,
-			Type:      returnType,
-			Body:      body,
+			Modifiers:  funcMod,
+			Fn:         token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:       funcName,
+			TypeParams: typeParams,
+			Recv:       params,
+			Type:       returnType,
+			Body:       body,
 		}
 
 		if isComptime {
@@ -1884,6 +1899,12 @@ func (a *Analyzer) VisitLambdaFunctionDeclaration(ctx *generated.LambdaFunctionD
 			}
 		}
 
+		// Get generic parameters
+		var typeParams []ast.Expr
+		if ctx.GenericParameters() != nil {
+			typeParams, _ = accept[[]ast.Expr](ctx.GenericParameters(), a)
+		}
+
 		// Get parameters from lambda expression
 		params, _ := accept[[]ast.Expr](ctx.LambdaExpression().(*generated.LambdaExpressionContext).ReceiverParameters(), a)
 
@@ -1904,10 +1925,11 @@ func (a *Analyzer) VisitLambdaFunctionDeclaration(ctx *generated.LambdaFunctionD
 		}
 
 		return &ast.FuncDecl{
-			Modifiers: mods,
-			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
-			Name:      funcName,
-			Recv:      params,
+			Modifiers:  mods,
+			Fn:         token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:       funcName,
+			TypeParams: typeParams,
+			Recv:       params,
 			Body: &ast.BlockStmt{
 				Lbrace: token.Pos(ctx.GetStart().GetStart()),
 				List:   []ast.Stmt{body},
@@ -1935,6 +1957,12 @@ func (a *Analyzer) VisitFunctionSignature(ctx *generated.FunctionSignatureContex
 			}
 		}
 
+		// Get generic parameters
+		var typeParams []ast.Expr
+		if ctx.GenericParameters() != nil {
+			typeParams, _ = accept[[]ast.Expr](ctx.GenericParameters(), a)
+		}
+
 		// Get parameters
 		params, _ := accept[[]ast.Expr](ctx.ReceiverParameters(), a)
 
@@ -1960,12 +1988,13 @@ func (a *Analyzer) VisitFunctionSignature(ctx *generated.FunctionSignatureContex
 
 		// Create FuncDecl with empty body for signature
 		return &ast.FuncDecl{
-			Modifiers: funcMod,
-			Fn:        token.Pos(ctx.FN().GetSymbol().GetStart()),
-			Name:      funcName,
-			Recv:      params,
-			Type:      returnType,
-			Body:      nil, // Function signature has no body
+			Modifiers:  funcMod,
+			Fn:         token.Pos(ctx.FN().GetSymbol().GetStart()),
+			Name:       funcName,
+			TypeParams: typeParams,
+			Recv:       params,
+			Type:       returnType,
+			Body:       nil, // Function signature has no body
 		}
 	})
 }
@@ -2059,6 +2088,20 @@ func (a *Analyzer) VisitType(ctx *generated.TypeContext) any {
 					Name:    "any",
 				},
 			}
+		} else if ctx.NEVER() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.NEVER().GetSymbol().GetStart()),
+					Name:    "never",
+				},
+			}
+		} else if ctx.NULL() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.NULL().GetSymbol().GetStart()),
+					Name:    "null",
+				},
+			}
 		} else if ctx.Identifier() != nil {
 			baseType = &ast.TypeReference{
 				Name: &ast.Ident{
@@ -2091,6 +2134,22 @@ func (a *Analyzer) VisitType(ctx *generated.TypeContext) any {
 			// Handle tuple types
 			tupleType, _ := accept[ast.Expr](ctx.TupleType(), a)
 			baseType = tupleType
+		} else if ctx.MappedType() != nil {
+			// Handle mapped types
+			mappedType, _ := accept[ast.Expr](ctx.MappedType(), a)
+			baseType = mappedType
+		} else if ctx.KeyofType() != nil {
+			// Handle keyof types
+			keyofType, _ := accept[ast.Expr](ctx.KeyofType(), a)
+			baseType = keyofType
+		} else if ctx.InferType() != nil {
+			// Handle infer types
+			inferType, _ := accept[ast.Expr](ctx.InferType(), a)
+			baseType = inferType
+		} else if ctx.ConditionalType() != nil {
+			// Handle conditional types
+			conditionalType, _ := accept[ast.Expr](ctx.ConditionalType(), a)
+			baseType = conditionalType
 		}
 
 		// Handle type access points (array types)
@@ -2147,6 +2206,17 @@ func (a *Analyzer) VisitClassDeclaration(ctx *generated.ClassDeclarationContext)
 			}
 		}
 
+		// Get class decorators
+		var decorators []*ast.Decorator
+		for _, macroCtx := range ctx.AllDecoratorStatement() {
+			if macroCtx != nil {
+				decorator, _ := accept[*ast.Decorator](macroCtx, a)
+				if decorator != nil {
+					decorators = append(decorators, decorator)
+				}
+			}
+		}
+
 		// Extract fields and methods directly from class body
 		var fields []*ast.Field
 		var methods []*ast.FuncDecl
@@ -2183,6 +2253,7 @@ func (a *Analyzer) VisitClassDeclaration(ctx *generated.ClassDeclarationContext)
 		}
 
 		return &ast.ClassDecl{
+			Decs:      decorators,
 			Modifiers: modifiers,
 			Pub:       pubPos,
 			Class:     token.Pos(ctx.CLASS().GetSymbol().GetStart()),
@@ -2305,7 +2376,19 @@ func (a *Analyzer) VisitClassMember(ctx *generated.ClassMemberContext) any {
 			}
 		}
 
+		// Get decorators
+		var decorators []*ast.Decorator
+		for _, macroCtx := range ctx.AllDecoratorStatement() {
+			if macroCtx != nil {
+				decorator, _ := accept[*ast.Decorator](macroCtx, a)
+				if decorator != nil {
+					decorators = append(decorators, decorator)
+				}
+			}
+		}
+
 		return &ast.Field{
+			Decs:      decorators,
 			Modifiers: modifiers,
 			Name:      fieldName,
 			Type:      fieldType,
@@ -2331,6 +2414,17 @@ func (a *Analyzer) VisitClassMethod(ctx *generated.ClassMethodContext) any {
 			}
 		}
 
+		// Get decorators
+		var decorators []*ast.Decorator
+		for _, macroCtx := range ctx.AllDecoratorStatement() {
+			if macroCtx != nil {
+				decorator, _ := accept[*ast.Decorator](macroCtx, a)
+				if decorator != nil {
+					decorators = append(decorators, decorator)
+				}
+			}
+		}
+
 		// Handle standard function declaration
 		if ctx.StandardFunctionDeclaration() != nil {
 			funcDecl := a.VisitStandardFunctionDeclaration(ctx.StandardFunctionDeclaration().(*generated.StandardFunctionDeclarationContext))
@@ -2339,6 +2433,9 @@ func (a *Analyzer) VisitClassMethod(ctx *generated.ClassMethodContext) any {
 				if fdecl, ok := funcDecl.(*ast.FuncDecl); ok {
 					if classMods != nil {
 						fdecl.Modifiers = append(classMods, fdecl.Modifiers...)
+					}
+					if decorators != nil {
+						fdecl.Decs = append(decorators, fdecl.Decs...)
 					}
 				}
 			}
@@ -2353,6 +2450,9 @@ func (a *Analyzer) VisitClassMethod(ctx *generated.ClassMethodContext) any {
 				if fdecl, ok := funcDecl.(*ast.FuncDecl); ok {
 					if classMods != nil {
 						fdecl.Modifiers = append(classMods, fdecl.Modifiers...)
+					}
+					if decorators != nil {
+						fdecl.Decs = append(decorators, fdecl.Decs...)
 					}
 				}
 			}
@@ -2714,19 +2814,46 @@ func (a *Analyzer) VisitObjectType(ctx *generated.ObjectTypeContext) any {
 // VisitObjectTypeMember implements the Visitor interface for ObjectTypeMember
 func (a *Analyzer) VisitObjectTypeMember(ctx *generated.ObjectTypeMemberContext) any {
 	return a.visitWrapper("ObjectTypeMember", ctx, func() any {
-		// Get member name
-		memberName := &ast.Ident{
-			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
-			Name:    ctx.Identifier().GetText(),
+		// Check if this is a readonly mapped type
+		readonly := ctx.READONLY() != nil
+
+		var key ast.Expr
+		var value ast.Expr
+		var colonPos token.Pos
+
+		// Handle different cases based on what's present
+		if ctx.Identifier() != nil {
+			// Regular property: name: type
+			key = &ast.Ident{
+				NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+				Name:    ctx.Identifier().GetText(),
+			}
+			if ctx.COLON() != nil {
+				colonPos = token.Pos(ctx.COLON().GetSymbol().GetStart())
+				value, _ = accept[ast.Expr](ctx.Type_(), a)
+			}
+		} else if ctx.MappedType() != nil {
+			// Mapped type property: [K in keyof T]: T[K]
+			mappedType, _ := accept[ast.Expr](ctx.MappedType(), a)
+			key = mappedType
+			if ctx.COLON() != nil {
+				colonPos = token.Pos(ctx.COLON().GetSymbol().GetStart())
+				value, _ = accept[ast.Expr](ctx.Type_(), a)
+			}
 		}
 
-		// Get member type
-		memberType, _ := accept[ast.Expr](ctx.Type_(), a)
+		// If readonly modifier is present, wrap the key in a property with readonly modifier
+		if readonly {
+			// For readonly mapped types, we need to create a special structure
+			// This is a bit complex as we need to represent { readonly [P in keyof T]: T[P] }
+			// For now, let's return the mapped type directly and handle readonly in the mapped type itself
+			return key
+		}
 
 		return &ast.KeyValueExpr{
-			Key:   memberName,
-			Colon: token.Pos(ctx.COLON().GetSymbol().GetStart()),
-			Value: memberType,
+			Key:   key,
+			Colon: colonPos,
+			Value: value,
 		}
 	})
 }
@@ -2813,11 +2940,270 @@ func (a *Analyzer) VisitGenericParameter(ctx *generated.GenericParameterContext)
 		var constraint ast.Expr
 		if ctx.Type_() != nil {
 			constraint, _ = accept[ast.Expr](ctx.Type_(), a)
+		} else if ctx.GenericConstraint() != nil {
+			constraint, _ = accept[ast.Expr](ctx.GenericConstraint(), a)
 		}
 
 		return &ast.TypeParameter{
 			Name:        paramName,
 			Constraints: []ast.Expr{constraint},
+		}
+	})
+}
+
+// VisitGenericConstraint implements the Visitor interface for GenericConstraint
+func (a *Analyzer) VisitGenericConstraint(ctx *generated.GenericConstraintContext) any {
+	return a.visitWrapper("GenericConstraint", ctx, func() any {
+		// Handle different types of constraints
+		if ctx.ConditionalType() != nil {
+			return a.VisitConditionalType(ctx.ConditionalType().(*generated.ConditionalTypeContext))
+		}
+		if ctx.IntersectionConstraint() != nil {
+			return a.VisitIntersectionConstraint(ctx.IntersectionConstraint().(*generated.IntersectionConstraintContext))
+		}
+		if ctx.UnionConstraint() != nil {
+			return a.VisitUnionConstraint(ctx.UnionConstraint().(*generated.UnionConstraintContext))
+		}
+		if ctx.Type_() != nil {
+			return a.VisitType(ctx.Type_().(*generated.TypeContext))
+		}
+
+		return nil
+	})
+}
+
+// VisitIntersectionConstraint implements the Visitor interface for IntersectionConstraint
+func (a *Analyzer) VisitIntersectionConstraint(ctx *generated.IntersectionConstraintContext) any {
+	return a.visitWrapper("IntersectionConstraint", ctx, func() any {
+		var types []ast.Expr
+
+		// Get all types in the intersection
+		for i := 0; i < len(ctx.AllType_()); i++ {
+			typ, _ := accept[ast.Expr](ctx.Type_(i), a)
+			if typ != nil {
+				types = append(types, typ)
+			}
+		}
+
+		return &ast.IntersectionType{
+			Types: types,
+		}
+	})
+}
+
+// VisitUnionConstraint implements the Visitor interface for UnionConstraint
+func (a *Analyzer) VisitUnionConstraint(ctx *generated.UnionConstraintContext) any {
+	return a.visitWrapper("UnionConstraint", ctx, func() any {
+		var types []ast.Expr
+
+		// Get all types in the union
+		for i := 0; i < len(ctx.AllType_()); i++ {
+			typ, _ := accept[ast.Expr](ctx.Type_(i), a)
+			if typ != nil {
+				types = append(types, typ)
+			}
+		}
+
+		return &ast.UnionType{
+			Types: types,
+		}
+	})
+}
+
+// VisitConditionalType implements the Visitor interface for ConditionalType
+func (a *Analyzer) VisitConditionalType(ctx *generated.ConditionalTypeContext) any {
+	return a.visitWrapper("ConditionalType", ctx, func() any {
+		checkType, _ := accept[ast.Expr](ctx.BaseType(0), a)
+		extendsType, _ := accept[ast.Expr](ctx.BaseType(1), a)
+		trueType, _ := accept[ast.Expr](ctx.BaseType(2), a)
+		falseType, _ := accept[ast.Expr](ctx.BaseType(3), a)
+
+		return &ast.ConditionalType{
+			CheckType:   checkType,
+			Extends:     token.Pos(ctx.EXTENDS().GetSymbol().GetStart()),
+			ExtendsType: extendsType,
+			Quest:       token.Pos(ctx.QUEST().GetSymbol().GetStart()),
+			TrueType:    trueType,
+			Colon:       token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			FalseType:   falseType,
+		}
+	})
+}
+
+// VisitMappedType implements the Visitor interface for MappedType
+func (a *Analyzer) VisitMappedType(ctx *generated.MappedTypeContext) any {
+	return a.visitWrapper("MappedType", ctx, func() any {
+		keyName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Handle constraint which can be either keyofType or type
+		var constraint ast.Expr
+		if ctx.KeyofType() != nil {
+			constraint, _ = accept[ast.Expr](ctx.KeyofType(), a)
+		} else {
+			constraint, _ = accept[ast.Expr](ctx.Type_(0), a)
+		}
+		valueType, _ := accept[ast.Expr](ctx.Type_(1), a)
+
+		// Check for modifiers
+		readonly := ctx.READONLY() != nil
+		optional := ctx.QUEST() != nil && ctx.TRIPLE_MINUS() == nil
+		required := ctx.TRIPLE_MINUS() != nil && ctx.QUEST() != nil
+
+		return &ast.MappedType{
+			Lbrace:    token.Pos(ctx.LBRACE().GetSymbol().GetStart()),
+			Lbrack:    token.Pos(ctx.LBRACK().GetSymbol().GetStart()),
+			KeyName:   keyName,
+			In:        token.Pos(ctx.IN().GetSymbol().GetStart()),
+			KeyofType: constraint,
+			Colon:     token.Pos(ctx.COLON().GetSymbol().GetStart()),
+			ValueType: valueType,
+			Rbrack:    token.Pos(ctx.RBRACK().GetSymbol().GetStart()),
+			Rbrace:    token.Pos(ctx.RBRACE().GetSymbol().GetStart()),
+			Readonly:  readonly,
+			Optional:  optional,
+			Required:  required,
+		}
+	})
+}
+
+// VisitKeyofType implements the Visitor interface for KeyofType
+func (a *Analyzer) VisitKeyofType(ctx *generated.KeyofTypeContext) any {
+	return a.visitWrapper("KeyofType", ctx, func() any {
+		typ, _ := accept[ast.Expr](ctx.Type_(), a)
+
+		return &ast.KeyofType{
+			Keyof: token.Pos(ctx.KEYOF().GetSymbol().GetStart()),
+			Type:  typ,
+		}
+	})
+}
+
+// VisitBaseType implements the Visitor interface for BaseType
+func (a *Analyzer) VisitBaseType(ctx *generated.BaseTypeContext) any {
+	return a.visitWrapper("BaseType", ctx, func() any {
+		var baseType ast.Expr
+
+		// Handle basic types
+		if ctx.STR() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.STR().GetSymbol().GetStart()),
+					Name:    "str",
+				},
+			}
+		} else if ctx.NUM() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.NUM().GetSymbol().GetStart()),
+					Name:    "num",
+				},
+			}
+		} else if ctx.BOOL() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.BOOL().GetSymbol().GetStart()),
+					Name:    "bool",
+				},
+			}
+		} else if ctx.ANY() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.ANY().GetSymbol().GetStart()),
+					Name:    "any",
+				},
+			}
+		} else if ctx.NEVER() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.NEVER().GetSymbol().GetStart()),
+					Name:    "never",
+				},
+			}
+		} else if ctx.NULL() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.NULL().GetSymbol().GetStart()),
+					Name:    "null",
+				},
+			}
+		} else if ctx.Identifier() != nil {
+			baseType = &ast.TypeReference{
+				Name: &ast.Ident{
+					NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+					Name:    ctx.Identifier().GetText(),
+				},
+			}
+		} else if ctx.BoolLiteral() != nil {
+			// Handle boolean literals (true/false)
+			text := ctx.BoolLiteral().GetText()
+			if text == "true" {
+				baseType = &ast.TrueLiteral{
+					ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
+				}
+			} else {
+				baseType = &ast.FalseLiteral{
+					ValuePos: token.Pos(ctx.BoolLiteral().GetSymbol().GetStart()),
+				}
+			}
+		} else if ctx.StringLiteral() != nil {
+			// Remove the quotes from the string literal
+			raw := ctx.StringLiteral().GetText()
+			value := raw[1 : len(raw)-1] // Remove first and last character (quotes)
+			baseType = &ast.StringLiteral{
+				Value:    value,
+				ValuePos: token.Pos(ctx.StringLiteral().GetSymbol().GetStart()),
+			}
+		} else if ctx.MemberAccess() != nil {
+			// Handle member access types
+			memberAccess := a.VisitMemberAccess(ctx.MemberAccess().(*generated.MemberAccessContext))
+			baseType = memberAccess.(ast.Expr)
+		} else if ctx.FunctionType() != nil {
+			// Handle function types
+			funcType, _ := accept[ast.Expr](ctx.FunctionType(), a)
+			baseType = funcType
+		} else if ctx.ObjectType() != nil {
+			// Handle object types
+			objectType, _ := accept[ast.Expr](ctx.ObjectType(), a)
+			baseType = objectType
+		} else if ctx.TupleType() != nil {
+			// Handle tuple types
+			tupleType, _ := accept[ast.Expr](ctx.TupleType(), a)
+			baseType = tupleType
+		} else if ctx.MappedType() != nil {
+			// Handle mapped types
+			mappedType, _ := accept[ast.Expr](ctx.MappedType(), a)
+			baseType = mappedType
+		} else if ctx.KeyofType() != nil {
+			// Handle keyof types
+			keyofType, _ := accept[ast.Expr](ctx.KeyofType(), a)
+			baseType = keyofType
+		} else if ctx.InferType() != nil {
+			// Handle infer types
+			inferType, _ := accept[ast.Expr](ctx.InferType(), a)
+			baseType = inferType
+		}
+
+		// Handle type access points (array types)
+		if baseType != nil && ctx.TypeAccessPoint() != nil {
+			baseType = a.visitTypeAccessPoint(baseType, ctx.TypeAccessPoint().(*generated.TypeAccessPointContext))
+		}
+
+		return baseType
+	})
+}
+
+// VisitInferType implements the Visitor interface for InferType
+func (a *Analyzer) VisitInferType(ctx *generated.InferTypeContext) any {
+	return a.visitWrapper("InferType", ctx, func() any {
+		inferPos := token.Pos(ctx.INFER().GetSymbol().GetStart())
+		typeExpr, _ := accept[ast.Expr](ctx.Type_(), a)
+
+		return &ast.InferType{
+			Infer: inferPos,
+			X:     typeExpr,
 		}
 	})
 }
@@ -2859,7 +3245,20 @@ func (a *Analyzer) VisitEnumDeclaration(ctx *generated.EnumDeclarationContext) a
 		case ctx.EnumBodyADT() != nil:
 			body, _ = accept[*ast.ADTEnumBody](ctx.EnumBodyADT(), a)
 		}
+
+		// Get enum decorators
+		var decorators []*ast.Decorator
+		for _, macroCtx := range ctx.AllDecoratorStatement() {
+			if macroCtx != nil {
+				decorator, _ := accept[*ast.Decorator](macroCtx, a)
+				if decorator != nil {
+					decorators = append(decorators, decorator)
+				}
+			}
+		}
+
 		return &ast.EnumDecl{
+			Decs:       decorators,
 			Enum:       token.Pos(ctx.ENUM().GetSymbol().GetStart()),
 			Name:       name,
 			TypeParams: typeParams,
@@ -3715,4 +4114,122 @@ func (a *Analyzer) convertTokenType(antlrTokenType int) token.Token {
 		// 对于未知的 token 类型，返回 ILLEGAL
 		return token.ILLEGAL
 	}
+}
+
+// VisitDeferStatement implements the Visitor interface for DeferStatement
+func (a *Analyzer) VisitDeferStatement(ctx *generated.DeferStatementContext) any {
+	return a.visitWrapper("DeferStatement", ctx, func() any {
+		// Get the defer keyword position
+		deferPos := token.Pos(ctx.DEFER().GetSymbol().GetStart())
+
+		var x ast.Node
+
+		// Handle call expression: defer echo(1)
+		if ctx.CallExpression() != nil {
+			callExpr, _ := accept[ast.Expr](ctx.CallExpression(), a)
+			x = callExpr
+		}
+
+		// Handle block statement: defer { echo(1) }
+		if ctx.Block() != nil {
+			blockStmt, _ := accept[*ast.BlockStmt](ctx.Block(), a)
+			x = blockStmt
+		}
+
+		return &ast.DeferStmt{
+			Docs:  a.collectComments(),
+			Defer: deferPos,
+			X:     x,
+		}
+	})
+}
+
+// VisitDecoratorStatement implements the Visitor interface for DecoratorStatement (Decorator)
+func (a *Analyzer) VisitDecoratorStatement(ctx *generated.DecoratorStatementContext) any {
+	return a.visitWrapper("DecoratorStatement", ctx, func() any {
+		// Get the decorator name (memberAccess)
+		decoratorName, _ := accept[ast.Expr](ctx.MemberAccess(), a)
+
+		// Get the decorator arguments if present
+		var args []ast.Expr
+		if ctx.ReceiverArgumentList() != nil {
+			args, _ = accept[[]ast.Expr](ctx.ReceiverArgumentList(), a)
+		}
+
+		return &ast.Decorator{
+			At:   token.Pos(ctx.AT().GetSymbol().GetStart()),
+			Name: decoratorName.(*ast.Ident), // Assuming memberAccess resolves to Ident
+			Recv: args,
+		}
+	})
+}
+
+// VisitReceiverArgumentList implements the Visitor interface for ReceiverArgumentList
+func (a *Analyzer) VisitReceiverArgumentList(ctx *generated.ReceiverArgumentListContext) any {
+	return a.visitWrapper("ReceiverArgumentList", ctx, func() any {
+		var args []ast.Expr
+
+		// Handle expression list
+		if ctx.ExpressionList() != nil {
+			exprs, ok := accept[[]ast.Expr](ctx.ExpressionList(), a)
+			if ok && exprs != nil {
+				args = append(args, exprs...)
+			}
+		}
+
+		// Handle named argument list
+		if ctx.NamedArgumentList() != nil {
+			namedArgs, ok := accept[[]ast.Expr](ctx.NamedArgumentList(), a)
+			if ok && namedArgs != nil {
+				args = append(args, namedArgs...)
+			}
+		}
+
+		return args
+	})
+}
+
+// VisitTraitDeclaration implements the Visitor interface for TraitDeclaration
+func (a *Analyzer) VisitTraitDeclaration(ctx *generated.TraitDeclarationContext) any {
+	return a.visitWrapper("TraitDeclaration", ctx, func() any {
+		// Get trait name
+		traitName := &ast.Ident{
+			NamePos: token.Pos(ctx.Identifier().GetSymbol().GetStart()),
+			Name:    ctx.Identifier().GetText(),
+		}
+
+		// Get trait body
+		body, _ := accept[*ast.FieldList](ctx.TraitBody(), a)
+
+		// Get trait decorators
+		var decorators []*ast.Decorator
+		for _, macroCtx := range ctx.AllDecoratorStatement() {
+			if macroCtx != nil {
+				decorator, _ := accept[*ast.Decorator](macroCtx, a)
+				if decorator != nil {
+					decorators = append(decorators, decorator)
+				}
+			}
+		}
+
+		// Get trait modifiers
+		var modifiers []ast.Modifier
+		if ctx.TraitModifier() != nil {
+			modCtx := ctx.TraitModifier()
+			if modCtx.PUB() != nil {
+				modifiers = append(modifiers, &ast.PubModifier{
+					Pub: token.Pos(modCtx.PUB().GetSymbol().GetStart()),
+				})
+			}
+		}
+
+		return &ast.TraitDecl{
+			Modifiers: modifiers,
+			Trait:     token.Pos(ctx.TRAIT().GetSymbol().GetStart()),
+			Name:      traitName,
+			Lbrace:    token.Pos(ctx.TraitBody().LBRACE().GetSymbol().GetStart()),
+			Fields:    body,
+			Rbrace:    token.Pos(ctx.TraitBody().RBRACE().GetSymbol().GetStart()),
+		}
+	})
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/hulo-lang/hulo/internal/object"
 	"github.com/hulo-lang/hulo/internal/vfs"
 	"github.com/hulo-lang/hulo/internal/vfs/memvfs"
+	"github.com/hulo-lang/hulo/syntax/hulo/ast"
 	hast "github.com/hulo-lang/hulo/syntax/hulo/ast"
 	"github.com/hulo-lang/hulo/syntax/hulo/parser"
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
@@ -273,6 +274,44 @@ func TestComptimeComment(t *testing.T) {
 	interp := &Interpreter{
 		env: NewEnvironment(),
 		cvt: &object.ASTConverter{},
+	}
+	node = interp.Eval(node)
+	hast.Print(node)
+}
+
+func TestClassDecl(t *testing.T) {
+	script := `
+comptime {
+	pub class Person {
+		name: str
+		age: num = 0
+		pub className: str = "Person"
+
+		pub fn get_name() => $name
+		pub fn get_age() => $age
+
+		pub fn to_str() -> str {
+			return "Person(name: $name, age: $age)"
+		}
+
+		pub fn greet(name: str) {
+			echo "Hello $name, my name is ${this.name}"
+		}
+	}
+
+	let p = Person()
+	echo $p.to_str();
+	$p.greet("John")
+}`
+	var node hast.Node
+	var err error
+	node, err = parser.ParseSourceScript(script)
+	assert.NoError(t, err)
+	// hast.Print(node)
+	interp := &Interpreter{
+		env:     NewEnvironment(),
+		cvt:     &object.ASTConverter{},
+		fileSet: ast.NewFileSet(),
 	}
 	node = interp.Eval(node)
 	hast.Print(node)

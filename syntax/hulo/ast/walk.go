@@ -713,6 +713,22 @@ func Walk(v Visitor, node Node) {
 			Walk(v, n.FalseType)
 		}
 
+	case *MappedType:
+		if n.KeyName != nil {
+			Walk(v, n.KeyName)
+		}
+		if n.KeyofType != nil {
+			Walk(v, n.KeyofType)
+		}
+		if n.ValueType != nil {
+			Walk(v, n.ValueType)
+		}
+
+	case *KeyofType:
+		if n.Type != nil {
+			Walk(v, n.Type)
+		}
+
 	case *InferType:
 		if n.X != nil {
 			Walk(v, n.X)

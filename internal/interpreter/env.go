@@ -1,6 +1,7 @@
 // Copyright 2025 The Hulo Authors. All rights reserved.
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
+
 package interpreter
 
 import (
@@ -83,7 +84,7 @@ func (e *Environment) GetVariableInfo(name string) (*VariableInfo, bool) {
 // Set 设置变量值（兼容旧接口）
 func (e *Environment) Set(name string, obj object.Value) object.Value {
 	// 默认使用 var 作用域
-	return e.SetWithScope(name, obj, token.LET, false)
+	return e.SetWithScope(name, obj, token.VAR, false)
 }
 
 // SetWithScope 根据作用域设置变量
@@ -188,8 +189,8 @@ func (e *Environment) IsReadOnly(name string) bool {
 }
 
 // GetAll 获取所有变量的映射
-func (e *Environment) GetAll() map[string]interface{} {
-	result := make(map[string]interface{})
+func (e *Environment) GetAll() map[string]any {
+	result := make(map[string]any)
 
 	// 添加 const 变量
 	for name, info := range e.consts {
@@ -217,4 +218,15 @@ func (e *Environment) GetAll() map[string]interface{} {
 	}
 
 	return result
+}
+
+func (e *Environment) GetType(name string) (object.Type, bool) {
+	if typ, ok := e.types[name]; ok {
+		return typ, true
+	}
+	return nil, false
+}
+
+func (e *Environment) SetType(name string, typ object.Type) {
+	e.types[name] = typ
 }

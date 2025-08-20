@@ -14,6 +14,25 @@ import (
 	"github.com/hulo-lang/hulo/syntax/hulo/token"
 )
 
+// MethodValue 包装方法调用，实现 object.Value 接口
+type MethodValue struct {
+	method     object.Method
+	instance   *object.ClassInstance
+	methodName string
+}
+
+func (mv *MethodValue) Type() object.Type {
+	return mv.method
+}
+
+func (mv *MethodValue) Text() string {
+	return fmt.Sprintf("%s.%s", mv.instance.Type().Name(), mv.methodName)
+}
+
+func (mv *MethodValue) Interface() any {
+	return mv
+}
+
 type Interpreter struct {
 	debugger *Debugger
 
@@ -562,12 +581,18 @@ func (interp *Interpreter) rebuildReturnStmt(node *ast.ReturnStmt) ast.Node {
 
 func (interp *Interpreter) rebuildExprStmt(node *ast.ExprStmt) ast.Node {
 	newX := interp.Eval(node.X)
+	if newX == nil {
+		return node // 如果计算结果为nil，返回原始节点
+	}
 	if v, ok := newX.(ast.Stmt); ok {
 		return v
 	}
-	return &ast.ExprStmt{
-		X: newX.(ast.Expr),
+	if expr, ok := newX.(ast.Expr); ok {
+		return &ast.ExprStmt{
+			X: expr,
+		}
 	}
+	return node // 如果类型不匹配，返回原始节点
 }
 
 func (interp *Interpreter) rebuildAssignStmt(node *ast.AssignStmt) ast.Node {
@@ -698,9 +723,187 @@ func (interp *Interpreter) evalComptimeStmt(node ast.Stmt) object.Value {
 		return interp.evalMatchStmt(node)
 	case *ast.FuncDecl:
 		return interp.evalFuncDecl(node)
+	case *ast.ClassDecl:
+		return interp.evalClassDecl(node)
 	default:
 		panic("unknown comptime statement:" + fmt.Sprintf("%T", node))
 	}
+	return nil
+}
+
+func (interp *Interpreter) evalClassDecl(node *ast.ClassDecl) object.Value {
+	className := node.Name.Name
+
+	// 创建类类型
+	classType := object.NewClassType(className)
+
+	// 处理字段
+	if node.Fields != nil {
+		for _, field := range node.Fields.List {
+			fieldName := field.Name.Name
+
+			// 转换字段类型
+			var fieldType object.Type = object.GetAnyType()
+			if field.Type != nil {
+				if t, err := interp.cvt.ConvertType(field.Type); err == nil {
+					fieldType = t
+				}
+			}
+
+			// 创建字段对象
+			objField := object.NewField(fieldType, nil)
+
+			// 处理字段修饰符
+			for _, mod := range field.Modifiers {
+				switch mod.Kind() {
+				case ast.ModKindPub:
+					objField.AddModifier(object.FieldModifierPub)
+				case ast.ModKindConst:
+					objField.AddModifier(object.FieldModifierReadonly)
+				// case ast.ModKindFinal:
+				// 	objField.AddModifier(object.FieldModifierFinal)
+				case ast.ModKindStatic:
+					objField.AddModifier(object.FieldModifierStatic)
+				case ast.ModKindReadonly:
+					objField.AddModifier(object.FieldModifierReadonly)
+				}
+			}
+
+			// 处理默认值
+			if field.Value != nil {
+				defaultValue := interp.evalComptimeExpr(field.Value)
+				objField.SetDefaultValue(defaultValue)
+			}
+
+			// 添加到类中
+			if objField.HasModifier(object.FieldModifierStatic) {
+				classType.AddStaticField(fieldName, objField)
+				// 如果有默认值，设置静态值
+				if objField.HasDefaultValue() {
+					classType.SetStaticValue(fieldName, objField.GetDefaultValue())
+				}
+			} else {
+				classType.AddField(fieldName, objField)
+			}
+		}
+	}
+
+	// 处理构造函数
+	for _, ctor := range node.Ctors {
+		ctorName := ctor.Name.Name
+
+		// 转换构造函数参数
+		var signature []object.Type
+		for _, param := range ctor.Recv {
+			var paramType object.Type = object.GetAnyType()
+			if p, ok := param.(*ast.Parameter); ok && p.Type != nil {
+				if t, err := interp.cvt.ConvertType(p.Type); err == nil {
+					paramType = t
+				}
+			}
+			signature = append(signature, paramType)
+		}
+
+		// 创建构造函数
+		classCtor := object.NewClassConstructor(ctorName, classType, signature, ctorName != className)
+
+		classType.AddConstructor(classCtor)
+	}
+
+	// 处理方法
+	for _, method := range node.Methods {
+		methodName := method.Name.Name
+
+		// 创建函数构建器
+		builder := object.NewFunctionBuilder(methodName)
+
+		// 处理参数
+		for _, param := range method.Recv {
+			var paramName string
+			var paramType object.Type
+			if p, ok := param.(*ast.Parameter); ok {
+				paramName = p.Name.Name
+				if p.Type != nil {
+					if t, err := interp.cvt.ConvertType(p.Type); err == nil {
+						paramType = t
+					} else {
+						paramType = object.GetAnyType()
+					}
+				} else {
+					paramType = object.GetAnyType()
+				}
+			} else if id, ok := param.(*ast.Ident); ok {
+				paramName = id.Name
+				paramType = object.GetAnyType()
+			} else {
+				paramName = "param"
+				paramType = object.GetAnyType()
+			}
+			builder = builder.WithParameter(paramName, paramType)
+		}
+
+		// 处理返回类型
+		retType := object.GetAnyType()
+		if method.Type != nil {
+			if ft, ok := method.Type.(*ast.FunctionType); ok {
+				if ft.RetVal != nil {
+					if t, err := interp.cvt.ConvertType(ft.RetVal); err == nil {
+						retType = t
+					}
+				}
+			}
+		}
+		builder = builder.WithReturnType(retType)
+		builder = builder.WithBody(method)
+
+		// 构建函数类型
+		methodType := builder.Build()
+
+		// 检查是否为静态方法
+		isStatic := false
+		for _, mod := range method.Modifiers {
+			if mod.Kind() == ast.ModKindStatic {
+				isStatic = true
+				break
+			}
+		}
+
+		if isStatic {
+			classType.AddStaticMethod(methodName, methodType)
+		} else {
+			classType.AddMethod(methodName, methodType)
+		}
+	}
+
+	// 处理继承
+	if node.Parent != nil {
+		parentName := node.Parent.Name
+		if parentType, exists := interp.env.GetType(parentName); exists {
+			if parentClass, ok := parentType.(*object.ClassType); ok {
+				classType.SetParent(parentClass)
+			}
+		}
+	}
+
+	// 如果没有显式构造函数，创建默认构造函数
+	if len(node.Ctors) == 0 {
+		defaultCtor := object.NewDefaultConstructor(classType)
+		classType.AddConstructor(defaultCtor)
+	}
+
+	// 创建类构造函数函数值
+	constructorFunc := object.NewFunctionBuilder(className).
+		WithReturnType(classType).
+		WithBuiltin(func(args ...object.Value) object.Value {
+			// 使用 ClassType 的 New 方法创建实例
+			return classType.New(args...)
+		}).
+		Build()
+
+	// 将类类型和构造函数都注册到环境中
+	interp.env.SetType(className, classType)
+	interp.env.Set(className, object.NewFunctionValue(constructorFunc))
+
 	return nil
 }
 
@@ -920,15 +1123,15 @@ func (interp *Interpreter) evalComptimeExpr(node ast.Expr) object.Value {
 	case *ast.Ident:
 		return interp.evalIdent(node)
 	case *ast.SelectExpr:
-		return interp.executeSelectExpr(node)
+		return interp.evalSelectExpr(node)
 	case *ast.CallExpr:
-		return interp.executeCallExpr(node)
+		return interp.evalCallExpr(node)
 	case *ast.CmdExpr:
 		return interp.evalCmdExpr(node)
 	case *ast.BinaryExpr:
 		return interp.evalBinaryExpr(node)
 	case *ast.RefExpr:
-		return interp.evalIdent(node.X.(*ast.Ident))
+		return interp.evalComptimeExpr(node.X)
 	case *ast.IncDecExpr:
 		return interp.evalIncDecExpr(node)
 	default:
@@ -970,7 +1173,7 @@ func (interp *Interpreter) evalCmdExpr(node *ast.CmdExpr) object.Value {
 	case object.O_FUNC:
 		if funcType, ok := fn.Type().(*object.FunctionType); ok {
 			evaluator := NewFunctionEvaluator(interp)
-			args := interp.executeExprList(node.Args)
+			args := interp.evalExprList(node.Args)
 			// TODO: 要判断错误
 			result, err := funcType.Call(args, nil, evaluator)
 			if err != nil {
@@ -984,14 +1187,29 @@ func (interp *Interpreter) evalCmdExpr(node *ast.CmdExpr) object.Value {
 	return nil
 }
 
-func (interp *Interpreter) executeCallExpr(node *ast.CallExpr) object.Value {
+func (interp *Interpreter) evalCallExpr(node *ast.CallExpr) object.Value {
 	fn := interp.evalComptimeExpr(node.Fun)
+
+	// 检查是否为方法值
+	if methodValue, ok := fn.(*MethodValue); ok {
+		// 这是方法调用，如 $p.to_str()
+		evaluator := NewFunctionEvaluator(interp)
+		args := interp.evalExprList(node.Recv)
+
+		// 调用方法
+		result, err := methodValue.method.Call(args, nil, evaluator)
+		if err != nil {
+			return &object.ErrorValue{Value: err.Error()}
+		}
+
+		return result
+	}
 
 	switch fn.Type().Kind() {
 	case object.O_FUNC:
 		if funcType, ok := fn.Type().(*object.FunctionType); ok {
 			evaluator := NewFunctionEvaluator(interp)
-			args := interp.executeExprList(node.Recv)
+			args := interp.evalExprList(node.Recv)
 			// TODO: 要判断错误
 			result, err := funcType.Call(args, nil, evaluator)
 			if err != nil {
@@ -1005,12 +1223,13 @@ func (interp *Interpreter) executeCallExpr(node *ast.CallExpr) object.Value {
 	return nil
 }
 
-func (interp *Interpreter) executeExprList(exprs []ast.Expr) []object.Value {
+func (interp *Interpreter) evalExprList(exprs []ast.Expr) []object.Value {
 	values := make([]object.Value, len(exprs))
 	for i, expr := range exprs {
 		values[i] = interp.evalComptimeExpr(expr)
 		if values[i] == nil {
-			return []object.Value{&object.ErrorValue{Value: "failed to evaluate expression"}}
+			// 创建一个错误值，但保持数组长度一致
+			values[i] = &object.ErrorValue{Value: fmt.Sprintf("failed to evaluate expression %d: %T", i, expr)}
 		}
 	}
 	return values
@@ -1126,7 +1345,7 @@ func (interp *Interpreter) executeBasicLit(node *ast.BasicLit) object.Value {
 	return &object.ErrorValue{Value: "unknown basic literal"}
 }
 
-func (interp *Interpreter) executeSelectExpr(node *ast.SelectExpr) object.Value {
+func (interp *Interpreter) evalSelectExpr(node *ast.SelectExpr) object.Value {
 	lhs := interp.evalComptimeExpr(node.X)
 
 	switch lhs.Type().Kind() {
@@ -1134,6 +1353,9 @@ func (interp *Interpreter) executeSelectExpr(node *ast.SelectExpr) object.Value 
 		return interp.executePackageSelector(lhs, node.Y)
 	case object.O_LITERAL:
 		return interp.executePackageSelector(lhs, node.Y)
+	case object.O_CLASS:
+		// 处理类实例的方法选择，如 p.to_str
+		return interp.executeClassMethodSelector(lhs, node.Y)
 	}
 	return nil
 }
@@ -1145,6 +1367,33 @@ func (interp *Interpreter) isPackageName(v object.Value) bool {
 func (interp *Interpreter) executePackageSelector(pkg object.Value, selector ast.Expr) object.Value {
 	// interp.env.Get(pkgName)
 	return nil
+}
+
+func (interp *Interpreter) executeClassMethodSelector(instance object.Value, selector ast.Expr) object.Value {
+	// 获取方法名
+	var methodName string
+	if ident, ok := selector.(*ast.Ident); ok {
+		methodName = ident.Name
+	} else {
+		return &object.ErrorValue{Value: "invalid method selector"}
+	}
+
+	// 检查是否为类实例
+	if classInstance, ok := instance.(*object.ClassInstance); ok {
+		// 获取方法
+		method := classInstance.GetMethod(methodName)
+		if method == nil {
+			return &object.ErrorValue{Value: fmt.Sprintf("method %s not found", methodName)}
+		}
+		// 创建一个方法值包装器
+		return &MethodValue{
+			method:     method,
+			instance:   classInstance,
+			methodName: methodName,
+		}
+	}
+
+	return &object.ErrorValue{Value: "not a class instance"}
 }
 
 func (interp *Interpreter) object2Node(v object.Value) ast.Node {

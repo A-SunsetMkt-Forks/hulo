@@ -91,10 +91,32 @@ func (p *printer) visit(node Node) {
 	case *FuncDecl:
 		p.write("*ast.FuncDecl {\n")
 		p.indent++
+		if len(n.Decs) > 0 {
+			p.indentWrite("Decs: [\n")
+			p.indent++
+			for i, dec := range n.Decs {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(dec)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
 		if n.Name != nil {
 			p.indentWrite("Name: ")
 			p.visit(n.Name)
 			p.write("\n")
+		}
+		if len(n.TypeParams) > 0 {
+			p.indentWrite("TypeParams: [\n")
+			p.indent++
+			for i, param := range n.TypeParams {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(param)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
 		}
 		if len(n.Recv) > 0 {
 			p.indentWrite("Recv: [\n")
@@ -306,6 +328,37 @@ func (p *printer) visit(node Node) {
 		}
 		p.indent--
 		p.indentWrite("}")
+	case *DeferStmt:
+		p.write("*ast.DeferStmt {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("X: ")
+			p.visit(n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *Decorator:
+		p.write("*ast.Decorator {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			p.visit(n.Name)
+			p.write("\n")
+		}
+		if len(n.Recv) > 0 {
+			p.indentWrite("Recv: [\n")
+			p.indent++
+			for i, arg := range n.Recv {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(arg)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
 	case *ExprStmt:
 		p.write("*ast.ExprStmt {\n")
 		p.indent++
@@ -408,6 +461,17 @@ func (p *printer) visit(node Node) {
 	case *ClassDecl:
 		p.write("*ast.ClassDecl {\n")
 		p.indent++
+		if len(n.Decs) > 0 {
+			p.indentWrite("Decs: [\n")
+			p.indent++
+			for i, dec := range n.Decs {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(dec)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
 		if n.Name != nil {
 			p.indentWrite("Name: ")
 			p.visit(n.Name)
@@ -419,6 +483,17 @@ func (p *printer) visit(node Node) {
 			for i, field := range n.Fields.List {
 				p.indentWrite(fmt.Sprintf("%d: *ast.Field {\n", i))
 				p.indent++
+				if len(field.Decs) > 0 {
+					p.indentWrite("Decs: [\n")
+					p.indent++
+					for j, dec := range field.Decs {
+						p.indentWrite(fmt.Sprintf("%d: ", j))
+						p.visit(dec)
+						p.write("\n")
+					}
+					p.indent--
+					p.indentWrite("]\n")
+				}
 				if field.Name != nil {
 					p.indentWrite("Name: ")
 					p.visit(field.Name)
@@ -456,6 +531,17 @@ func (p *printer) visit(node Node) {
 	case *EnumDecl:
 		p.write("*ast.EnumDecl {\n")
 		p.indent++
+		if len(n.Decs) > 0 {
+			p.indentWrite("Decs: [\n")
+			p.indent++
+			for i, dec := range n.Decs {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(dec)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
 		if n.Name != nil {
 			p.indentWrite("Name: ")
 			p.visit(n.Name)
@@ -713,6 +799,148 @@ func (p *printer) visit(node Node) {
 		}
 		p.indent--
 		p.indentWrite("}")
+	case *ConditionalType:
+		p.write("*ast.ConditionalType {\n")
+		p.indent++
+		if n.CheckType != nil {
+			p.indentWrite("CheckType: ")
+			p.visit(n.CheckType)
+			p.write("\n")
+		}
+		if n.ExtendsType != nil {
+			p.indentWrite("ExtendsType: ")
+			p.visit(n.ExtendsType)
+			p.write("\n")
+		}
+		if n.TrueType != nil {
+			p.indentWrite("TrueType: ")
+			p.visit(n.TrueType)
+			p.write("\n")
+		}
+		if n.FalseType != nil {
+			p.indentWrite("FalseType: ")
+			p.visit(n.FalseType)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *MappedType:
+		p.write("*ast.MappedType {\n")
+		p.indent++
+		if n.KeyName != nil {
+			p.indentWrite("KeyName: ")
+			p.visit(n.KeyName)
+			p.write("\n")
+		}
+		if n.KeyofType != nil {
+			p.indentWrite("KeyofType: ")
+			p.visit(n.KeyofType)
+			p.write("\n")
+		}
+		if n.ValueType != nil {
+			p.indentWrite("ValueType: ")
+			p.visit(n.ValueType)
+			p.write("\n")
+		}
+		if n.Readonly {
+			p.indentWrite("Readonly: true\n")
+		}
+		if n.Optional {
+			p.indentWrite("Optional: true\n")
+		}
+		if n.Required {
+			p.indentWrite("Required: true\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *KeyofType:
+		p.write("*ast.KeyofType {\n")
+		p.indent++
+		if n.Type != nil {
+			p.indentWrite("Type: ")
+			p.visit(n.Type)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *InferType:
+		p.write("*ast.InferType {\n")
+		p.indent++
+		if n.X != nil {
+			p.indentWrite("Type: ")
+			p.visit(n.X)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *UnionType:
+		p.write("*ast.UnionType {\n")
+		p.indent++
+		if len(n.Types) > 0 {
+			p.indentWrite("Types: [\n")
+			p.indent++
+			for i, typ := range n.Types {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(typ)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *FunctionType:
+		p.write("*ast.FunctionType {\n")
+		p.indent++
+		if len(n.Recv) > 0 {
+			p.indentWrite("Recv: [\n")
+			p.indent++
+			for i, recv := range n.Recv {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(recv)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		if n.RetVal != nil {
+			p.indentWrite("RetVal: ")
+			p.visit(n.RetVal)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *ArrayType:
+		p.write("*ast.ArrayType {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			p.visit(n.Name)
+			p.write("\n")
+		}
+		p.indent--
+		p.indentWrite("}")
+	case *TypeParameter:
+		p.write("*ast.TypeParameter {\n")
+		p.indent++
+		if n.Name != nil {
+			p.indentWrite("Name: ")
+			p.visit(n.Name)
+			p.write("\n")
+		}
+		if len(n.Constraints) > 0 {
+			p.indentWrite("Constraints: [\n")
+			p.indent++
+			for i, constraint := range n.Constraints {
+				p.indentWrite(fmt.Sprintf("%d: ", i))
+				p.visit(constraint)
+				p.write("\n")
+			}
+			p.indent--
+			p.indentWrite("]\n")
+		}
+		p.indent--
+		p.indentWrite("}")
 	default:
 		p.write(fmt.Sprintf("unknown node type: %T", node))
 	}
@@ -787,6 +1015,14 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitUnionType(n)
 	case *IntersectionType:
 		return p.visitIntersectionType(n)
+	case *ConditionalType:
+		return p.visitConditionalType(n)
+	case *MappedType:
+		return p.visitMappedType(n)
+	case *KeyofType:
+		return p.visitKeyofType(n)
+	case *InferType:
+		return p.visitInferType(n)
 	case *TypeParameter:
 		return p.visitTypeParameter(n)
 	case *TypeReference:
@@ -809,6 +1045,8 @@ func (p *prettyPrinter) Visit(node Node) Visitor {
 		return p.visitRefExpr(n)
 	case *ReturnStmt:
 		return p.visitReturnStmt(n)
+	case *DeferStmt:
+		return p.visitDeferStmt(n)
 	case *ThrowStmt:
 		return p.visitThrowStmt(n)
 	case *TryStmt:
@@ -1160,6 +1398,15 @@ func (p *prettyPrinter) visitReturnStmt(n *ReturnStmt) Visitor {
 	p.indentWrite("return")
 	if n.X != nil {
 		p.write(" ")
+		Walk(p, n.X)
+	}
+	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitDeferStmt(n *DeferStmt) Visitor {
+	p.indentWrite("defer ")
+	if n.X != nil {
 		Walk(p, n.X)
 	}
 	p.write("\n")
@@ -1957,5 +2204,74 @@ func (p *prettyPrinter) visitExternDecl(n *ExternDecl) Visitor {
 	}
 
 	p.write("\n")
+	return nil
+}
+
+func (p *prettyPrinter) visitConditionalType(n *ConditionalType) Visitor {
+	p.indentWrite("ConditionalType {")
+	if n.CheckType != nil {
+		p.write(" CheckType: ")
+		Walk(p, n.CheckType)
+	}
+	if n.ExtendsType != nil {
+		p.write(" ExtendsType: ")
+		Walk(p, n.ExtendsType)
+	}
+	if n.TrueType != nil {
+		p.write(" TrueType: ")
+		Walk(p, n.TrueType)
+	}
+	if n.FalseType != nil {
+		p.write(" FalseType: ")
+		Walk(p, n.FalseType)
+	}
+	p.write("}")
+	return nil
+}
+
+func (p *prettyPrinter) visitMappedType(n *MappedType) Visitor {
+	p.indentWrite("MappedType {")
+	if n.KeyName != nil {
+		p.write(" KeyName: ")
+		Walk(p, n.KeyName)
+	}
+	if n.KeyofType != nil {
+		p.write(" KeyofType: ")
+		Walk(p, n.KeyofType)
+	}
+	if n.ValueType != nil {
+		p.write(" ValueType: ")
+		Walk(p, n.ValueType)
+	}
+	if n.Readonly {
+		p.write(" Readonly: true")
+	}
+	if n.Optional {
+		p.write(" Optional: true")
+	}
+	if n.Required {
+		p.write(" Required: true")
+	}
+	p.write("}")
+	return nil
+}
+
+func (p *prettyPrinter) visitKeyofType(n *KeyofType) Visitor {
+	p.indentWrite("KeyofType {")
+	if n.Type != nil {
+		p.write(" Type: ")
+		Walk(p, n.Type)
+	}
+	p.write("}")
+	return nil
+}
+
+func (p *prettyPrinter) visitInferType(n *InferType) Visitor {
+	p.indentWrite("InferType {")
+	if n.X != nil {
+		p.write(" Type: ")
+		Walk(p, n.X)
+	}
+	p.write("}")
 	return nil
 }
